@@ -3,11 +3,13 @@ from neuromorphic_library_3 import plot_network
 import nengo
 import numpy as np
 
+# import nengo_ocl
+
 # hyperparameters
 input_period = 4.0
 input_frequency = 1 / input_period
-pre_nrn = 100
-post_nrn = 100
+pre_nrn = 10
+post_nrn = 10
 
 with nengo.Network() as model:
     inp = nengo.Node(
@@ -32,6 +34,14 @@ with nengo.Network() as model:
     nengo.Connection( pre, err, function=lambda x: x, transform=-1 )
     nengo.Connection( post, err )
     
+    
+    def inhibit( t ):
+        return 2.0 if t > 10.0 else 0.0
+    
+    
+    inhib = nengo.Node( inhibit )
+    nengo.Connection( inhib, err.neurons, transform=[ [ -1 ] ] * err.n_neurons )
+    
     # plot_network(model)
     
     inp_probe = nengo.Probe( inp )
@@ -41,7 +51,7 @@ with nengo.Network() as model:
     post_probe = nengo.Probe( post, synapse=0.01 )
     err_probe = nengo.Probe( err, synapse=0.01 )
 
-sim_time = 30
+sim_time = 20
 with nengo.Simulator( model, dt=0.01 ) as sim:
     sim.run( sim_time )
 
