@@ -6,8 +6,8 @@ import numpy as np
 # hyperparameters
 input_period = 4.0
 input_frequency = 1 / input_period
-pre_nrn = 10
-post_nrn = 10
+pre_nrn = 100
+post_nrn = 100
 
 with nengo.Network() as model:
     inp = nengo.Node(
@@ -25,8 +25,8 @@ with nengo.Network() as model:
     
     nengo.Connection( inp, pre )
     
-    nengo.Connection( pre.neurons, learn[ :pre_nrn ], synapse=0.005 )
-    nengo.Connection( err, learn[ pre_nrn: ], synapse=0.005 )
+    nengo.Connection( pre.neurons, learn[ :pre_nrn ], synapse=0.01 )
+    nengo.Connection( err, learn[ pre_nrn: ], synapse=0.01 )
     nengo.Connection( learn, post.neurons, synapse=None )
     
     nengo.Connection( pre, err, function=lambda x: x, transform=-1 )
@@ -37,9 +37,9 @@ with nengo.Network() as model:
     inp_probe = nengo.Probe( inp )
     pre_spikes_probe = nengo.Probe( pre.neurons )
     pre_filt_probe = nengo.Probe( pre.neurons, synapse=0.01 )
-    pre_probe = nengo.Probe( pre )
-    post_probe = nengo.Probe( post )
-    err_probe = nengo.Probe( err )
+    pre_probe = nengo.Probe( pre, synapse=0.01 )
+    post_probe = nengo.Probe( post, synapse=0.01 )
+    err_probe = nengo.Probe( err, synapse=0.01 )
 
 sim_time = 30
 with nengo.Simulator( model, dt=0.01 ) as sim:
@@ -78,8 +78,3 @@ plt.title( "Error" )
 plt.show()
 
 memr_arr.plot_state( sim, "conductance" )
-
-
-
-
-
