@@ -26,7 +26,7 @@ def plot_pre_post( sim, pre, post, input, error ):
     plt.title( "Values" )
     plt.legend( loc='best' )
     plt.subplot( 2, 1, 2 )
-    plt.plot( sim.trange(), sim.data[ error ], c="r" )
+    plt.plot( sim.trange(), error, c="r" )
     plt.title( "Error" )
     plt.show()
 
@@ -53,14 +53,25 @@ def plot_ensemble_spikes( sim, name, ensemble, input=None ):
 
 
 class MemristorArray:
-    def __init__( self, in_size, out_size, type, spike_learning, r0=100, r1=2.5 * 10**8, a=-0.128, b=-0.522 ):
+    def __init__( self, function, in_size, out_size, dimensions, type, spike_learning, error_delay, r0=100, \
+                  r1=2.5 * 10**8,
+                  a=-0.128, b=-0.522 ):
         
         self.input_size = in_size
+        self.pre_dimensions = dimensions[ 0 ]
+        self.post_dimensions = dimensions[ 1 ]
         self.output_size = out_size
         
         assert type == "single" or type == "pair"
         self.type = type
         self.spike_learning = spike_learning
+        self.function_to_learn = function
+        self.error_delay = error_delay
+        
+        # error buffer for delayed updates
+        
+        # save error for analysis
+        self.error_history = [ ]
         
         # create memristor array that implement the weights
         self.memristors = np.empty( (self.output_size, self.input_size), dtype=Memristor )
@@ -73,18 +84,23 @@ class MemristorArray:
     
     def __call__( self, t, x ):
         input_activities = x[ :self.input_size ]
+        pre_decoded = x[ self.input_size:self.input_size + self.pre_dimensions ]
+        post_decoded = x[ self.input_size + self.pre_dimensions: ]
+        ground_truth = self.function_to_learn( pre_decoded )
+        
         # squash error to zero under a certain threshold or learning rule keeps running indefinitely
-        error = x[ self.input_size: ] if abs( x[ self.input_size: ] ) > 10**-5 else 0
+        error = post_decoded - ground_truth if abs( post_decoded - ground_truth ) > 10**-5 else 0
+        self.error_history.append( error )
         
         # TODO vectorialise operations with NumPy
-        # update memristors
+        # update weights by running learning rule on memristors
         for i in range( self.output_size ):
             for j in range( self.input_size ):
                 # save resistance states for later analysis
                 self.memristors[ i, j ].save_state()
                 
                 # did the input neuron j spike in this timestep?
-                # squash spikes to 0 or 100 as they are floats or everything always is adjusted
+                # squash spikes to 0 or 100/1000 - as they are floats - or everything always is adjusted
                 spiked = True if np.rint( input_activities[ j ] ) or not self.spike_learning else False
                 if spiked:
                     # update memristor resistance state
@@ -93,9 +109,11 @@ class MemristorArray:
         # query each memristor for its resistance state
         extract_R = lambda x: x.get_state( t, value="conductance", scaled=True )
         extract_R_V = np.vectorize( extract_R )
-        new_weights = extract_R_V( self.memristors )
+        weights = extract_R_V( self.memristors )
+        # calculate the output at this timestep
+        return_value = np.dot( weights, input_activities )
         
-        return np.dot( new_weights, input_activities )
+        return return_value
     
     def get_components( self ):
         return self.memristors.flatten()
@@ -104,6 +122,7 @@ class MemristorArray:
         import datetime
         import matplotlib.pyplot as plt
         from matplotlib.pyplot import cm
+        from nengo.utils.matplotlib import rasterplot
         
         # plot memristor resistance and error
         plt.figure()
@@ -112,8 +131,8 @@ class MemristorArray:
             fig, axes = plt.subplots()
         if combined:
             fig, axes = plt.subplots( self.output_size, self.input_size )
-        plt.xlabel( "Pre neurons on columns" )
-        plt.ylabel( "Post neurons on rows" )
+        plt.xlabel( "Post neurons on rows\nPre neurons on columns" )
+        plt.ylabel( "Post neurons on columns" )
         # fig.suptitle( "Memristor " + value, fontsize=16 )
         colour = iter( cm.rainbow( np.linspace( 0, 1, self.memristors.size ) ) )
         for i in range( self.memristors.shape[ 0 ] ):
@@ -127,6 +146,9 @@ class MemristorArray:
             ax2 = plt.twinx()
             ax2.plot( sim.trange(), sim.data[ err_probe ], c="r", label="Error" )
         plt.show()
+    
+    def get_error( self ):
+        return self.error_history
 
 
 class MemristorPair():
@@ -141,9 +163,9 @@ class MemristorPair():
     
     def pulse( self, t, err ):
         if err < 0:
-            self.mem_plus.pulse( t, err )
+            self.mem_plus.pulse( t )
         if err > 0:
-            self.mem_minus.pulse( t, err )
+            self.mem_minus.pulse( t )
     
     def get_state( self, t, value, scaled=True ):
         return (self.mem_plus.get_state( t, value, scaled ) - self.mem_minus.get_state( t, value, scaled ))
@@ -162,10 +184,10 @@ class MemristorPair():
         ax.plot( range, tmp_plus, c="r", label='Excitatory' )
         ax.plot( range, tmp_minus, c="b", label='Inhibitory' )
         if not combined:
-            ax.annotate( "(" + str( i ) + "," + str( j ) + ")", xy=(range[ 0 ], tmp_plus[ 0 ]), c="r" )
-            ax.annotate( "(" + str( i ) + "," + str( j ) + ")", xy=(range[ 0 ], tmp_minus[ 0 ]), c="b" )
+            ax.annotate( str( j + 1 ) + "->" + str( i + 1 ), xy=(range[ 0 ], tmp_plus[ 0 ]), c="r" )
+            ax.annotate( str( j + 1 ) + "->" + str( i + 1 ), xy=(range[ 0 ], tmp_minus[ 0 ]), c="b" )
         if combined:
-            ax.set_title( "(" + str( i ) + "," + str( j ) + ")" )
+            ax.set_title( str( j + 1 ) + "->" + str( i + 1 ) )
             ax.label_outer()
             ax.set_yticklabels( [ ] )
 
@@ -184,21 +206,21 @@ class Memristor:
         
         assert type == "inhibitory" or type == "excitatory"
         self.type = type
-        # if self.type == "inhibitory":
-        #     # initialise memristor to highest resistance state
-        #     self.r_curr = self.r_max
-        # if self.type == "excitatory":
-        #     # initialise memristor to random low resistance state
-        #     import random
-        #     self.r_curr = random.randrange( 5.0 * 10**7, 15.0 * 10**7 )
+        if self.type == "inhibitory":
+            # initialise memristor to highest resistance state
+            self.r_curr = self.r_max
+        if self.type == "excitatory":
+            # initialise memristor to random low resistance state
+            import random
+            self.r_curr = random.randrange( 5.0 * 10**7, 15.0 * 10**7 )
         
         # Weight initialisation
         import random
-        self.r_curr = random.uniform( 10**7, 2.5 * 10**8 )
+        # self.r_curr = random.uniform( 10**7, 2.5 * 10**8 )
         # self.r_curr = self.r_max
     
     # pulse the memristor with a tension
-    def pulse( self, t, err, V=0.1 ):
+    def pulse( self, t, V=0.1 ):
         # TODO calculate voltage pulse based on magnitude of error?
         # TODO adaptive voltage magnitude?
         
