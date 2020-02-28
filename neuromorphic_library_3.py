@@ -53,9 +53,8 @@ def plot_ensemble_spikes( sim, name, ensemble, input=None ):
 
 
 class MemristorArray:
-    def __init__( self, function, in_size, out_size, dimensions, type, spike_learning, error_delay, r0=100, \
-                  r1=2.5 * 10**8,
-                  a=-0.128, b=-0.522 ):
+    def __init__( self, post_encoders, in_size, out_size, dimensions, type, learning_rate=10e-4,
+                  dt=0.001, r0=100, r1=2.5 * 10**8, a=-0.128, b=-0.522 ):
         
         self.input_size = in_size
         self.pre_dimensions = dimensions[ 0 ]
@@ -63,10 +62,11 @@ class MemristorArray:
         self.output_size = out_size
         
         assert type == "single" or type == "pair"
+        self.encoders = post_encoders
+        self.learning_rate = learning_rate
+        self.dt = dt
+        self.filter = nengo.Lowpass( tau=0.005 )
         self.type = type
-        self.spike_learning = spike_learning
-        self.function_to_learn = function
-        self.error_delay = error_delay
         
         # error buffer for delayed updates
         
@@ -84,27 +84,28 @@ class MemristorArray:
     
     def __call__( self, t, x ):
         input_activities = x[ :self.input_size ]
-        pre_decoded = x[ self.input_size:self.input_size + self.pre_dimensions ]
-        post_decoded = x[ self.input_size + self.pre_dimensions: ]
-        ground_truth = self.function_to_learn( pre_decoded )
-        
+        pre_filtered = self.filter.filt( input_activities )
         # squash error to zero under a certain threshold or learning rule keeps running indefinitely
-        error = post_decoded - ground_truth if abs( post_decoded - ground_truth ) > 10**-5 else 0
+        error = x[ self.input_size: ] if abs( x[ self.input_size: ] ) > 10**-5 else 0
+        alpha = self.learning_rate * self.dt / self.input_size
+        
+        # we are adjusting weights so calculate local error
+        local_error = alpha * np.dot( self.encoders, error )
         self.error_history.append( error )
         
         # TODO vectorialise operations with NumPy
-        # update weights by running learning rule on memristors
-        for i in range( self.output_size ):
-            for j in range( self.input_size ):
+        # update weights w_ij by running learning rule on memristors
+        for j in range( self.output_size ):
+            for i in range( self.input_size ):
                 # save resistance states for later analysis
-                self.memristors[ i, j ].save_state()
+                self.memristors[ j, i ].save_state()
                 
                 # did the input neuron j spike in this timestep?
-                # squash spikes to 0 or 100/1000 - as they are floats - or everything always is adjusted
-                spiked = True if np.rint( input_activities[ j ] ) or not self.spike_learning else False
+                # squash spikes to False (0) or True (100/1000 ...) or everything is always adjusted
+                spiked = True if np.rint( input_activities[ i ] ) else False
                 if spiked:
                     # update memristor resistance state
-                    self.memristors[ i, j ].pulse( t, error )
+                    self.memristors[ j, i ].pulse( t, local_error[ j ] )
         
         # query each memristor for its resistance state
         extract_R = lambda x: x.get_state( t, value="conductance", scaled=True )
@@ -224,7 +225,6 @@ class Memristor:
         # TODO calculate voltage pulse based on magnitude of error?
         # TODO adaptive voltage magnitude?
         
-        # if (err > 0 and self.type == "excitatory") or (err < 0 and self.type == "inhibitory"):
         c = self.a + self.b * V
         self.r_curr = self.r_min + self.r_max * (((self.r_curr - self.r_min) / self.r_max)**(1 / c) + 1)**c
         

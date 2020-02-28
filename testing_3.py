@@ -10,6 +10,7 @@ input_period = 4.0
 input_frequency = 1 / input_period
 pre_nrn = 4
 post_nrn = 4
+err_nrn = 4
 type = "pair"
 spike_learning = True
 function_to_learn = lambda x: x
@@ -40,35 +41,34 @@ with nengo.Network() as model:
     
     
     # TODO use Izichevich model instead of LIF?
-    pre = nengo.Ensemble( pre_nrn,
+    pre = nengo.Ensemble( n_neurons=pre_nrn,
                           dimensions=1,
-                          # encoders=generate_encoders( pre_nrn ),
-                          label="Pre",
-                          seed=2 )
-    post = nengo.Ensemble( post_nrn,
+                          encoders=generate_encoders( pre_nrn ),
+                          label="Pre" )
+    post = nengo.Ensemble( n_neurons=post_nrn,
                            dimensions=1,
-                           # encoders=generate_encoders( post_nrn ),
-                           label="Post",
-                           seed=2 )
+                           encoders=generate_encoders( post_nrn ),
+                           label="Post" )
+    error = nengo.Ensemble( n_neurons=err_nrn,
+                            dimensions=1,
+                            label="Error" )
     
-    memr_arr = MemristorArray( function=function_to_learn,
+    memr_arr = MemristorArray( post_encoders=post.encoders,
                                in_size=pre_nrn,
                                out_size=post_nrn,
                                dimensions=[ pre.dimensions, post.dimensions ],
-                               type=type,
-                               spike_learning=spike_learning,
-                               error_delay=1 )
-    learn = nengo.Node( memr_arr,
-                        size_in=pre_nrn + pre.dimensions + post.dimensions,
+                               type=type
+                               )
+    learn = nengo.Node( output=memr_arr,
+                        size_in=pre_nrn + error.dimensions,
                         size_out=post_nrn,
                         label="Learn" )
     
     nengo.Connection( inp, pre )
-    nengo.Connection( pre.neurons, learn[ :pre_nrn ], synapse=0.01 )
-    # decoded activities for error calculation
-    nengo.Connection( pre, learn[ pre_nrn:pre_nrn + pre.dimensions ], synapse=0.01 )
-    nengo.Connection( post, learn[ pre_nrn + pre.dimensions: ], synapse=0.01 )
-    ##
+    nengo.Connection( pre.neurons, learn[ :pre_nrn ], synapse=None )
+    nengo.Connection( post, error )
+    nengo.Connection( pre, error, function=function_to_learn, transform=-1 )
+    nengo.Connection( error, learn[ pre_nrn: ] )
     nengo.Connection( learn, post.neurons, synapse=None )
     
     inp_probe = nengo.Probe( inp )
@@ -83,8 +83,9 @@ with nengo.Network() as model:
     def inhibit( t ):
         return 2.0 if t > 20.0 else 0.0
     
-    # inhib = nengo.Node( inhibit )
-    # nengo.Connection( inhib, err.neurons, transform=[ [ -1 ] ] * err.n_neurons )
+    
+    inhib = nengo.Node( inhibit )
+    nengo.Connection( inhib, error.neurons, transform=[ [ -1 ] ] * error.n_neurons )
 
 with nengo.Simulator( model, dt=simulation_step ) as sim:
     sim.run( simulation_time )
