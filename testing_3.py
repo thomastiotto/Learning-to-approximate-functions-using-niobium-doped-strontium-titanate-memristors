@@ -93,4 +93,4 @@ with nengo.Simulator( model, dt=simulation_step ) as sim:
 nm.plot_ensemble_spikes( sim, "Pre", pre_spikes_probe, pre_probe )
 nm.plot_ensemble_spikes( sim, "Post", post_spikes_probe, post_probe )
 nm.plot_pre_post( sim, pre_probe, post_probe, inp_probe, memr_arr.get_error() )
-memr_arr.plot_state( sim, "conductance", combined=True )
+# memr_arr.plot_state( sim, "conductance", combined=True )

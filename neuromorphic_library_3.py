@@ -73,6 +73,9 @@ class MemristorArray:
         # save error for analysis
         self.error_history = [ ]
         
+        # to hold future weights
+        self.weights = np.zeros( (self.output_size, self.input_size), dtype=np.float )
+        
         # create memristor array that implement the weights
         self.memristors = np.empty( (self.output_size, self.input_size), dtype=Memristor )
         for i in range( self.output_size ):
@@ -81,6 +84,7 @@ class MemristorArray:
                     self.memristors[ i, j ] = Memristor( "excitatory", r0, r1, a, b )
                 if self.type == "pair":
                     self.memristors[ i, j ] = MemristorPair( self.input_size, self.output_size, r0, r1, a, b )
+                self.weights[ i, j ] = self.memristors[ i, j ].get_state( value="conductance", scaled=True )
     
     def __call__( self, t, x ):
         input_activities = x[ :self.input_size ]
@@ -93,26 +97,23 @@ class MemristorArray:
         local_error = alpha * np.dot( self.encoders, error )
         self.error_history.append( error )
         
-        # TODO vectorialise operations with NumPy
-        # update weights w_ij by running learning rule on memristors
+        # squash spikes to False (0) or True (100/1000 ...) or everything is always adjusted
+        spiked = np.array( np.rint( input_activities ), dtype=bool )
+        
+        # TODO broken
         for j in range( self.output_size ):
             for i in range( self.input_size ):
                 # save resistance states for later analysis
                 self.memristors[ j, i ].save_state()
-                
-                # did the input neuron j spike in this timestep?
-                # squash spikes to False (0) or True (100/1000 ...) or everything is always adjusted
-                spiked = True if np.rint( input_activities[ i ] ) else False
-                if spiked:
-                    # update memristor resistance state
-                    self.memristors[ j, i ].pulse( t, local_error[ j ] )
         
-        # query each memristor for its resistance state
-        extract_R = lambda x: x.get_state( t, value="conductance", scaled=True )
-        extract_R_V = np.vectorize( extract_R )
-        weights = extract_R_V( self.memristors )
+        # we only need to update the weights for the neurons that spiked so we filter for their columns
+        if spiked.any():
+            for j in range( self.output_size ):
+                for i in np.nditer( np.where( spiked ) ):
+                    self.weights[ j, i ] = self.memristors[ j, i ].pulse( local_error[ j ], value="conductance" )
+        
         # calculate the output at this timestep
-        return_value = np.dot( weights, input_activities )
+        return_value = np.dot( self.weights, input_activities )
         
         return return_value
     
@@ -162,14 +163,18 @@ class MemristorPair():
         self.mem_plus = Memristor( "excitatory", r0, r1, a, b )
         self.mem_minus = Memristor( "inhibitory", r0, r1, a, b )
     
-    def pulse( self, t, err ):
+    def pulse( self, err, value, scaled=True ):
         if err < 0:
-            self.mem_plus.pulse( t )
+            self.mem_plus.pulse()
         if err > 0:
-            self.mem_minus.pulse( t )
+            self.mem_minus.pulse()
+        
+        self.save_state()
+        
+        return self.mem_plus.get_state( value, scaled ) - self.mem_minus.get_state( value, scaled )
     
-    def get_state( self, t, value, scaled=True ):
-        return (self.mem_plus.get_state( t, value, scaled ) - self.mem_minus.get_state( t, value, scaled ))
+    def get_state( self, value, scaled ):
+        return (self.mem_plus.get_state( value, scaled ) - self.mem_minus.get_state( value, scaled ))
     
     def save_state( self ):
         self.mem_plus.save_state()
@@ -221,16 +226,13 @@ class Memristor:
         # self.r_curr = self.r_max
     
     # pulse the memristor with a tension
-    def pulse( self, t, V=0.1 ):
-        # TODO calculate voltage pulse based on magnitude of error?
-        # TODO adaptive voltage magnitude?
-        
+    def pulse( self, V=0.1 ):
         c = self.a + self.b * V
         self.r_curr = self.r_min + self.r_max * (((self.r_curr - self.r_min) / self.r_max)**(1 / c) + 1)**c
         
         return self.r_curr
     
-    def get_state( self, t, value="conductance", scaled=True, gain=10**4 ):
+    def get_state( self, value="conductance", scaled=True, gain=10**4 ):
         epsilon = np.finfo( float ).eps
         
         if value == "conductance":
