@@ -73,8 +73,8 @@ class MemristorArray:
             self.learning_rate = 1e-9 * dt
         
         self.logging = logging
-        # save error for analysis
-        self.error_history = [ ]
+        # save for analysis
+        self.history = [ ]
         
         # to hold future weights
         self.weights = np.zeros( (self.output_size, self.input_size), dtype=np.float )
@@ -91,49 +91,50 @@ class MemristorArray:
                 self.weights[ i, j ] = self.memristors[ i, j ].get_state( value="conductance", scaled=True )
     
     def __call__( self, t, x ):
-        return self.learning_rule( x )
+        return self.learning_rule( t, x )
     
-    def mBCM( self, x ):
-        
+    def mBCM( self, t, x ):
         input_activities = x[ :self.input_size ]
         output_activities = x[ self.input_size: ]
         theta = self.theta_filter.filt( output_activities )
         alpha = self.learning_rate
         
-        update_polarity = output_activities - theta
-        update_magnitude = alpha * output_activities
-        update = update_magnitude * update_polarity
+        # function \phi( a, \theta ) that is the moving threshold
+        update = alpha * output_activities * (output_activities - theta)
         
         if self.logging:
-            self.error_history.append( update )
+            self.history.append( np.sign( update ) )
             self.save_state()
         
         # squash spikes to False (0) or True (100/1000 ...) or everything is always adjusted
-        spiked = np.array( np.rint( input_activities ), dtype=bool )
+        spiked_pre = np.array( np.rint( input_activities ), dtype=bool )
+        spiked_post = np.array( np.rint( output_activities ), dtype=bool )
         
-        # we only need to update the weights for the neurons that spiked so we filter for their columns
-        if spiked.any():
-            for j in range( self.output_size ):
-                for i in np.nditer( np.where( spiked ) ):
-                    self.weights[ j, i ] = self.memristors[ j, i ].pulse( update[ j ], value="conductance" )
+        # we only need to update the weights for the neurons that spiked so we filter
+        if spiked_pre.any() and spiked_post.any():
+            for j in np.nditer( np.where( spiked_post ) ):
+                for i in np.nditer( np.where( spiked_pre ) ):
+                    self.weights[ j, i ] = self.memristors[ j, i ].pulse( update[ j ],
+                                                                          value="conductance",
+                                                                          method="same"
+                                                                          )
         
         # calculate the output at this timestep
         return np.dot( self.weights, input_activities )
     
-    def mPES( self, x ):
+    def mPES( self, t, x ):
         input_activities = x[ :self.input_size ]
         # squash error to zero under a certain threshold or learning rule keeps running indefinitely
         error = x[ self.input_size: ] if abs( x[ self.input_size: ] ) > 10**-5 else 0
         alpha = self.learning_rate / self.input_size
         
-        
         # we are adjusting weights so calculate local error
         local_error = alpha * np.dot( self.encoders, error )
         
         if self.logging:
-            self.error_history.append( error )
+            self.history.append( error )
             self.save_state()
-            
+        
         # squash spikes to False (0) or True (100/1000 ...) or everything is always adjusted
         spiked = np.array( np.rint( input_activities ), dtype=bool )
         
@@ -141,7 +142,10 @@ class MemristorArray:
         if spiked.any():
             for j in range( self.output_size ):
                 for i in np.nditer( np.where( spiked ) ):
-                    self.weights[ j, i ] = self.memristors[ j, i ].pulse( local_error[ j ], value="conductance" )
+                    self.weights[ j, i ] = self.memristors[ j, i ].pulse( local_error[ j ],
+                                                                          value="conductance",
+                                                                          method="inverse"
+                                                                          )
         
         # calculate the output at this timestep
         return np.dot( self.weights, input_activities )
@@ -183,8 +187,8 @@ class MemristorArray:
             ax2.plot( sim.trange(), sim.data[ err_probe ], c="r", label="Error" )
         plt.show()
     
-    def get_error( self ):
-        return self.error_history
+    def get_history( self ):
+        return self.history
 
 
 class MemristorPair():
@@ -197,11 +201,17 @@ class MemristorPair():
         self.mem_plus = Memristor( "excitatory" )
         self.mem_minus = Memristor( "inhibitory" )
     
-    def pulse( self, err, value, scaled=True ):
-        if err < 0:
-            self.mem_plus.pulse()
-        if err > 0:
-            self.mem_minus.pulse()
+    def pulse( self, adj, value, method, scaled=True ):
+        if method == "same":
+            if adj > 0:
+                self.mem_plus.pulse()
+            if adj < 0:
+                self.mem_minus.pulse()
+        if method == "inverse":
+            if adj < 0:
+                self.mem_plus.pulse()
+            if adj > 0:
+                self.mem_minus.pulse()
         
         return self.mem_plus.get_state( value, scaled ) - self.mem_minus.get_state( value, scaled )
     

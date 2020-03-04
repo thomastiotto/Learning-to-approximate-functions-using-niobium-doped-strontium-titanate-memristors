@@ -7,14 +7,13 @@ import numpy as np
 
 # hyperparameters
 neurons = 4
-simulation_time = 30
+simulation_time = 15
 simulation_step = 0.001
 function_to_learn = lambda x: x
 input_period = 4.0
 input_frequency = 1 / input_period
-pre_nrn = neurons
+pre_nrn = 2
 post_nrn = 2
-err_nrn = neurons
 
 with nengo.Network() as model:
     inp = nengo.Node(
@@ -34,32 +33,28 @@ with nengo.Network() as model:
     pre = nengo.Ensemble( n_neurons=pre_nrn,
                           dimensions=1,
                           encoders=generate_encoders( pre_nrn ),
-                          label="Pre" )
+                          label="Pre",
+                          seed=0 )
     post = nengo.Ensemble( n_neurons=post_nrn,
                            dimensions=1,
                            encoders=generate_encoders( post_nrn ),
-                           label="Post" )
-    error = nengo.Ensemble( n_neurons=err_nrn,
-                            dimensions=1,
-                            label="Error" )
+                           label="Post",
+                           seed=0 )
     
-    memr_arr = MemristorArray( learning_rule="mPES",
-                               post_encoders=post.encoders,
+    memr_arr = MemristorArray( learning_rule="mBCM",
                                in_size=pre_nrn,
                                out_size=post_nrn,
                                dimensions=[ pre.dimensions, post.dimensions ],
-                               logging=True  # expect xx the performance when active
+                               logging=True
                                )
     learn = nengo.Node( output=memr_arr,
-                        size_in=pre_nrn + error.dimensions,
+                        size_in=pre_nrn + post_nrn,
                         size_out=post_nrn,
                         label="Learn" )
     
     nengo.Connection( inp, pre )
     nengo.Connection( pre.neurons, learn[ :pre_nrn ], synapse=0.005 )
-    nengo.Connection( post, error )
-    nengo.Connection( pre, error, function=function_to_learn, transform=-1 )
-    nengo.Connection( error, learn[ pre_nrn: ] )
+    nengo.Connection( post.neurons, learn[ pre_nrn: ], synapse=0.005 )
     nengo.Connection( learn, post.neurons, synapse=None )
     
     inp_probe = nengo.Probe( inp )
@@ -68,15 +63,7 @@ with nengo.Network() as model:
     pre_probe = nengo.Probe( pre, synapse=0.01 )
     post_probe = nengo.Probe( post, synapse=0.01 )
     
-    
     # nm.plot_network( model )
-    
-    def inhibit( t ):
-        return 2.0 if t > 20.0 else 0.0
-    
-    
-    inhib = nengo.Node( inhibit )
-    nengo.Connection( inhib, error.neurons, transform=[ [ -1 ] ] * error.n_neurons )
 
 with nengo.Simulator( model, dt=simulation_step ) as sim:
     sim.run( simulation_time )
