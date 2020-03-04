@@ -1,5 +1,5 @@
-from neuromorphic_library_3 import MemristorArray
-import neuromorphic_library_3 as nm
+from neuromorphic_library import MemristorArray
+import neuromorphic_library as nm
 import nengo
 import numpy as np
 
@@ -11,26 +11,18 @@ input_frequency = 1 / input_period
 pre_nrn = 4
 post_nrn = 4
 err_nrn = 4
-type = "pair"
 spike_learning = True
 function_to_learn = lambda x: x
-simulation_time = 30
+simulation_time = 15
 simulation_step = 0.001
 error_delay = 5
 
 with nengo.Network() as model:
     inp = nengo.Node(
             output=lambda t: np.sin( input_frequency * 2 * np.pi * t ),
-            # output=nengo.processes.Piecewise( {
-            #         5 : 0.2,
-            #         10: 0.4,
-            #         15: 0.6,
-            #         20: 0.8,
-            #         25: 1.0
-            # } ),
             size_out=1,
             label="Input"
-    )
+            )
     
     
     def generate_encoders( n_neurons ):
@@ -40,7 +32,6 @@ with nengo.Network() as model:
             return [ [ -1 ] ] * int( (n_neurons / 2) ) + [ [ 1 ] ] + [ [ 1 ] ] * int( (n_neurons / 2) )
     
     
-    # TODO use Izichevich model instead of LIF?
     pre = nengo.Ensemble( n_neurons=pre_nrn,
                           dimensions=1,
                           encoders=generate_encoders( pre_nrn ),
@@ -53,11 +44,12 @@ with nengo.Network() as model:
                             dimensions=1,
                             label="Error" )
     
-    memr_arr = MemristorArray( post_encoders=post.encoders,
+    memr_arr = MemristorArray( learning_rule="mPES",
+                               post_encoders=post.encoders,
                                in_size=pre_nrn,
                                out_size=post_nrn,
                                dimensions=[ pre.dimensions, post.dimensions ],
-                               type=type
+                               logging=True  # expect xx the performance when active
                                )
     learn = nengo.Node( output=memr_arr,
                         size_in=pre_nrn + error.dimensions,
@@ -65,7 +57,7 @@ with nengo.Network() as model:
                         label="Learn" )
     
     nengo.Connection( inp, pre )
-    nengo.Connection( pre.neurons, learn[ :pre_nrn ], synapse=None )
+    nengo.Connection( pre.neurons, learn[ :pre_nrn ], synapse=0.005 )
     nengo.Connection( post, error )
     nengo.Connection( pre, error, function=function_to_learn, transform=-1 )
     nengo.Connection( error, learn[ pre_nrn: ] )
@@ -93,4 +85,4 @@ with nengo.Simulator( model, dt=simulation_step ) as sim:
 nm.plot_ensemble_spikes( sim, "Pre", pre_spikes_probe, pre_probe )
 nm.plot_ensemble_spikes( sim, "Post", post_spikes_probe, post_probe )
 nm.plot_pre_post( sim, pre_probe, post_probe, inp_probe, memr_arr.get_error() )
-# memr_arr.plot_state( sim, "conductance", combined=True )
+memr_arr.plot_state( sim, "conductance", combined=True )
