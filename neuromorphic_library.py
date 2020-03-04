@@ -1,5 +1,6 @@
 import nengo
 import numpy as np
+from numpy.core._multiarray_umath import ndarray
 
 
 def plot_network( model ):
@@ -53,58 +54,88 @@ def plot_ensemble_spikes( sim, name, ensemble, input=None ):
 
 
 class MemristorArray:
-    def __init__( self, post_encoders, in_size, out_size, dimensions, type, learning_rate=10e-4,
-                  dt=0.001, r0=100, r1=2.5 * 10**8, a=-0.128, b=-0.522 ):
+    def __init__( self, learning_rule, in_size, out_size, dimensions,
+                  type="pair", dt=0.001, post_encoders=None, logging=False ):
         
         self.input_size = in_size
         self.pre_dimensions = dimensions[ 0 ]
         self.post_dimensions = dimensions[ 1 ]
         self.output_size = out_size
         
-        assert type == "single" or type == "pair"
-        self.encoders = post_encoders
-        self.learning_rate = learning_rate
-        self.dt = dt
-        self.filter = nengo.Lowpass( tau=0.005 )
-        self.type = type
+        if learning_rule == "mPES":
+            assert post_encoders is not None
+            self.learning_rule = self.mPES
+            self.learning_rate = 10e-4 * dt
+            self.encoders = post_encoders
+        if learning_rule == "mBCM":
+            self.learning_rule = self.mBCM
+            self.theta_filter = nengo.Lowpass( tau=1.0 )
+            self.learning_rate = 1e-9 * dt
         
-        # error buffer for delayed updates
-        
+        self.logging = logging
         # save error for analysis
         self.error_history = [ ]
         
         # to hold future weights
         self.weights = np.zeros( (self.output_size, self.input_size), dtype=np.float )
         
+        assert type == "single" or type == "pair"
         # create memristor array that implement the weights
         self.memristors = np.empty( (self.output_size, self.input_size), dtype=Memristor )
         for i in range( self.output_size ):
             for j in range( self.input_size ):
-                if self.type == "single":
-                    self.memristors[ i, j ] = Memristor( "excitatory", r0, r1, a, b )
-                if self.type == "pair":
-                    self.memristors[ i, j ] = MemristorPair( self.input_size, self.output_size, r0, r1, a, b )
+                if type == "single":
+                    self.memristors[ i, j ] = Memristor( "excitatory" )
+                if type == "pair":
+                    self.memristors[ i, j ] = MemristorPair( self.input_size, self.output_size )
                 self.weights[ i, j ] = self.memristors[ i, j ].get_state( value="conductance", scaled=True )
     
     def __call__( self, t, x ):
-        input_activities = x[ :self.input_size ]
-        pre_filtered = self.filter.filt( input_activities )
-        # squash error to zero under a certain threshold or learning rule keeps running indefinitely
-        error = x[ self.input_size: ] if abs( x[ self.input_size: ] ) > 10**-5 else 0
-        alpha = self.learning_rate * self.dt / self.input_size
+        return self.learning_rule( x )
+    
+    def mBCM( self, x ):
         
-        # we are adjusting weights so calculate local error
-        local_error = alpha * np.dot( self.encoders, error )
-        self.error_history.append( error )
+        input_activities = x[ :self.input_size ]
+        output_activities = x[ self.input_size: ]
+        theta = self.theta_filter.filt( output_activities )
+        alpha = self.learning_rate
+        
+        update_polarity = output_activities - theta
+        update_magnitude = alpha * output_activities
+        update = update_magnitude * update_polarity
+        
+        if self.logging:
+            self.error_history.append( update )
+            self.save_state()
         
         # squash spikes to False (0) or True (100/1000 ...) or everything is always adjusted
         spiked = np.array( np.rint( input_activities ), dtype=bool )
         
-        # TODO broken
-        for j in range( self.output_size ):
-            for i in range( self.input_size ):
-                # save resistance states for later analysis
-                self.memristors[ j, i ].save_state()
+        # we only need to update the weights for the neurons that spiked so we filter for their columns
+        if spiked.any():
+            for j in range( self.output_size ):
+                for i in np.nditer( np.where( spiked ) ):
+                    self.weights[ j, i ] = self.memristors[ j, i ].pulse( update[ j ], value="conductance" )
+        
+        # calculate the output at this timestep
+        return np.dot( self.weights, input_activities )
+    
+    def mPES( self, x ):
+        input_activities = x[ :self.input_size ]
+        # squash error to zero under a certain threshold or learning rule keeps running indefinitely
+        error = x[ self.input_size: ] if abs( x[ self.input_size: ] ) > 10**-5 else 0
+        alpha = self.learning_rate / self.input_size
+        
+        
+        # we are adjusting weights so calculate local error
+        local_error = alpha * np.dot( self.encoders, error )
+        
+        if self.logging:
+            self.error_history.append( error )
+            self.save_state()
+            
+        # squash spikes to False (0) or True (100/1000 ...) or everything is always adjusted
+        spiked = np.array( np.rint( input_activities ), dtype=bool )
         
         # we only need to update the weights for the neurons that spiked so we filter for their columns
         if spiked.any():
@@ -113,12 +144,15 @@ class MemristorArray:
                     self.weights[ j, i ] = self.memristors[ j, i ].pulse( local_error[ j ], value="conductance" )
         
         # calculate the output at this timestep
-        return_value = np.dot( self.weights, input_activities )
-        
-        return return_value
+        return np.dot( self.weights, input_activities )
     
     def get_components( self ):
         return self.memristors.flatten()
+    
+    def save_state( self ):
+        for j in range( self.output_size ):
+            for i in range( self.input_size ):
+                self.memristors[ j, i ].save_state()
     
     def plot_state( self, sim, value, err_probe=None, combined=False ):
         import datetime
@@ -154,22 +188,20 @@ class MemristorArray:
 
 
 class MemristorPair():
-    def __init__( self, in_size, out_size, r0=100, r1=2.5 * 10**8, a=-0.128, b=-0.522 ):
+    def __init__( self, in_size, out_size ):
         # input/output sizes
         self.input_size = in_size
         self.output_size = out_size
         
         # instantiate memristor pair
-        self.mem_plus = Memristor( "excitatory", r0, r1, a, b )
-        self.mem_minus = Memristor( "inhibitory", r0, r1, a, b )
+        self.mem_plus = Memristor( "excitatory" )
+        self.mem_minus = Memristor( "inhibitory" )
     
     def pulse( self, err, value, scaled=True ):
         if err < 0:
             self.mem_plus.pulse()
         if err > 0:
             self.mem_minus.pulse()
-        
-        self.save_state()
         
         return self.mem_plus.get_state( value, scaled ) - self.mem_minus.get_state( value, scaled )
     
@@ -222,7 +254,7 @@ class Memristor:
         
         # Weight initialisation
         import random
-        # self.r_curr = random.uniform( 10**7, 2.5 * 10**8 )
+        self.r_curr = random.uniform( 10**8, 2.5 * 10**8 )
         # self.r_curr = self.r_max
     
     # pulse the memristor with a tension
