@@ -3,6 +3,23 @@ import numpy as np
 from numpy.core._multiarray_umath import ndarray
 
 
+def plot_weight_matrix( weights ):
+    import matplotlib.pyplot as plt
+    
+    fig, ax = plt.subplots()
+    
+    ax.matshow( weights, cmap=plt.cm.Blues )
+    max_weight = np.amax( weights )
+    min_weight = np.amin( weights )
+    
+    for i in range( weights.shape[ 0 ] ):
+        for j in range( weights.shape[ 1 ] ):
+            c = round( (weights[ j, i ] - min_weight) / (max_weight - min_weight), 2 )
+            ax.text( i, j, str( c ), va='center', ha='center' )
+    plt.title( "Weights" )
+    plt.show()
+
+
 def plot_network( model ):
     from nengo_extras import graphviz
     
@@ -13,7 +30,7 @@ def plot_network( model ):
     s.view()
 
 
-def plot_pre_post( sim, pre, post, input, error ):
+def plot_pre_post( sim, pre, post, input, error, time=None ):
     import datetime
     import matplotlib.pyplot as plt
     
@@ -24,15 +41,21 @@ def plot_pre_post( sim, pre, post, input, error ):
     plt.plot( sim.trange(), sim.data[ input ], c="k", label="Input" )
     plt.plot( sim.trange(), sim.data[ pre ], c="b", label="Pre" )
     plt.plot( sim.trange(), sim.data[ post ], c="g", label="Post" )
+    if time:
+        for t in range( time ):
+            plt.axvline( x=t, c="k" )
     plt.title( "Values" )
     plt.legend( loc='best' )
     plt.subplot( 2, 1, 2 )
     plt.plot( sim.trange(), error, c="r" )
+    if time:
+        for t in range( time ):
+            plt.axvline( x=t, c="k" )
     plt.title( "Error" )
     plt.show()
 
 
-def plot_ensemble_spikes( sim, name, ensemble, input=None ):
+def plot_ensemble_spikes( sim, name, ensemble, input=None, time=None ):
     import datetime
     from nengo.utils.matplotlib import rasterplot
     import matplotlib.pyplot as plt
@@ -49,6 +72,9 @@ def plot_ensemble_spikes( sim, name, ensemble, input=None ):
     if input:
         ax2 = plt.twinx()
         ax2.plot( sim.trange(), sim.data[ input ], c="k" )
+    if time:
+        for t in range( time ):
+            plt.axvline( x=t, c="k" )
     plt.title( name + " neural activity" )
     plt.show()
 
@@ -165,7 +191,7 @@ class MemristorArray:
             for i in range( self.input_size ):
                 self.memristors[ j, i ].save_state()
     
-    def plot_state( self, sim, value, err_probe=None, combined=False ):
+    def plot_state( self, sim, value, err_probe=None, combined=False, time=None ):
         import datetime
         import matplotlib.pyplot as plt
         from matplotlib.pyplot import cm
@@ -187,8 +213,14 @@ class MemristorArray:
                 c = next( colour )
                 if not combined:
                     self.memristors[ i, j ].plot_state( value, i, j, sim.trange(), axes, c, combined )
+                    if time:
+                        for t in range( time ):
+                            axes.axvline( x=t, c="k" )
                 if combined:
                     self.memristors[ i, j ].plot_state( value, i, j, sim.trange(), axes[ i, j ], c, combined )
+                    if time:
+                        for t in range( time ):
+                            axes[ i, j ].axvline( x=t, c="k" )
         if err_probe:
             ax2 = plt.twinx()
             ax2.plot( sim.trange(), sim.data[ err_probe ], c="r", label="Error" )

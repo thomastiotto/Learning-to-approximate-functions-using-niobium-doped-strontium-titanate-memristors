@@ -7,13 +7,13 @@ import numpy as np
 
 # hyperparameters
 neurons = 4
-simulation_time = 12
+simulation_time = 4
 simulation_step = 0.001
 function_to_learn = lambda x: x
 input_period = 4.0
 input_frequency = 1 / input_period
 pre_nrn = neurons
-post_nrn = 2
+post_nrn = neurons
 
 with nengo.Network() as model:
     inp_pre = nengo.Node( lambda t: np.sin( input_frequency * 2 * np.pi * t ) )
@@ -66,7 +66,8 @@ with nengo.Network() as model:
 with nengo.Simulator( model, dt=simulation_step, optimize=True ) as sim:
     sim.run( simulation_time )
 
-nm.plot_ensemble_spikes( sim, "Pre", pre_spikes_probe, pre_probe )
-nm.plot_ensemble_spikes( sim, "Post", post_spikes_probe, post_probe )
-nm.plot_pre_post( sim, pre_probe, post_probe, inp_probe, memr_arr.get_history() )
-memr_arr.plot_state( sim, "conductance", combined=True )
+nm.plot_ensemble_spikes( sim, "Pre", pre_spikes_probe, pre_probe, time=simulation_time )
+nm.plot_ensemble_spikes( sim, "Post", post_spikes_probe, post_probe, time=simulation_time )
+nm.plot_pre_post( sim, pre_probe, post_probe, inp_probe, memr_arr.get_history(), time=simulation_time )
+memr_arr.plot_state( sim, "conductance", combined=True, time=simulation_time )
+nm.plot_weight_matrix( memr_arr.weights )
