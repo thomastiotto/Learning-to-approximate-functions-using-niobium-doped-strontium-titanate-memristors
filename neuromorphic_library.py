@@ -62,15 +62,17 @@ class MemristorArray:
         self.post_dimensions = dimensions[ 1 ]
         self.output_size = out_size
         
+        self.dt = dt
+        
         if learning_rule == "mPES":
             assert post_encoders is not None
             self.learning_rule = self.mPES
-            self.learning_rate = 10e-4 * dt
+            self.learning_rate = 10e-4 * self.dt
             self.encoders = post_encoders
         if learning_rule == "mBCM":
             self.learning_rule = self.mBCM
             self.theta_filter = nengo.Lowpass( tau=1.0 )
-            self.learning_rate = 1e-9 * dt
+            self.learning_rate = 1e-9 * self.dt
         
         self.logging = logging
         # save for analysis
@@ -96,7 +98,7 @@ class MemristorArray:
     def mBCM( self, t, x ):
         input_activities = x[ :self.input_size ]
         output_activities = x[ self.input_size: ]
-        theta = self.theta_filter.filt( output_activities )
+        theta = self.theta_filter.filt( output_activities ) / self.dt
         alpha = self.learning_rate
         
         # function \phi( a, \theta ) that is the moving threshold
@@ -107,17 +109,21 @@ class MemristorArray:
             self.save_state()
         
         # squash spikes to False (0) or True (100/1000 ...) or everything is always adjusted
-        spiked_pre = np.array( np.rint( input_activities ), dtype=bool )
-        spiked_post = np.array( np.rint( output_activities ), dtype=bool )
+        spiked_pre = np.tile(
+                np.array( np.rint( input_activities ), dtype=bool ), (self.output_size, 1)
+                )
+        spiked_post = np.tile(
+                np.expand_dims( np.array( np.rint( output_activities ), dtype=bool ), axis=1 ), (1, self.input_size)
+                )
+        spiked_map = np.logical_and( spiked_pre, spiked_post )
         
         # we only need to update the weights for the neurons that spiked so we filter
-        if spiked_pre.any() and spiked_post.any():
-            for j in np.nditer( np.where( spiked_post ) ):
-                for i in np.nditer( np.where( spiked_pre ) ):
-                    self.weights[ j, i ] = self.memristors[ j, i ].pulse( update[ j ],
-                                                                          value="conductance",
-                                                                          method="same"
-                                                                          )
+        if spiked_map.any():
+            for j, i in np.transpose( np.where( spiked_map ) ):
+                self.weights[ j, i ] = self.memristors[ j, i ].pulse( update[ j ],
+                                                                      value="conductance",
+                                                                      method="same"
+                                                                      )
         
         # calculate the output at this timestep
         return np.dot( self.weights, input_activities )
@@ -136,16 +142,17 @@ class MemristorArray:
             self.save_state()
         
         # squash spikes to False (0) or True (100/1000 ...) or everything is always adjusted
-        spiked = np.array( np.rint( input_activities ), dtype=bool )
+        spiked_map = np.tile(
+                np.array( np.rint( input_activities ), dtype=bool ), (self.output_size, 1)
+                )
         
         # we only need to update the weights for the neurons that spiked so we filter for their columns
-        if spiked.any():
-            for j in range( self.output_size ):
-                for i in np.nditer( np.where( spiked ) ):
-                    self.weights[ j, i ] = self.memristors[ j, i ].pulse( local_error[ j ],
-                                                                          value="conductance",
-                                                                          method="inverse"
-                                                                          )
+        if spiked_map.any():
+            for j, i in np.transpose( np.where( spiked_map ) ):
+                self.weights[ j, i ] = self.memristors[ j, i ].pulse( local_error[ j ],
+                                                                      value="conductance",
+                                                                      method="inverse"
+                                                                      )
         
         # calculate the output at this timestep
         return np.dot( self.weights, input_activities )

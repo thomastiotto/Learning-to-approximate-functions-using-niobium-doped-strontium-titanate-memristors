@@ -7,20 +7,17 @@ import numpy as np
 
 # hyperparameters
 neurons = 4
-simulation_time = 15
+simulation_time = 12
 simulation_step = 0.001
 function_to_learn = lambda x: x
 input_period = 4.0
 input_frequency = 1 / input_period
-pre_nrn = 2
+pre_nrn = neurons
 post_nrn = 2
 
 with nengo.Network() as model:
-    inp = nengo.Node(
-            output=lambda t: np.sin( input_frequency * 2 * np.pi * t ),
-            size_out=1,
-            label="Input"
-            )
+    inp_pre = nengo.Node( lambda t: np.sin( input_frequency * 2 * np.pi * t ) )
+    inp_post = nengo.Node( lambda t: np.sin( input_frequency * 2 * np.pi * t ) if t < 2.0 else 0.0 )
     
     
     def generate_encoders( n_neurons ):
@@ -52,12 +49,13 @@ with nengo.Network() as model:
                         size_out=post_nrn,
                         label="Learn" )
     
-    nengo.Connection( inp, pre )
+    nengo.Connection( inp_pre, pre )
+    nengo.Connection( inp_post, post )
     nengo.Connection( pre.neurons, learn[ :pre_nrn ], synapse=0.005 )
     nengo.Connection( post.neurons, learn[ pre_nrn: ], synapse=0.005 )
     nengo.Connection( learn, post.neurons, synapse=None )
     
-    inp_probe = nengo.Probe( inp )
+    inp_probe = nengo.Probe( inp_pre )
     pre_spikes_probe = nengo.Probe( pre.neurons )
     post_spikes_probe = nengo.Probe( post.neurons )
     pre_probe = nengo.Probe( pre, synapse=0.01 )
@@ -65,7 +63,7 @@ with nengo.Network() as model:
     
     # nm.plot_network( model )
 
-with nengo.Simulator( model, dt=simulation_step ) as sim:
+with nengo.Simulator( model, dt=simulation_step, optimize=True ) as sim:
     sim.run( simulation_time )
 
 nm.plot_ensemble_spikes( sim, "Pre", pre_spikes_probe, pre_probe )

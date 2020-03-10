@@ -3,7 +3,7 @@ import neuromorphic_library as nm
 import nengo
 import numpy as np
 
-# import nengo_ocl
+import nengo_ocl
 
 # hyperparameters
 neurons = 4
@@ -44,11 +44,11 @@ with nengo.Network() as model:
                             label="Error" )
     
     memr_arr = MemristorArray( learning_rule="mPES",
-                               post_encoders=post.encoders,
+                               post_encoders=post.encoders,  # sim.data[ens].encoders
                                in_size=pre_nrn,
                                out_size=post_nrn,
                                dimensions=[ pre.dimensions, post.dimensions ],
-                               logging=True  # expect xx the performance when active
+                               logging=True
                                )
     learn = nengo.Node( output=memr_arr,
                         size_in=pre_nrn + error.dimensions,
