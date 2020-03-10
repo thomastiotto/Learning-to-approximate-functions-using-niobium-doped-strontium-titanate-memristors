@@ -3,23 +3,6 @@ import numpy as np
 from numpy.core._multiarray_umath import ndarray
 
 
-def plot_weight_matrix( weights ):
-    import matplotlib.pyplot as plt
-    
-    fig, ax = plt.subplots()
-    
-    ax.matshow( weights, cmap=plt.cm.Blues )
-    max_weight = np.amax( weights )
-    min_weight = np.amin( weights )
-    
-    for i in range( weights.shape[ 0 ] ):
-        for j in range( weights.shape[ 1 ] ):
-            c = round( (weights[ j, i ] - min_weight) / (max_weight - min_weight), 2 )
-            ax.text( i, j, str( c ), va='center', ha='center' )
-    plt.title( "Weights" )
-    plt.show()
-
-
 def plot_network( model ):
     from nengo_extras import graphviz
     
@@ -30,7 +13,7 @@ def plot_network( model ):
     s.view()
 
 
-def plot_pre_post( sim, pre, post, input, error, time=None ):
+def plot_pre_post( sim, pre, post, input, error=None, time=None ):
     import datetime
     import matplotlib.pyplot as plt
     
@@ -46,12 +29,13 @@ def plot_pre_post( sim, pre, post, input, error, time=None ):
             plt.axvline( x=t, c="k" )
     plt.title( "Values" )
     plt.legend( loc='best' )
-    plt.subplot( 2, 1, 2 )
-    plt.plot( sim.trange(), error, c="r" )
-    if time:
-        for t in range( time ):
-            plt.axvline( x=t, c="k" )
-    plt.title( "Error" )
+    if error:
+        plt.subplot( 2, 1, 2 )
+        plt.plot( sim.trange(), error, c="r" )
+        if time:
+            for t in range( time ):
+                plt.axvline( x=t, c="k" )
+        plt.title( "Error" )
     plt.show()
 
 
@@ -131,7 +115,7 @@ class MemristorArray:
         update = alpha * output_activities * (output_activities - theta)
         
         if self.logging:
-            self.history.append( np.sign( update ) )
+            # self.history.append( np.sign( update ) )
             self.save_state()
         
         # squash spikes to False (0) or True (100/1000 ...) or everything is always adjusted
@@ -151,9 +135,13 @@ class MemristorArray:
                                                                       method="same"
                                                                       )
         
+        if self.logging:
+            self.history.append( self.weights.copy() )
+        
         # calculate the output at this timestep
         return np.dot( self.weights, input_activities )
     
+    # TODO implement multiple histories
     def mPES( self, t, x ):
         input_activities = x[ :self.input_size ]
         # squash error to zero under a certain threshold or learning rule keeps running indefinitely
@@ -224,6 +212,24 @@ class MemristorArray:
         if err_probe:
             ax2 = plt.twinx()
             ax2.plot( sim.trange(), sim.data[ err_probe ], c="r", label="Error" )
+        plt.show()
+    
+    def plot_weight_matrix( self, time ):
+        import matplotlib.pyplot as plt
+        
+        weights_at_time = self.history[ int( time / self.dt ) ]
+        
+        fig, ax = plt.subplots()
+        
+        ax.matshow( weights_at_time, cmap=plt.cm.Blues )
+        max_weight = np.amax( weights_at_time )
+        min_weight = np.amin( weights_at_time )
+        
+        for i in range( weights_at_time.shape[ 0 ] ):
+            for j in range( weights_at_time.shape[ 1 ] ):
+                c = round( (weights_at_time[ j, i ] - min_weight) / (max_weight - min_weight), 2 )
+                ax.text( i, j, str( c ), va='center', ha='center' )
+        plt.title( "Weights at t=" + str( time ) )
         plt.show()
     
     def get_history( self ):

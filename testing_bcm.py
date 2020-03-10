@@ -68,6 +68,7 @@ with nengo.Simulator( model, dt=simulation_step, optimize=True ) as sim:
 
 nm.plot_ensemble_spikes( sim, "Pre", pre_spikes_probe, pre_probe, time=simulation_time )
 nm.plot_ensemble_spikes( sim, "Post", post_spikes_probe, post_probe, time=simulation_time )
-nm.plot_pre_post( sim, pre_probe, post_probe, inp_probe, memr_arr.get_history(), time=simulation_time )
+nm.plot_pre_post( sim, pre_probe, post_probe, inp_probe, time=simulation_time )
 memr_arr.plot_state( sim, "conductance", combined=True, time=simulation_time )
-nm.plot_weight_matrix( memr_arr.weights )
+for t in range( simulation_time ):
+    memr_arr.plot_weight_matrix( time=t )
