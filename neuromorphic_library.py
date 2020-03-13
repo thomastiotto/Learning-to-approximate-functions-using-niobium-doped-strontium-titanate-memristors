@@ -135,7 +135,7 @@ class MemristorArray:
         # we only need to update the weights for the neurons that spiked so we filter
         if spiked_map.any():
             for j, i in np.transpose( np.where( spiked_map ) ):
-                self.weights[ j, i ] = self.memristors[ j, i ].pulse( update[ j ],
+                self.weights[ j, i ] = self.memristors[ j, i ].pulse( update_direction[ j ],
                                                                       value="conductance",
                                                                       method="same"
                                                                       )
