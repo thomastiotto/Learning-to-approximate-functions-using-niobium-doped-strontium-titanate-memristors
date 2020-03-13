@@ -6,14 +6,14 @@ import numpy as np
 import nengo_ocl
 
 # hyperparameters
-neurons = 4
-simulation_time = 30
+neurons = 100
+simulation_time = 1.0
 simulation_step = 0.001
 function_to_learn = lambda x: x
 input_period = 4.0
 input_frequency = 1 / input_period
 pre_nrn = neurons
-post_nrn = 2
+post_nrn = neurons
 err_nrn = neurons
 
 with nengo.Network() as model:
@@ -83,5 +83,5 @@ with nengo.Simulator( model, dt=simulation_step ) as sim:
 
 nm.plot_ensemble_spikes( sim, "Pre", pre_spikes_probe, pre_probe )
 nm.plot_ensemble_spikes( sim, "Post", post_spikes_probe, post_probe )
-nm.plot_pre_post( sim, pre_probe, post_probe, inp_probe, memr_arr.get_history() )
+nm.plot_pre_post( sim, pre_probe, post_probe, inp_probe, memr_arr.get_history( "error" ) )
 memr_arr.plot_state( sim, "conductance", combined=True )

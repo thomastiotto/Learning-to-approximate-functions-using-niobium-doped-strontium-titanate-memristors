@@ -25,6 +25,7 @@ def plot_pre_post( sim, pre, post, input, error=None, time=None ):
     plt.plot( sim.trange(), sim.data[ pre ], c="b", label="Pre" )
     plt.plot( sim.trange(), sim.data[ post ], c="g", label="Post" )
     if time:
+        time = int( time )
         for t in range( time ):
             plt.axvline( x=t, c="k" )
     plt.title( "Values" )
@@ -33,6 +34,7 @@ def plot_pre_post( sim, pre, post, input, error=None, time=None ):
         plt.subplot( 2, 1, 2 )
         plt.plot( sim.trange(), error, c="r" )
         if time:
+            time = int( time )
             for t in range( time ):
                 plt.axvline( x=t, c="k" )
         plt.title( "Error" )
@@ -57,6 +59,7 @@ def plot_ensemble_spikes( sim, name, ensemble, input=None, time=None ):
         ax2 = plt.twinx()
         ax2.plot( sim.trange(), sim.data[ input ], c="k" )
     if time:
+        time = int( time )
         for t in range( time ):
             plt.axvline( x=t, c="k" )
     plt.title( name + " neural activity" )
@@ -84,9 +87,10 @@ class MemristorArray:
             self.theta_filter = nengo.Lowpass( tau=1.0 )
             self.learning_rate = 1e-9 * self.dt
         
-        self.logging = logging
         # save for analysis
-        self.history = [ ]
+        self.logging = logging
+        self.weight_history = [ ]
+        self.error_history = [ ]
         
         # to hold future weights
         self.weights = np.zeros( (self.output_size, self.input_size), dtype=np.float )
@@ -111,6 +115,7 @@ class MemristorArray:
         theta = self.theta_filter.filt( output_activities ) / self.dt
         alpha = self.learning_rate
         
+        update_direction = np.sign( output_activities - theta )
         # function \phi( a, \theta ) that is the moving threshold
         update = alpha * output_activities * (output_activities - theta)
         
@@ -136,12 +141,11 @@ class MemristorArray:
                                                                       )
         
         if self.logging:
-            self.history.append( self.weights.copy() )
+            self.weight_history.append( self.weights.copy() )
         
         # calculate the output at this timestep
         return np.dot( self.weights, input_activities )
     
-    # TODO implement multiple histories
     def mPES( self, t, x ):
         input_activities = x[ :self.input_size ]
         # squash error to zero under a certain threshold or learning rule keeps running indefinitely
@@ -152,7 +156,7 @@ class MemristorArray:
         local_error = alpha * np.dot( self.encoders, error )
         
         if self.logging:
-            self.history.append( error )
+            self.error_history.append( error )
             self.save_state()
         
         # squash spikes to False (0) or True (100/1000 ...) or everything is always adjusted
@@ -202,11 +206,13 @@ class MemristorArray:
                 if not combined:
                     self.memristors[ i, j ].plot_state( value, i, j, sim.trange(), axes, c, combined )
                     if time:
+                        time = int( time )
                         for t in range( time ):
                             axes.axvline( x=t, c="k" )
                 if combined:
                     self.memristors[ i, j ].plot_state( value, i, j, sim.trange(), axes[ i, j ], c, combined )
                     if time:
+                        time = int( time )
                         for t in range( time ):
                             axes[ i, j ].axvline( x=t, c="k" )
         if err_probe:
@@ -217,7 +223,7 @@ class MemristorArray:
     def plot_weight_matrix( self, time ):
         import matplotlib.pyplot as plt
         
-        weights_at_time = self.history[ int( time / self.dt ) ]
+        weights_at_time = self.weight_history[ int( time / self.dt ) ]
         
         fig, ax = plt.subplots()
         
@@ -232,8 +238,11 @@ class MemristorArray:
         plt.title( "Weights at t=" + str( time ) )
         plt.show()
     
-    def get_history( self ):
-        return self.history
+    def get_history( self, select ):
+        if select == "weight":
+            return self.weight_history
+        if select == "":
+            return self.error_history
 
 
 class MemristorPair():
@@ -313,7 +322,7 @@ class Memristor:
         # self.r_curr = self.r_max
     
     # pulse the memristor with a tension
-    def pulse( self, V=0.1 ):
+    def pulse( self, V=1e-1 ):
         c = self.a + self.b * V
         self.r_curr = self.r_min + self.r_max * (((self.r_curr - self.r_min) / self.r_max)**(1 / c) + 1)**c
         
