@@ -2,7 +2,6 @@ from neuromorphic_library import MemristorArray
 import neuromorphic_library as nm
 import nengo
 import numpy as np
-
 import nengo_ocl
 
 # hyperparameters
@@ -91,5 +90,4 @@ if neurons < 10:
     nm.plot_pre_post( sim, pre_probe, post_probe, inp_probe, memr_arr.get_history( "error" ), time=learning_time )
 # memr_arr.plot_state( sim, "conductance", combined=True )
 
-mse = (np.square( sim.data[ post ] - sim.data[ input ] )).mean( axis=ax )
-print( "Mean squared error:", mse )
+print( "Mean squared error:", nm.mse( sim, inp_probe, post_probe, learning_time, simulation_step ) )

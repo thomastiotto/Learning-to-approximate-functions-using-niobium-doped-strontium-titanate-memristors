@@ -3,6 +3,13 @@ import numpy as np
 from numpy.core._multiarray_umath import ndarray
 
 
+def mse( sim, x, y, learning_time, simulation_step ):
+    return (
+            np.square( sim.data[ x ][ int( learning_time / simulation_step ): ] -
+                       sim.data[ y ][ int( learning_time / simulation_step ): ] )
+    ).mean()
+
+
 def plot_network( model ):
     from nengo_extras import graphviz
     

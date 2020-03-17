@@ -2,9 +2,8 @@ from neuromorphic_library import MemristorArray
 import neuromorphic_library as nm
 import nengo
 import numpy as np
+import nengo_ocl
 
-
-# import nengo_ocl
 
 def generate_encoders( n_neurons ):
     if n_neurons % 2 == 0:
@@ -102,6 +101,4 @@ if neurons < 10:
 # for t in range( 0, int( learning_time + 1 ), 2 ):
 #     memr_arr.plot_weight_matrix( time=t )
 
-mse = (np.square( sim.data[ post ] - sim.data[ input ] )).mean( axis=ax )
-print( "Mean squared error:", mse )
-# TODO calculate MSE
+print( "Mean squared error:", nm.mse( sim, inp_probe, post_probe, learning_time, simulation_step ) )
