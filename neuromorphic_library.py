@@ -17,27 +17,23 @@ def plot_pre_post( sim, pre, post, input, error=None, time=None ):
     import datetime
     import matplotlib.pyplot as plt
     
-    # plot input, neural representations and error
-    plt.figure()
-    # plt.suptitle( datetime.datetime.now().strftime( '%H:%M:%S %d-%m-%Y' ) )
-    plt.subplot( 2, 1, 1 )
-    plt.plot( sim.trange(), sim.data[ input ], c="k", label="Input" )
-    plt.plot( sim.trange(), sim.data[ pre ], c="b", label="Pre" )
-    plt.plot( sim.trange(), sim.data[ post ], c="g", label="Post" )
-    if time:
-        time = int( time )
-        for t in range( time ):
-            plt.axvline( x=t, c="k" )
-    plt.title( "Values" )
-    plt.legend( loc='best' )
+    num_subplots = 1
     if error:
-        plt.subplot( 2, 1, 2 )
-        plt.plot( sim.trange(), error, c="r" )
-        if time:
-            time = int( time )
-            for t in range( time ):
-                plt.axvline( x=t, c="k" )
-        plt.title( "Error" )
+        num_subplots = 2
+    fix, axes = plt.subplots( num_subplots, 1, sharex=True, sharey=True, squeeze=False )
+    # axes = axes.flatten()
+    # plot input, neural representations and error
+    # plt.suptitle( datetime.datetime.now().strftime( '%H:%M:%S %d-%m-%Y' ) )
+    axes[ 0, 0 ].plot( sim.trange(), sim.data[ input ], c="k", label="Input" )
+    axes[ 0, 0 ].plot( sim.trange(), sim.data[ pre ], c="b", label="Pre" )
+    axes[ 0, 0 ].plot( sim.trange(), sim.data[ post ], c="g", label="Post" )
+    if error:
+        axes[ 1, 0 ].plot( sim.trange(), error, c="r", label="Error" )
+    if time:
+        for ax in axes:
+            ax[ 0 ].axvline( x=time, c="k" )
+            # ax[ 0 ].annotate( "Training end", xy=(time, np.amax( sim.data[ input ] )), xycoords='data' )
+    plt.legend( loc='best' )
     plt.show()
 
 
@@ -84,7 +80,7 @@ class MemristorArray:
             self.encoders = post_encoders
         if learning_rule == "mBCM":
             self.learning_rule = self.mBCM
-            self.theta_filter = nengo.Lowpass( tau=1.0 )
+            # self.theta_filter = nengo.Lowpass( tau=1.0 )
             self.learning_rate = 1e-9 * self.dt
         
         # save for analysis
@@ -111,13 +107,14 @@ class MemristorArray:
     
     def mBCM( self, t, x ):
         input_activities = x[ :self.input_size ]
-        output_activities = x[ self.input_size: ]
-        theta = self.theta_filter.filt( output_activities ) / self.dt
+        output_activities = x[ self.input_size:self.input_size + self.output_size ]
+        # theta = self.theta_filter.filt( output_activities ) / self.dt
+        theta = x[ self.input_size + self.output_size: ]
         alpha = self.learning_rate
         
-        update_direction = np.sign( output_activities - theta )
+        update_direction = output_activities - theta
         # function \phi( a, \theta ) that is the moving threshold
-        update = alpha * output_activities * (output_activities - theta)
+        update = alpha * output_activities * update_direction
         
         if self.logging:
             # self.history.append( np.sign( update ) )
@@ -135,7 +132,7 @@ class MemristorArray:
         # we only need to update the weights for the neurons that spiked so we filter
         if spiked_map.any():
             for j, i in np.transpose( np.where( spiked_map ) ):
-                self.weights[ j, i ] = self.memristors[ j, i ].pulse( update_direction[ j ],
+                self.weights[ j, i ] = self.memristors[ j, i ].pulse( update[ j ],
                                                                       value="conductance",
                                                                       method="same"
                                                                       )
@@ -241,7 +238,7 @@ class MemristorArray:
     def get_history( self, select ):
         if select == "weight":
             return self.weight_history
-        if select == "":
+        if select == "error":
             return self.error_history
 
 

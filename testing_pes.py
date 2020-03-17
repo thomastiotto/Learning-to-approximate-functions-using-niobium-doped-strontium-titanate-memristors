@@ -6,8 +6,9 @@ import numpy as np
 import nengo_ocl
 
 # hyperparameters
-neurons = 100
-simulation_time = 1.0
+neurons = 4
+simulation_time = 30.0
+learning_time = 10.0
 simulation_step = 0.001
 function_to_learn = lambda x: x
 input_period = 4.0
@@ -31,13 +32,16 @@ with nengo.Network() as model:
             return [ [ -1 ] ] * int( (n_neurons / 2) ) + [ [ 1 ] ] + [ [ 1 ] ] * int( (n_neurons / 2) )
     
     
+    # TODO get encoders at runtime
     pre = nengo.Ensemble( n_neurons=pre_nrn,
                           dimensions=1,
                           encoders=generate_encoders( pre_nrn ),
+                          # intercepts=[ 0.1 ] * pre_nrn,
                           label="Pre" )
     post = nengo.Ensemble( n_neurons=post_nrn,
                            dimensions=1,
                            encoders=generate_encoders( post_nrn ),
+                           # intercepts=[ 0.1 ] * pre_nrn,
                            label="Post" )
     error = nengo.Ensemble( n_neurons=err_nrn,
                             dimensions=1,
@@ -72,7 +76,7 @@ with nengo.Network() as model:
     # nm.plot_network( model )
     
     def inhibit( t ):
-        return 2.0 if t > 20.0 else 0.0
+        return 2.0 if t > learning_time else 0.0
     
     
     inhib = nengo.Node( inhibit )
@@ -83,5 +87,9 @@ with nengo.Simulator( model, dt=simulation_step ) as sim:
 
 nm.plot_ensemble_spikes( sim, "Pre", pre_spikes_probe, pre_probe )
 nm.plot_ensemble_spikes( sim, "Post", post_spikes_probe, post_probe )
-nm.plot_pre_post( sim, pre_probe, post_probe, inp_probe, memr_arr.get_history( "error" ) )
-memr_arr.plot_state( sim, "conductance", combined=True )
+if neurons < 10:
+    nm.plot_pre_post( sim, pre_probe, post_probe, inp_probe, memr_arr.get_history( "error" ), time=learning_time )
+# memr_arr.plot_state( sim, "conductance", combined=True )
+
+mse = (np.square( sim.data[ post ] - sim.data[ input ] )).mean( axis=ax )
+print( "Mean squared error:", mse )
