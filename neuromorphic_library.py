@@ -3,6 +3,17 @@ import numpy as np
 from numpy.core._multiarray_umath import ndarray
 
 
+def sparsity_measure( vector ):  # Gini index
+    # Max sparsity = 1 (single 1 in the vector)
+    v = np.sort( np.abs( vector ) )
+    n = v.shape[ 0 ]
+    k = np.arange( n ) + 1
+    l1norm = np.sum( v )
+    summation = np.sum( (v / l1norm) * ((n - k + 0.5) / n) )
+    
+    return 1 - 2 * summation
+
+
 def mse( sim, x, y, learning_time, simulation_step ):
     return (
             np.square( sim.data[ x ][ int( learning_time / simulation_step ): ] -
@@ -69,9 +80,11 @@ def plot_ensemble_spikes( sim, name, ensemble, input=None, time=None ):
     plt.show()
 
 
+# TODO add optional paramenters
+# TODO or implement learning rules as objects and pass them together with parameters
 class MemristorArray:
     def __init__( self, learning_rule, in_size, out_size, dimensions,
-                  type="pair", dt=0.001, post_encoders=None, logging=False ):
+                  type="pair", dt=0.001, post_encoders=None, logging=False, beta=1.0 ):
         
         self.input_size = in_size
         self.pre_dimensions = dimensions[ 0 ]
@@ -80,15 +93,20 @@ class MemristorArray:
         
         self.dt = dt
         
-        if learning_rule == "mPES":
-            assert post_encoders is not None
-            self.learning_rule = self.mPES
-            self.learning_rate = 10e-4 * self.dt
-            self.encoders = post_encoders
+        if learning_rule == "mOja":
+            self.learning_rule = self.mBCM
+            # self.theta_filter = nengo.Lowpass( tau=1.0 )
+            self.learning_rate = 1e-6
+            self.beta = beta
         if learning_rule == "mBCM":
             self.learning_rule = self.mBCM
             # self.theta_filter = nengo.Lowpass( tau=1.0 )
-            self.learning_rate = 1e-9 * self.dt
+            self.learning_rate = 1e-9
+        if learning_rule == "mPES":
+            assert post_encoders is not None
+            self.learning_rule = self.mPES
+            self.learning_rate = 10e-4
+            self.encoders = post_encoders
         
         # save for analysis
         self.logging = logging
@@ -112,12 +130,49 @@ class MemristorArray:
     def __call__( self, t, x ):
         return self.learning_rule( t, x )
     
+    def mOja( self, t, x ):
+        input_activities = x[ :self.input_size ]
+        output_activities = x[ self.input_size:self.input_size + self.output_size ]
+        alpha = self.learning_rate * self.dt
+        beta = self.beta
+        
+        post_squared = alpha * output_activities * output_activities
+        forgetting = -beta * self.weights * np.expand_dims( post_squared, axis=0 )
+        hebbian = np.outer( alpha * input_activities, input_activities )
+        update_direction = hebbian - forgetting
+        
+        if self.logging:
+            # self.history.append( np.sign( update ) )
+            self.save_state()
+        
+        # squash spikes to False (0) or True (100/1000 ...) or everything is always adjusted
+        spiked_pre = np.tile(
+                np.array( np.rint( input_activities ), dtype=bool ), (self.output_size, 1)
+                )
+        spiked_post = np.tile(
+                np.expand_dims( np.array( np.rint( output_activities ), dtype=bool ), axis=1 ), (1, self.input_size)
+                )
+        spiked_map = np.logical_and( spiked_pre, spiked_post )
+        
+        # we only need to update the weights for the neurons that spiked so we filter
+        if spiked_map.any():
+            for j, i in np.transpose( np.where( spiked_map ) ):
+                self.weights[ j, i ] = self.memristors[ j, i ].pulse( update_direction[ j ],
+                                                                      value="conductance",
+                                                                      method="same"
+                                                                      )
+        
+        if self.logging:
+            self.weight_history.append( self.weights.copy() )
+        
+        # calculate the output at this timestep
+        return np.dot( self.weights, input_activities )
+    
     def mBCM( self, t, x ):
         input_activities = x[ :self.input_size ]
         output_activities = x[ self.input_size:self.input_size + self.output_size ]
-        # theta = self.theta_filter.filt( output_activities ) / self.dt
         theta = x[ self.input_size + self.output_size: ]
-        alpha = self.learning_rate
+        alpha = self.learning_rate * self.dt
         
         update_direction = output_activities - theta
         # function \phi( a, \theta ) that is the moving threshold
@@ -139,7 +194,7 @@ class MemristorArray:
         # we only need to update the weights for the neurons that spiked so we filter
         if spiked_map.any():
             for j, i in np.transpose( np.where( spiked_map ) ):
-                self.weights[ j, i ] = self.memristors[ j, i ].pulse( update[ j ],
+                self.weights[ j, i ] = self.memristors[ j, i ].pulse( update_direction[ j ],
                                                                       value="conductance",
                                                                       method="same"
                                                                       )
@@ -154,7 +209,7 @@ class MemristorArray:
         input_activities = x[ :self.input_size ]
         # squash error to zero under a certain threshold or learning rule keeps running indefinitely
         error = x[ self.input_size: ] if abs( x[ self.input_size: ] ) > 10**-5 else 0
-        alpha = self.learning_rate / self.input_size
+        alpha = self.learning_rate * self.dt / self.input_size
         
         # we are adjusting weights so calculate local error
         local_error = alpha * np.dot( self.encoders, error )

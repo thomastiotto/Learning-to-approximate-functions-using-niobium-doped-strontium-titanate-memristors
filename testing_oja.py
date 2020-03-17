@@ -40,7 +40,7 @@ with nengo.Network() as model:
             label="Post"
             )
     memr_arr = MemristorArray(
-            learning_rule="mBCM",
+            learning_rule="mOja",
             in_size=pre_nrn,
             out_size=post_nrn,
             dimensions=[ pre.dimensions, post.dimensions ],
@@ -78,9 +78,6 @@ with nengo.Network() as model:
     
     nengo.Connection( post.neurons, gate_learn_from_post[ post_nrn: ], synapse=0.005 )
     nengo.Connection( gate_learn_from_post[ post_nrn: ], learn[ pre_nrn:pre_nrn + post_nrn ], synapse=None )
-    theta_filter = nengo.Lowpass( tau=1.0 )
-    nengo.Connection( post.neurons, gate_learn_from_post[ :post_nrn ], synapse=theta_filter )
-    nengo.Connection( gate_learn_from_post[ :post_nrn ], learn[ pre_nrn + post_nrn: ], synapse=None )
     
     inp_probe = nengo.Probe( inp )
     pre_spikes_probe = nengo.Probe( pre.neurons )
@@ -98,7 +95,7 @@ nm.plot_ensemble_spikes( sim, "Post", post_spikes_probe, post_probe )
 nm.plot_pre_post( sim, pre_probe, post_probe, inp_probe, time=learning_time )
 if neurons < 10:
     memr_arr.plot_state( sim, "conductance", combined=True )
-# for t in range( 0, int( learning_time + 1 ), 2 ):
-#     memr_arr.plot_weight_matrix( time=t )
+for t in range( 0, int( learning_time + 1 ), 2 ):
+    memr_arr.plot_weight_matrix( time=t )
 
 print( "Mean squared error:", nm.mse( sim, inp_probe, post_probe, learning_time, simulation_step ) )

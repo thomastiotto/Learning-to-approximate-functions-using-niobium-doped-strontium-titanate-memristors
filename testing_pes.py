@@ -7,7 +7,7 @@ import nengo_ocl
 # hyperparameters
 neurons = 4
 simulation_time = 30.0
-learning_time = 10.0
+learning_time = 15.0
 simulation_step = 0.001
 function_to_learn = lambda x: x
 input_period = 4.0
