@@ -98,7 +98,7 @@ nm.plot_ensemble_spikes( sim, "Post", post_spikes_probe, post_probe )
 nm.plot_pre_post( sim, pre_probe, post_probe, inp_probe, time=learning_time )
 if neurons < 10:
     memr_arr.plot_state( sim, "conductance", combined=True )
-# for t in range( 0, int( learning_time + 1 ), 2 ):
-#     memr_arr.plot_weight_matrix( time=t )
+    for t in range( 0, int( learning_time + 1 ), 2 ):
+        memr_arr.plot_weight_matrix( time=t )
 
 print( "Mean squared error:", nm.mse( sim, inp_probe, post_probe, learning_time, simulation_step ) )

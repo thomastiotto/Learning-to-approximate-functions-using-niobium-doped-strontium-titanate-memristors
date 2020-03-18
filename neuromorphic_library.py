@@ -94,7 +94,7 @@ class MemristorArray:
         self.dt = dt
         
         if learning_rule == "mOja":
-            self.learning_rule = self.mBCM
+            self.learning_rule = self.mOja
             # self.theta_filter = nengo.Lowpass( tau=1.0 )
             self.learning_rate = 1e-6
             self.beta = beta
@@ -137,8 +137,8 @@ class MemristorArray:
         beta = self.beta
         
         post_squared = alpha * output_activities * output_activities
-        forgetting = -beta * self.weights * np.expand_dims( post_squared, axis=0 )
-        hebbian = np.outer( alpha * input_activities, input_activities )
+        forgetting = -beta * self.weights * np.expand_dims( post_squared, axis=1 )
+        hebbian = np.outer( alpha * output_activities, input_activities )
         update_direction = hebbian - forgetting
         
         if self.logging:
@@ -157,7 +157,7 @@ class MemristorArray:
         # we only need to update the weights for the neurons that spiked so we filter
         if spiked_map.any():
             for j, i in np.transpose( np.where( spiked_map ) ):
-                self.weights[ j, i ] = self.memristors[ j, i ].pulse( update_direction[ j ],
+                self.weights[ j, i ] = self.memristors[ j, i ].pulse( update_direction[ j, i ],
                                                                       value="conductance",
                                                                       method="same"
                                                                       )
@@ -205,6 +205,7 @@ class MemristorArray:
         # calculate the output at this timestep
         return np.dot( self.weights, input_activities )
     
+    # TODO can I remove the inverse method from pulse?
     def mPES( self, t, x ):
         input_activities = x[ :self.input_size ]
         # squash error to zero under a certain threshold or learning rule keeps running indefinitely
