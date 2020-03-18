@@ -232,6 +232,9 @@ class MemristorArray:
                                                                       method="inverse"
                                                                       )
         
+        if self.logging:
+            self.weight_history.append( self.weights.copy() )
+        
         # calculate the output at this timestep
         return np.dot( self.weights, input_activities )
     
