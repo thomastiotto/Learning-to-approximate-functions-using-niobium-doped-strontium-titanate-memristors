@@ -2,7 +2,9 @@ from neuromorphic_library import MemristorArray
 import neuromorphic_library as nm
 import nengo
 import numpy as np
-import nengo_ocl
+
+
+# import nengo_ocl
 
 
 def generate_encoders( n_neurons ):
@@ -13,7 +15,7 @@ def generate_encoders( n_neurons ):
 
 
 # hyperparameters
-neurons = 4
+neurons = 10
 simulation_time = 30.0
 learning_time = 15.0
 simulation_step = 0.001
@@ -29,14 +31,14 @@ with nengo.Network() as model:
             n_neurons=pre_nrn,
             dimensions=1,
             encoders=generate_encoders( pre_nrn ),
-            # intercepts=[ 0.1 ] * pre_nrn,
+            intercepts=[ 0.1 ] * pre_nrn,
             label="Pre"
             )
     post = nengo.Ensemble(
             n_neurons=post_nrn,
             dimensions=1,
             encoders=generate_encoders( post_nrn ),
-            # intercepts=[ 0.1 ] * post_nrn,
+            intercepts=[ 0.1 ] * post_nrn,
             label="Post"
             )
     memr_arr = MemristorArray(
@@ -96,9 +98,11 @@ with nengo.Simulator( model, dt=simulation_step, optimize=True ) as sim:
 nm.plot_ensemble_spikes( sim, "Pre", pre_spikes_probe, pre_probe )
 nm.plot_ensemble_spikes( sim, "Post", post_spikes_probe, post_probe )
 nm.plot_pre_post( sim, pre_probe, post_probe, inp_probe, time=learning_time )
-if neurons < 10:
+if neurons <= 10:
     memr_arr.plot_state( sim, "conductance", combined=True )
     for t in range( 0, int( learning_time + 1 ), 1 ):
         memr_arr.plot_weight_matrix( time=t )
 
 print( "Mean squared error:", nm.mse( sim, inp_probe, post_probe, learning_time, simulation_step ) )
+print( f"Starting sparsity: {nm.sparsity_measure( memr_arr.get_history( 'weight' )[ 0 ] )}" )
+print( f"Ending sparsity: {nm.sparsity_measure( memr_arr.get_history( 'weight' )[ -1 ] )}" )
