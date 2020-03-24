@@ -1,10 +1,8 @@
-from neuromorphic_library import MemristorArray
-import neuromorphic_library as nm
 import nengo
-import numpy as np
-
-
-# import nengo_ocl
+from memristor_learning.MemristorHelpers import *
+from memristor_learning.MemristorControllers import MemristorArray
+from memristor_learning.MemristorModels import MemristorAnoukPair
+from memristor_learning.MemristorLearningRules import mOja
 
 
 def generate_encoders( n_neurons ):
@@ -31,19 +29,19 @@ with nengo.Network() as model:
             n_neurons=pre_nrn,
             dimensions=1,
             encoders=generate_encoders( pre_nrn ),
-            intercepts=[ 0.1 ] * pre_nrn,
+            # intercepts=[ 0.1 ] * pre_nrn,
             label="Pre"
             )
     post = nengo.Ensemble(
             n_neurons=post_nrn,
             dimensions=1,
             encoders=generate_encoders( post_nrn ),
-            intercepts=[ 0.1 ] * post_nrn,
+            # intercepts=[ 0.1 ] * post_nrn,
             label="Post"
             )
     memr_arr = MemristorArray(
-            model=nm.MemristorAnoukPair,
-            learning_rule=nm.mBCM(),
+            model=MemristorAnoukPair,
+            learning_rule=mOja(),
             in_size=pre_nrn,
             out_size=post_nrn,
             dimensions=[ pre.dimensions, post.dimensions ]
@@ -80,9 +78,6 @@ with nengo.Network() as model:
     
     nengo.Connection( post.neurons, gate_learn_from_post[ post_nrn: ], synapse=0.005 )
     nengo.Connection( gate_learn_from_post[ post_nrn: ], learn[ pre_nrn:pre_nrn + post_nrn ], synapse=None )
-    theta_filter = nengo.Lowpass( tau=1.0 )
-    nengo.Connection( post.neurons, gate_learn_from_post[ :post_nrn ], synapse=theta_filter )
-    nengo.Connection( gate_learn_from_post[ :post_nrn ], learn[ pre_nrn + post_nrn: ], synapse=None )
     
     inp_probe = nengo.Probe( inp )
     pre_spikes_probe = nengo.Probe( pre.neurons )
@@ -95,14 +90,14 @@ with nengo.Network() as model:
 with nengo.Simulator( model, dt=simulation_step, optimize=True ) as sim:
     sim.run( simulation_time )
 
-nm.plot_ensemble_spikes( sim, "Pre", pre_spikes_probe, pre_probe )
-nm.plot_ensemble_spikes( sim, "Post", post_spikes_probe, post_probe )
-nm.plot_pre_post( sim, pre_probe, post_probe, inp_probe, time=learning_time )
+plot_ensemble_spikes( sim, "Pre", pre_spikes_probe, pre_probe )
+plot_ensemble_spikes( sim, "Post", post_spikes_probe, post_probe )
+plot_pre_post( sim, pre_probe, post_probe, inp_probe, time=learning_time )
 if neurons <= 10:
     memr_arr.plot_state( sim, "conductance", combined=True )
     for t in range( 0, int( learning_time + 1 ), 1 ):
         memr_arr.plot_weight_matrix( time=t )
 
-print( "Mean squared error:", nm.mse( sim, inp_probe, post_probe, learning_time, simulation_step ) )
-print( f"Starting sparsity: {nm.sparsity_measure( memr_arr.get_history( 'weight' )[ 0 ] )}" )
-print( f"Ending sparsity: {nm.sparsity_measure( memr_arr.get_history( 'weight' )[ -1 ] )}" )
+print( "Mean squared error:", mse( sim, inp_probe, post_probe, learning_time, simulation_step ) )
+print( f"Starting sparsity: {sparsity_measure( memr_arr.get_history( 'weight' )[ 0 ] )}" )
+print( f"Ending sparsity: {sparsity_measure( memr_arr.get_history( 'weight' )[ -1 ] )}" )

@@ -1,9 +1,8 @@
-from neuromorphic_library import MemristorArray
-import neuromorphic_library as nm
 import nengo
-import numpy as np
-
-# import nengo_ocl
+from memristor_learning.MemristorHelpers import *
+from memristor_learning.MemristorControllers import MemristorArray
+from memristor_learning.MemristorModels import MemristorAnoukPair
+from memristor_learning.MemristorLearningRules import mPES
 
 # hyperparameters
 neurons = 10
@@ -54,8 +53,8 @@ with nengo.Network() as model:
     
     # TODO get encoders at runtime
     memr_arr = MemristorArray(
-            model=nm.MemristorAnoukPair,
-            learning_rule=nm.mPES( post.encoders ),  # sim.data[ens].encoders
+            model=MemristorAnoukPair,
+            learning_rule=mPES( post.encoders ),  # sim.data[ens].encoders
             in_size=pre_nrn,
             out_size=post_nrn,
             dimensions=[ pre.dimensions, post.dimensions ]
@@ -81,7 +80,7 @@ with nengo.Network() as model:
     post_probe = nengo.Probe( post, synapse=0.01 )
     
     
-    # nm.plot_network( model )
+    # plot_network( model )
     
     def inhibit( t ):
         return 2.0 if t > learning_time else 0.0
@@ -93,14 +92,14 @@ with nengo.Network() as model:
 with nengo.Simulator( model, dt=simulation_step ) as sim:
     sim.run( simulation_time )
 
-nm.plot_ensemble_spikes( sim, "Pre", pre_spikes_probe, pre_probe )
-nm.plot_ensemble_spikes( sim, "Post", post_spikes_probe, post_probe )
-nm.plot_pre_post( sim, pre_probe, post_probe, inp_probe, memr_arr.get_history( "error" ), time=learning_time )
+plot_ensemble_spikes( sim, "Pre", pre_spikes_probe, pre_probe )
+plot_ensemble_spikes( sim, "Post", post_spikes_probe, post_probe )
+plot_pre_post( sim, pre_probe, post_probe, inp_probe, memr_arr.get_history( "error" ), time=learning_time )
 if neurons <= 10:
     memr_arr.plot_state( sim, "conductance", combined=True )
     for t in range( 0, int( learning_time + 1 ), 1 ):
         memr_arr.plot_weight_matrix( time=t )
 
-print( "Mean squared error:", nm.mse( sim, inp_probe, post_probe, learning_time, simulation_step ) )
-print( f"Starting sparsity: {nm.sparsity_measure( memr_arr.get_history( 'weight' )[ 0 ] )}" )
-print( f"Ending sparsity: {nm.sparsity_measure( memr_arr.get_history( 'weight' )[ -1 ] )}" )
+print( "Mean squared error:", mse( sim, inp_probe, post_probe, learning_time, simulation_step ) )
+print( f"Starting sparsity: {sparsity_measure( memr_arr.get_history( 'weight' )[ 0 ] )}" )
+print( f"Ending sparsity: {sparsity_measure( memr_arr.get_history( 'weight' )[ -1 ] )}" )
