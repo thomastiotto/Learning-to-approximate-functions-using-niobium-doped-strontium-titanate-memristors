@@ -80,70 +80,37 @@ def plot_ensemble_spikes( sim, name, ensemble, input=None, time=None ):
     plt.show()
 
 
-# TODO add optional paramenters
-# TODO or implement learning rules as objects and pass them together with parameters
-class MemristorArray:
-    def __init__( self, learning_rule, in_size, out_size, dimensions,
-                  type="pair", dt=0.001, post_encoders=None, logging=False, beta=1.0 ):
-        
-        self.input_size = in_size
-        self.pre_dimensions = dimensions[ 0 ]
-        self.post_dimensions = dimensions[ 1 ]
-        self.output_size = out_size
-        
+class MemristorLearningRule:
+    def __init__( self, dt, learning_rate ):
+        self.learning_rate = learning_rate
         self.dt = dt
         
-        if learning_rule == "mOja":
-            self.learning_rule = self.mOja
-            # self.theta_filter = nengo.Lowpass( tau=1.0 )
-            self.learning_rate = 1e-6
-            self.beta = beta
-        if learning_rule == "mBCM":
-            self.learning_rule = self.mBCM
-            # self.theta_filter = nengo.Lowpass( tau=1.0 )
-            self.learning_rate = 1e-9
-        if learning_rule == "mPES":
-            assert post_encoders is not None
-            self.learning_rule = self.mPES
-            self.learning_rate = 10e-4
-            self.encoders = post_encoders
+        self.input_size = None
+        self.output_size = None
+
+
+class mOja( MemristorLearningRule ):
+    def __init__( self, dt=0.001, learning_rate=1e-6, beta=1.0 ):
+        super().__init__( dt, learning_rate )
         
-        # save for analysis
-        self.logging = logging
-        self.weight_history = [ ]
-        self.error_history = [ ]
+        self.alpha = self.learning_rate * self.dt
+        self.beta = beta
         
-        # to hold future weights
-        self.weights = np.zeros( (self.output_size, self.input_size), dtype=np.float )
-        
-        assert type == "single" or type == "pair"
-        # create memristor array that implement the weights
-        self.memristors = np.empty( (self.output_size, self.input_size), dtype=Memristor )
-        for i in range( self.output_size ):
-            for j in range( self.input_size ):
-                if type == "single":
-                    self.memristors[ i, j ] = Memristor( "excitatory" )
-                if type == "pair":
-                    self.memristors[ i, j ] = MemristorPair( self.input_size, self.output_size )
-                self.weights[ i, j ] = self.memristors[ i, j ].get_state( value="conductance", scaled=True )
+        self.weights = None
+        self.memristors = None
+        self.logging = None
     
     def __call__( self, t, x ):
-        return self.learning_rule( t, x )
-    
-    def mOja( self, t, x ):
         input_activities = x[ :self.input_size ]
         output_activities = x[ self.input_size:self.input_size + self.output_size ]
-        alpha = self.learning_rate * self.dt
-        beta = self.beta
         
-        post_squared = alpha * output_activities * output_activities
-        forgetting = -beta * self.weights * np.expand_dims( post_squared, axis=1 )
-        hebbian = np.outer( alpha * output_activities, input_activities )
+        post_squared = self.alpha * output_activities * output_activities
+        forgetting = -self.beta * self.weights * np.expand_dims( post_squared, axis=1 )
+        hebbian = np.outer( self.alpha * output_activities, input_activities )
         update_direction = hebbian - forgetting
         
-        if self.logging:
-            # self.history.append( np.sign( update ) )
-            self.save_state()
+        # if self.logging:
+        #     self.save_state()
         
         # squash spikes to False (0) or True (100/1000 ...) or everything is always adjusted
         spiked_pre = np.tile(
@@ -162,8 +129,8 @@ class MemristorArray:
                                                                       method="same"
                                                                       )
         
-        if self.logging:
-            self.weight_history.append( self.weights.copy() )
+        # if self.logging:
+        #     self.weight_history.append( self.weights.copy() )
         
         # calculate the output at this timestep
         return np.dot( self.weights, input_activities )
@@ -237,6 +204,63 @@ class MemristorArray:
         
         # calculate the output at this timestep
         return np.dot( self.weights, input_activities )
+
+
+class MemristorController:
+    def __init__( self, model, learning_rule, in_size, out_size, dimensions,
+                  dt=0.001, post_encoders=None, logging=True ):
+        self.memristor_model = model
+        
+        self.input_size = in_size
+        self.pre_dimensions = dimensions[ 0 ]
+        self.post_dimensions = dimensions[ 1 ]
+        self.output_size = out_size
+        
+        self.dt = dt
+        
+        self.weights = None
+        self.memristors = None
+        
+        self.learning_rule = learning_rule()
+        self.learning_rule.input_size = in_size
+        self.learning_rule.output_size = out_size
+        self.learning_rule.logging = logging
+        
+        if learning_rule == "mBCM":
+            self.learning_rule = self.mBCM
+            # self.theta_filter = nengo.Lowpass( tau=1.0 )
+            self.learning_rate = 1e-9
+        if learning_rule == "mPES":
+            assert post_encoders is not None
+            self.learning_rule = self.mPES
+            self.learning_rate = 10e-4
+            self.encoders = post_encoders
+        
+        # save for analysis
+        self.logging = logging
+        self.weight_history = [ ]
+        self.error_history = [ ]
+
+
+class MemristorArray( MemristorController ):
+    def __init__( self, model, learning_rule, in_size, out_size, dimensions ):
+        super().__init__( model, learning_rule, in_size, out_size, dimensions )
+        
+        # to hold future weights
+        self.weights = np.zeros( (self.output_size, self.input_size), dtype=np.float )
+        
+        # create memristor array that implement the weights
+        self.memristors = np.empty( (self.output_size, self.input_size), dtype=MemristorAnouk )
+        for i in range( self.output_size ):
+            for j in range( self.input_size ):
+                self.memristors[ i, j ] = self.memristor_model()
+                self.weights[ i, j ] = self.memristors[ i, j ].get_state( value="conductance", scaled=True )
+        
+        self.learning_rule.weights = self.weights
+        self.learning_rule.memristors = self.memristors
+    
+    def __call__( self, t, x ):
+        return self.learning_rule( t, x )
     
     def get_components( self ):
         return self.memristors.flatten()
@@ -308,29 +332,13 @@ class MemristorArray:
             return self.error_history
 
 
-class MemristorPair():
-    def __init__( self, in_size, out_size ):
-        # input/output sizes
-        self.input_size = in_size
-        self.output_size = out_size
-        
-        # instantiate memristor pair
-        self.mem_plus = Memristor( "excitatory" )
-        self.mem_minus = Memristor( "inhibitory" )
+class MemristorPair:
+    def __init__( self ):
+        self.mem_plus = None
+        self.mem_minus = None
     
     def pulse( self, adj, value, method, scaled=True ):
-        if method == "same":
-            if adj > 0:
-                self.mem_plus.pulse()
-            if adj < 0:
-                self.mem_minus.pulse()
-        if method == "inverse":
-            if adj < 0:
-                self.mem_plus.pulse()
-            if adj > 0:
-                self.mem_minus.pulse()
-        
-        return self.mem_plus.get_state( value, scaled ) - self.mem_minus.get_state( value, scaled )
+        raise NotImplementedError
     
     def get_state( self, value, scaled ):
         return (self.mem_plus.get_state( value, scaled ) - self.mem_minus.get_state( value, scaled ))
@@ -357,39 +365,40 @@ class MemristorPair():
             ax.set_yticklabels( [ ] )
 
 
-class Memristor:
-    def __init__( self, type, r0=100, r1=2.5 * 10**8, a=-0.128, b=-0.522 ):
-        # set parameters of device
-        self.r_min = r0
-        self.r_max = r1
-        self.a = a
-        self.b = b
+class MemristorAnoukPair( MemristorPair ):
+    def __init__( self ):
+        super().__init__()
+        # instantiate memristor pair
+        self.mem_plus = MemristorAnouk()
+        self.mem_minus = MemristorAnouk()
+    
+    def pulse( self, adj, value, method, scaled=True ):
+        if method == "same":
+            if adj > 0:
+                self.mem_plus.pulse()
+            if adj < 0:
+                self.mem_minus.pulse()
+        if method == "inverse":
+            if adj < 0:
+                self.mem_plus.pulse()
+            if adj > 0:
+                self.mem_minus.pulse()
         
+        return self.mem_plus.get_state( value, scaled ) - self.mem_minus.get_state( value, scaled )
+
+
+class Memristor:
+    def __init__( self ):
         self.n = 0
         # save resistance history for later analysis
         self.history = [ ]
         
-        assert type == "inhibitory" or type == "excitatory"
-        self.type = type
-        if self.type == "inhibitory":
-            # initialise memristor to highest resistance state
-            self.r_curr = self.r_max
-        if self.type == "excitatory":
-            # initialise memristor to random low resistance state
-            import random
-            self.r_curr = random.randrange( 5.0 * 10**7, 15.0 * 10**7 )
-        
-        # Weight initialisation
-        import random
-        self.r_curr = random.uniform( 10**8, 2.5 * 10**8 )
-        # self.r_curr = self.r_max
+        self.r_curr = None
+        self.r_max = None
+        self.r_min = None
     
-    # pulse the memristor with a tension
-    def pulse( self, V=1e-1 ):
-        c = self.a + self.b * V
-        self.r_curr = self.r_min + self.r_max * (((self.r_curr - self.r_min) / self.r_max)**(1 / c) + 1)**c
-        
-        return self.r_curr
+    def pulse( self, V ):
+        raise NotImplementedError
     
     def get_state( self, value="conductance", scaled=True, gain=10**4 ):
         epsilon = np.finfo( float ).eps
@@ -422,3 +431,25 @@ class Memristor:
         
         ax.plot( range, tmp, c=c )
         ax.annotate( "(" + str( i ), xy=(10, 10) )
+
+
+class MemristorAnouk( Memristor ):
+    def __init__( self, r0=100, r1=2.5 * 10**8, a=-0.128, b=-0.522 ):
+        super().__init__()
+        # set parameters of device
+        self.r_min = r0
+        self.r_max = r1
+        self.a = a
+        self.b = b
+        
+        # Weight initialisation
+        import random
+        self.r_curr = random.uniform( 10**8, 2.5 * 10**8 )
+        # self.r_curr = self.r_max
+    
+    # pulse the memristor with a tension
+    def pulse( self, V=1e-1 ):
+        c = self.a + self.b * V
+        self.r_curr = self.r_min + self.r_max * (((self.r_curr - self.r_min) / self.r_max)**(1 / c) + 1)**c
+        
+        return self.r_curr
