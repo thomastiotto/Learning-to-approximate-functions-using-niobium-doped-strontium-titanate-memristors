@@ -42,11 +42,11 @@ with nengo.Network() as model:
             label="Post"
             )
     memr_arr = MemristorArray(
-            learning_rule="mBCM",
+            model=nm.MemristorAnoukPair,
+            learning_rule=nm.mBCM(),
             in_size=pre_nrn,
             out_size=post_nrn,
-            dimensions=[ pre.dimensions, post.dimensions ],
-            logging=True
+            dimensions=[ pre.dimensions, post.dimensions ]
             )
     learn = nengo.Node(
             output=memr_arr,

@@ -81,24 +81,24 @@ def plot_ensemble_spikes( sim, name, ensemble, input=None, time=None ):
 
 
 class MemristorLearningRule:
-    def __init__( self, dt, learning_rate ):
+    def __init__( self, learning_rate, dt=0.001 ):
         self.learning_rate = learning_rate
         self.dt = dt
         
         self.input_size = None
         self.output_size = None
-
-
-class mOja( MemristorLearningRule ):
-    def __init__( self, dt=0.001, learning_rate=1e-6, beta=1.0 ):
-        super().__init__( dt, learning_rate )
-        
-        self.alpha = self.learning_rate * self.dt
-        self.beta = beta
         
         self.weights = None
         self.memristors = None
         self.logging = None
+
+
+class mOja( MemristorLearningRule ):
+    def __init__( self, learning_rate=1e-6, dt=0.001, beta=1.0 ):
+        super().__init__( learning_rate, dt )
+        
+        self.alpha = self.learning_rate * self.dt
+        self.beta = beta
     
     def __call__( self, t, x ):
         input_activities = x[ :self.input_size ]
@@ -134,20 +134,26 @@ class mOja( MemristorLearningRule ):
         
         # calculate the output at this timestep
         return np.dot( self.weights, input_activities )
+
+
+class mBCM( MemristorLearningRule ):
+    def __init__( self, learning_rate=1e-9, dt=0.001 ):
+        super().__init__( learning_rate, dt )
+        
+        self.alpha = self.learning_rate * self.dt
     
-    def mBCM( self, t, x ):
+    def __call__( self, t, x ):
+        
         input_activities = x[ :self.input_size ]
         output_activities = x[ self.input_size:self.input_size + self.output_size ]
         theta = x[ self.input_size + self.output_size: ]
-        alpha = self.learning_rate * self.dt
         
         update_direction = output_activities - theta
         # function \phi( a, \theta ) that is the moving threshold
-        update = alpha * output_activities * update_direction
+        update = self.alpha * output_activities * update_direction
         
-        if self.logging:
-            # self.history.append( np.sign( update ) )
-            self.save_state()
+        # if self.logging:
+        #     self.save_state()
         
         # squash spikes to False (0) or True (100/1000 ...) or everything is always adjusted
         spiked_pre = np.tile(
@@ -166,14 +172,21 @@ class mOja( MemristorLearningRule ):
                                                                       method="same"
                                                                       )
         
-        if self.logging:
-            self.weight_history.append( self.weights.copy() )
+        # if self.logging:
+        #     self.weight_history.append( self.weights.copy() )
         
         # calculate the output at this timestep
         return np.dot( self.weights, input_activities )
+
+
+class mPES( MemristorLearningRule ):
+    def __init__( self, encoders, learning_rate=1e-5, dt=0.001 ):
+        super().__init__( learning_rate, dt )
+        
+        self.encoders = encoders
     
     # TODO can I remove the inverse method from pulse?
-    def mPES( self, t, x ):
+    def __call__( self, t, x ):
         input_activities = x[ :self.input_size ]
         # squash error to zero under a certain threshold or learning rule keeps running indefinitely
         error = x[ self.input_size: ] if abs( x[ self.input_size: ] ) > 10**-5 else 0
@@ -182,9 +195,9 @@ class mOja( MemristorLearningRule ):
         # we are adjusting weights so calculate local error
         local_error = alpha * np.dot( self.encoders, error )
         
-        if self.logging:
-            self.error_history.append( error )
-            self.save_state()
+        # if self.logging:
+        #     self.error_history.append( error )
+        #     self.save_state()
         
         # squash spikes to False (0) or True (100/1000 ...) or everything is always adjusted
         spiked_map = np.tile(
@@ -199,16 +212,15 @@ class mOja( MemristorLearningRule ):
                                                                       method="inverse"
                                                                       )
         
-        if self.logging:
-            self.weight_history.append( self.weights.copy() )
+        # if self.logging:
+        #     self.weight_history.append( self.weights.copy() )
         
         # calculate the output at this timestep
         return np.dot( self.weights, input_activities )
 
 
 class MemristorController:
-    def __init__( self, model, learning_rule, in_size, out_size, dimensions,
-                  dt=0.001, post_encoders=None, logging=True ):
+    def __init__( self, model, learning_rule, in_size, out_size, dimensions, dt=0.001, logging=True ):
         self.memristor_model = model
         
         self.input_size = in_size
@@ -221,20 +233,10 @@ class MemristorController:
         self.weights = None
         self.memristors = None
         
-        self.learning_rule = learning_rule()
+        self.learning_rule = learning_rule
         self.learning_rule.input_size = in_size
         self.learning_rule.output_size = out_size
         self.learning_rule.logging = logging
-        
-        if learning_rule == "mBCM":
-            self.learning_rule = self.mBCM
-            # self.theta_filter = nengo.Lowpass( tau=1.0 )
-            self.learning_rate = 1e-9
-        if learning_rule == "mPES":
-            assert post_encoders is not None
-            self.learning_rule = self.mPES
-            self.learning_rate = 10e-4
-            self.encoders = post_encoders
         
         # save for analysis
         self.logging = logging

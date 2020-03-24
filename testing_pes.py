@@ -32,32 +32,40 @@ with nengo.Network() as model:
             return [ [ -1 ] ] * int( (n_neurons / 2) ) + [ [ 1 ] ] + [ [ 1 ] ] * int( (n_neurons / 2) )
     
     
-    # TODO get encoders at runtime
-    pre = nengo.Ensemble( n_neurons=pre_nrn,
-                          dimensions=1,
-                          encoders=generate_encoders( pre_nrn ),
-                          # intercepts=[ 0.1 ] * pre_nrn,
-                          label="Pre" )
-    post = nengo.Ensemble( n_neurons=post_nrn,
-                           dimensions=1,
-                           encoders=generate_encoders( post_nrn ),
-                           # intercepts=[ 0.1 ] * pre_nrn,
-                           label="Post" )
-    error = nengo.Ensemble( n_neurons=err_nrn,
-                            dimensions=1,
-                            label="Error" )
+    pre = nengo.Ensemble(
+            n_neurons=pre_nrn,
+            dimensions=1,
+            encoders=generate_encoders( pre_nrn ),
+            # intercepts=[ 0.1 ] * pre_nrn,
+            label="Pre"
+            )
+    post = nengo.Ensemble(
+            n_neurons=post_nrn,
+            dimensions=1,
+            encoders=generate_encoders( post_nrn ),
+            # intercepts=[ 0.1 ] * pre_nrn,
+            label="Post"
+            )
+    error = nengo.Ensemble(
+            n_neurons=err_nrn,
+            dimensions=1,
+            label="Error"
+            )
     
-    memr_arr = MemristorArray( learning_rule="mPES",
-                               post_encoders=post.encoders,  # sim.data[ens].encoders
-                               in_size=pre_nrn,
-                               out_size=post_nrn,
-                               dimensions=[ pre.dimensions, post.dimensions ],
-                               logging=True
-                               )
-    learn = nengo.Node( output=memr_arr,
-                        size_in=pre_nrn + error.dimensions,
-                        size_out=post_nrn,
-                        label="Learn" )
+    # TODO get encoders at runtime
+    memr_arr = MemristorArray(
+            model=nm.MemristorAnoukPair,
+            learning_rule=nm.mPES( post.encoders ),  # sim.data[ens].encoders
+            in_size=pre_nrn,
+            out_size=post_nrn,
+            dimensions=[ pre.dimensions, post.dimensions ]
+            )
+    learn = nengo.Node(
+            output=memr_arr,
+            size_in=pre_nrn + error.dimensions,
+            size_out=post_nrn,
+            label="Learn"
+            )
     
     nengo.Connection( inp, pre )
     nengo.Connection( pre.neurons, learn[ :pre_nrn ], synapse=0.005 )

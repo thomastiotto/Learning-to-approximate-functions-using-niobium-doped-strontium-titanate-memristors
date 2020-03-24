@@ -43,7 +43,7 @@ with nengo.Network() as model:
             )
     memr_arr = MemristorArray(
             model=nm.MemristorAnoukPair,
-            learning_rule=nm.mOja,
+            learning_rule=nm.mOja(),
             in_size=pre_nrn,
             out_size=post_nrn,
             dimensions=[ pre.dimensions, post.dimensions ]
