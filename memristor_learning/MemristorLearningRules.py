@@ -18,6 +18,17 @@ class MemristorLearningRule:
     
     def get_error_signal( self ):
         return self.last_error
+    
+    def find_spikes( self, input_activities, output_activities=None ):
+        spiked_pre = np.tile(
+                np.array( np.rint( input_activities ), dtype=bool ), (self.output_size, 1)
+                )
+        spiked_post = np.tile(
+                np.expand_dims(
+                        np.array( np.rint( output_activities ), dtype=bool ), axis=1 ), (1, self.input_size)
+                ) if output_activities is not None else np.ones( (1, self.input_size) )
+        
+        return np.logical_and( spiked_pre, spiked_post )
 
 
 class mOja( MemristorLearningRule ):
@@ -36,17 +47,8 @@ class mOja( MemristorLearningRule ):
         hebbian = np.outer( self.alpha * output_activities, input_activities )
         update_direction = hebbian - forgetting
         
-        # if self.logging:
-        #     self.save_state()
-        
         # squash spikes to False (0) or True (100/1000 ...) or everything is always adjusted
-        spiked_pre = np.tile(
-                np.array( np.rint( input_activities ), dtype=bool ), (self.output_size, 1)
-                )
-        spiked_post = np.tile(
-                np.expand_dims( np.array( np.rint( output_activities ), dtype=bool ), axis=1 ), (1, self.input_size)
-                )
-        spiked_map = np.logical_and( spiked_pre, spiked_post )
+        spiked_map = self.find_spikes( input_activities, output_activities )
         
         # we only need to update the weights for the neurons that spiked so we filter
         if spiked_map.any():
@@ -55,9 +57,6 @@ class mOja( MemristorLearningRule ):
                                                                       value="conductance",
                                                                       method="same"
                                                                       )
-        
-        # if self.logging:
-        #     self.weight_history.append( self.weights.copy() )
         
         # calculate the output at this timestep
         return np.dot( self.weights, input_activities )
@@ -79,17 +78,8 @@ class mBCM( MemristorLearningRule ):
         # function \phi( a, \theta ) that is the moving threshold
         update = self.alpha * output_activities * update_direction
         
-        # if self.logging:
-        #     self.save_state()
-        
         # squash spikes to False (0) or True (100/1000 ...) or everything is always adjusted
-        spiked_pre = np.tile(
-                np.array( np.rint( input_activities ), dtype=bool ), (self.output_size, 1)
-                )
-        spiked_post = np.tile(
-                np.expand_dims( np.array( np.rint( output_activities ), dtype=bool ), axis=1 ), (1, self.input_size)
-                )
-        spiked_map = np.logical_and( spiked_pre, spiked_post )
+        spiked_map = self.find_spikes( input_activities, output_activities )
         
         # we only need to update the weights for the neurons that spiked so we filter
         if spiked_map.any():
@@ -98,9 +88,6 @@ class mBCM( MemristorLearningRule ):
                                                                       value="conductance",
                                                                       method="same"
                                                                       )
-        
-        # if self.logging:
-        #     self.weight_history.append( self.weights.copy() )
         
         # calculate the output at this timestep
         return np.dot( self.weights, input_activities )
@@ -123,14 +110,8 @@ class mPES( MemristorLearningRule ):
         # we are adjusting weights so calculate local error
         local_error = alpha * np.dot( self.encoders, error )
         
-        # if self.logging:
-        #     self.error_history.append( error )
-        #     self.save_state()
-        
         # squash spikes to False (0) or True (100/1000 ...) or everything is always adjusted
-        spiked_map = np.tile(
-                np.array( np.rint( input_activities ), dtype=bool ), (self.output_size, 1)
-                )
+        spiked_map = self.find_spikes( input_activities )
         
         # we only need to update the weights for the neurons that spiked so we filter for their columns
         if spiked_map.any():
@@ -139,9 +120,6 @@ class mPES( MemristorLearningRule ):
                                                                       value="conductance",
                                                                       method="inverse"
                                                                       )
-        
-        # if self.logging:
-        #     self.weight_history.append( self.weights.copy() )
         
         # calculate the output at this timestep
         return np.dot( self.weights, input_activities )

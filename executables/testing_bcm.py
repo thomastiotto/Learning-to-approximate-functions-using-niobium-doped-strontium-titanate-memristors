@@ -12,6 +12,7 @@ def generate_encoders( n_neurons ):
         return [ [ -1 ] ] * int( (n_neurons / 2) ) + [ [ 1 ] ] + [ [ 1 ] ] * int( (n_neurons / 2) )
 
 
+# TODO add function_to_learn
 # hyperparameters
 neurons = 10
 simulation_time = 30.0

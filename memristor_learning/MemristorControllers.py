@@ -26,37 +26,6 @@ class MemristorController:
         self.logging = logging
         self.weight_history = [ ]
         self.error_history = [ ]
-
-
-class MemristorArray( MemristorController ):
-    def __init__( self, model, learning_rule, in_size, out_size, dimensions ):
-        super().__init__( model, learning_rule, in_size, out_size, dimensions )
-        
-        # to hold future weights
-        self.weights = np.zeros( (self.output_size, self.input_size), dtype=np.float )
-        
-        # create memristor array that implement the weights
-        self.memristors = np.empty( (self.output_size, self.input_size), dtype=MemristorAnouk )
-        for i in range( self.output_size ):
-            for j in range( self.input_size ):
-                self.memristors[ i, j ] = self.memristor_model()
-                self.weights[ i, j ] = self.memristors[ i, j ].get_state( value="conductance", scaled=True )
-        
-        self.learning_rule.weights = self.weights
-        self.learning_rule.memristors = self.memristors
-    
-    def __call__( self, t, x ):
-        ret = self.learning_rule( t, x )
-        
-        if self.logging:
-            err = self.learning_rule.get_error_signal()
-            if err is not None:
-                self.error_history.append( err )
-            
-            self.save_state()
-            self.weight_history.append( self.weights.copy() )
-        
-        return ret
     
     def get_components( self ):
         return self.memristors.flatten()
@@ -126,3 +95,37 @@ class MemristorArray( MemristorController ):
             return self.weight_history
         if select == "error":
             return self.error_history
+
+
+# class MemristorSimmetric
+
+
+class MemristorArray( MemristorController ):
+    def __init__( self, model, learning_rule, in_size, out_size, dimensions ):
+        super().__init__( model, learning_rule, in_size, out_size, dimensions )
+        
+        # to hold future weights
+        self.weights = np.zeros( (self.output_size, self.input_size), dtype=np.float )
+        
+        # create memristor array that implement the weights
+        self.memristors = np.empty( (self.output_size, self.input_size), dtype=MemristorAnouk )
+        for i in range( self.output_size ):
+            for j in range( self.input_size ):
+                self.memristors[ i, j ] = self.memristor_model()
+                self.weights[ i, j ] = self.memristors[ i, j ].get_state( value="conductance", scaled=True )
+        
+        self.learning_rule.weights = self.weights
+        self.learning_rule.memristors = self.memristors
+    
+    def __call__( self, t, x ):
+        ret = self.learning_rule( t, x )
+        
+        if self.logging:
+            err = self.learning_rule.get_error_signal()
+            if err is not None:
+                self.error_history.append( err )
+            
+            self.save_state()
+            self.weight_history.append( self.weights.copy() )
+        
+        return ret
