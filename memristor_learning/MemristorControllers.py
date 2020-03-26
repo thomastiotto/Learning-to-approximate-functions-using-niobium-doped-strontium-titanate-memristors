@@ -116,14 +116,12 @@ class MemristorArray( MemristorController ):
         if self.learning_rule.has_learning_signal:
             input_activities = x[ :-1 ]
             learning = np.rint( x[ -1 ] )
+            if learning:
+                ret = self.learning_rule( t, input_activities )
+            else:
+                ret = np.dot( self.weights, input_activities )
         else:
-            input_activities = x
-            learning = False
-        
-        if learning:
-            ret = self.learning_rule( t, input_activities )
-        else:
-            ret = np.dot( self.weights, input_activities )
+            ret = self.learning_rule( t, x )
         
         if self.logging:
             err = self.learning_rule.get_error_signal()
