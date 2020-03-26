@@ -29,6 +29,15 @@ def plot_network( model ):
     s.view()
 
 
+def plot_ensemble( sim, ens, time=None ):
+    import matplotlib.pyplot as plt
+    plt.plot( sim.trange(), sim.data[ ens ], c="b", label="Ensemble" )
+    if time:
+        plt.axvline( x=time, c="k" )
+        # ax[ 0 ].annotate( "Training end", xy=(time, np.amax( sim.data[ input ] )), xycoords='data' )
+    plt.show()
+
+
 def plot_pre_post( sim, pre, post, input, error=None, time=None ):
     import datetime
     import matplotlib.pyplot as plt

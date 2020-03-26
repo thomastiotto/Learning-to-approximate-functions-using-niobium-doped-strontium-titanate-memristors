@@ -44,8 +44,7 @@ with nengo.Network() as model:
             model=MemristorAnoukPair,
             learning_rule=mBCM(),
             in_size=pre_nrn,
-            out_size=post_nrn,
-            dimensions=[ pre.dimensions, post.dimensions ]
+            out_size=post_nrn
             )
     learn = nengo.Node(
             output=memr_arr,

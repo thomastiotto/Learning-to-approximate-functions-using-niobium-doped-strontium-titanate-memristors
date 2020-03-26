@@ -31,12 +31,44 @@ class MemristorLearningRule:
         return np.logical_and( spiked_pre, spiked_post )
 
 
+class mHopfieldHebbian( MemristorLearningRule ):
+    def __init__( self, learning_rate=1e-6, dt=0.001, beta=1.0 ):
+        super().__init__( learning_rate, dt )
+        
+        self.alpha = self.learning_rate * self.dt
+        self.has_learning_signal = True
+    
+    def __call__( self, t, x ):
+        input_activities = x
+        
+        spiked_map = self.find_spikes( input_activities, input_activities )
+        
+        if spiked_map.any():
+            for j, i in np.transpose( np.where( spiked_map ) ):
+                # ignore diagonal
+                if i != j:
+                    self.weights[ j, i ] = self.memristors[ j, i ].pulse( spiked_map[ j, i ],
+                                                                          value="conductance",
+                                                                          method="same"
+                                                                          )
+                    # symmetric update
+                    # could also route memristor [j,i] to weight [i,j] like in the paper
+                    self.weights[ i, j ] = self.memristors[ i, j ].pulse( spiked_map[ i, j ],
+                                                                          value="conductance",
+                                                                          method="same"
+                                                                          )
+        
+        # calculate the output at this timestep
+        return np.dot( self.weights, input_activities )
+
+
 class mOja( MemristorLearningRule ):
     def __init__( self, learning_rate=1e-6, dt=0.001, beta=1.0 ):
         super().__init__( learning_rate, dt )
         
         self.alpha = self.learning_rate * self.dt
         self.beta = beta
+        self.has_learning_signal = False
     
     def __call__( self, t, x ):
         input_activities = x[ :self.input_size ]
@@ -67,6 +99,7 @@ class mBCM( MemristorLearningRule ):
         super().__init__( learning_rate, dt )
         
         self.alpha = self.learning_rate * self.dt
+        self.has_learning_signal = False
     
     def __call__( self, t, x ):
         
@@ -98,8 +131,11 @@ class mPES( MemristorLearningRule ):
         super().__init__( learning_rate, dt )
         
         self.encoders = encoders
+        # TODO mettere a True?
+        self.has_learning_signal = False
+        
+        # TODO can I remove the inverse method from pulse?
     
-    # TODO can I remove the inverse method from pulse?
     def __call__( self, t, x ):
         input_activities = x[ :self.input_size ]
         # squash error to zero under a certain threshold or learning rule keeps running indefinitely

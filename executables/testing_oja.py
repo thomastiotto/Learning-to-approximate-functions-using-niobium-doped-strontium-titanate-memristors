@@ -44,12 +44,11 @@ with nengo.Network() as model:
             model=MemristorAnoukPair,
             learning_rule=mOja(),
             in_size=pre_nrn,
-            out_size=post_nrn,
-            dimensions=[ pre.dimensions, post.dimensions ]
+            out_size=post_nrn
             )
     learn = nengo.Node(
             output=memr_arr,
-            size_in=pre_nrn + post_nrn * 2,
+            size_in=pre_nrn + post_nrn,
             size_out=post_nrn,
             label="Learn"
             )

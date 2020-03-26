@@ -4,12 +4,10 @@ from memristor_learning.MemristorModels import *
 
 
 class MemristorController:
-    def __init__( self, model, learning_rule, in_size, out_size, dimensions, dt=0.001, logging=True ):
+    def __init__( self, model, learning_rule, in_size, out_size, dt=0.001, logging=True ):
         self.memristor_model = model
         
         self.input_size = in_size
-        self.pre_dimensions = dimensions[ 0 ]
-        self.post_dimensions = dimensions[ 1 ]
         self.output_size = out_size
         
         self.dt = dt
@@ -97,12 +95,9 @@ class MemristorController:
             return self.error_history
 
 
-# class MemristorSimmetric
-
-
 class MemristorArray( MemristorController ):
-    def __init__( self, model, learning_rule, in_size, out_size, dimensions ):
-        super().__init__( model, learning_rule, in_size, out_size, dimensions )
+    def __init__( self, model, learning_rule, in_size, out_size ):
+        super().__init__( model, learning_rule, in_size, out_size )
         
         # to hold future weights
         self.weights = np.zeros( (self.output_size, self.input_size), dtype=np.float )
@@ -118,7 +113,17 @@ class MemristorArray( MemristorController ):
         self.learning_rule.memristors = self.memristors
     
     def __call__( self, t, x ):
-        ret = self.learning_rule( t, x )
+        if self.learning_rule.has_learning_signal:
+            input_activities = x[ :-1 ]
+            learning = np.rint( x[ -1 ] )
+        else:
+            input_activities = x
+            learning = False
+        
+        if learning:
+            ret = self.learning_rule( t, input_activities )
+        else:
+            ret = np.dot( self.weights, input_activities )
         
         if self.logging:
             err = self.learning_rule.get_error_signal()
