@@ -6,8 +6,7 @@ class MemristorLearningRule:
         self.learning_rate = learning_rate
         self.dt = dt
         
-        # only used in supervised rules (ex. mPES)
-        self.last_error = None
+        self.rule_name = None
         
         self.input_size = None
         self.output_size = None
@@ -15,9 +14,18 @@ class MemristorLearningRule:
         self.weights = None
         self.memristors = None
         self.logging = None
+        
+        self.has_learning_signal = False
+        self.has_error_signal = False
+        
+        # only used in supervised rules (ex. mPES)
+        self.last_error = None
     
     def get_error_signal( self ):
-        return self.last_error
+        if self.has_error_signal:
+            return self.last_error
+        else:
+            raise ValueError( f"{self.rule_name} takes no error signal" )
     
     def find_spikes( self, input_activities, output_activities=None ):
         spiked_pre = np.tile(
@@ -34,6 +42,8 @@ class MemristorLearningRule:
 class mHopfieldHebbian( MemristorLearningRule ):
     def __init__( self, learning_rate=1e-6, dt=0.001, beta=1.0 ):
         super().__init__( learning_rate, dt )
+        
+        self.rule_name = "mHopfieldHebbian"
         
         self.alpha = self.learning_rate * self.dt
         self.has_learning_signal = True
@@ -66,9 +76,10 @@ class mOja( MemristorLearningRule ):
     def __init__( self, learning_rate=1e-6, dt=0.001, beta=1.0 ):
         super().__init__( learning_rate, dt )
         
+        self.rule_name = "mOja"
+        
         self.alpha = self.learning_rate * self.dt
         self.beta = beta
-        self.has_learning_signal = False
     
     def __call__( self, t, x ):
         input_activities = x[ :self.input_size ]
@@ -98,8 +109,9 @@ class mBCM( MemristorLearningRule ):
     def __init__( self, learning_rate=1e-9, dt=0.001 ):
         super().__init__( learning_rate, dt )
         
+        self.rule_name = "mBCM"
+        
         self.alpha = self.learning_rate * self.dt
-        self.has_learning_signal = False
     
     def __call__( self, t, x ):
         
@@ -130,9 +142,12 @@ class mPES( MemristorLearningRule ):
     def __init__( self, encoders, learning_rate=1e-5, dt=0.001 ):
         super().__init__( learning_rate, dt )
         
+        self.rule_name = "mPES"
+        
         self.encoders = encoders
         # TODO mettere a True?
-        self.has_learning_signal = False
+        self.has_learning_signal = True
+        self.has_error_signal = True
         
         # TODO can I remove the inverse method from pulse?
     
