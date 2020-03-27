@@ -156,6 +156,7 @@ class mPES( MemristorLearningRule ):
         # squash error to zero under a certain threshold or learning rule keeps running indefinitely
         error = x[ self.input_size: ] if abs( x[ self.input_size: ] ) > 10**-5 else 0
         alpha = self.learning_rate * self.dt / self.input_size
+        
         self.last_error = error
         
         # we are adjusting weights so calculate local error
