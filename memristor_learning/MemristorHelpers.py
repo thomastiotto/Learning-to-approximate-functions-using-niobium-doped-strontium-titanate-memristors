@@ -1,4 +1,6 @@
 import numpy as np
+import matplotlib.pyplot as plt
+import nengo
 
 
 def sparsity_measure( vector ):  # Gini index
@@ -19,6 +21,13 @@ def mse( sim, x, y, learning_time, simulation_step ):
     ).mean()
 
 
+def plot_tuning_curves( ens, sim ):
+    plt.plot( *nengo.utils.ensemble.tuning_curves( ens, sim ) )
+    plt.xlabel( "Input" )
+    plt.ylabel( "Firing rate [Hz]" )
+    plt.show()
+
+
 def plot_network( model ):
     from nengo_extras import graphviz
     
@@ -30,7 +39,6 @@ def plot_network( model ):
 
 
 def plot_ensemble( sim, ens, time=None ):
-    import matplotlib.pyplot as plt
     plt.plot( sim.trange(), sim.data[ ens ], c="b", label="Ensemble" )
     if time:
         plt.axvline( x=time, c="k" )

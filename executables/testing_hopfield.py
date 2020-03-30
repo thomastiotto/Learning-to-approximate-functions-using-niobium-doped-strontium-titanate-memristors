@@ -7,13 +7,13 @@ from memristor_learning.MemristorLearningRules import mHopfieldHebbian
 # hyperparameters
 neurons = 3
 dimensionality = 3
-simulation_time = 30.0
-learning_time = 15.0
+simulation_time = 10.0
+learning_time = 5.0
 simulation_step = 0.001
 
 with nengo.Network() as model:
     inp = nengo.Node(
-            lambda t, x: [ 1, 1, 0 ] if t < learning_time else [ 0, 0, 0 ],
+            lambda t, x: [ 1, 1, 0 ] if t < learning_time else np.random.randint( 2, size=neurons ),
             size_in=1
             )
     learning_switch = nengo.Node(
@@ -60,7 +60,7 @@ with nengo.Network() as model:
     
     # nm.plot_network( model )
 
-with nengo.Simulator( model, dt=simulation_step, optimize=True ) as sim:
+"""with nengo.Simulator( model, dt=simulation_step, optimize=True ) as sim:
     sim.run( simulation_time )
 
 plot_ensemble_spikes( sim, "Pre", pre_spikes_probe, pre_probe )
@@ -71,6 +71,16 @@ if neurons <= 10:
     for t in range( 0, int( learning_time + 1 ), 1 ):
         memr_arr.plot_weight_matrix( time=t )
 
+# plot_tuning_curves( pre, sim )
+
 # print( "Mean squared error:", mse( sim, inp_probe, post_probe, learning_time, simulation_step ) )
 print( f"Starting sparsity: {sparsity_measure( memr_arr.get_history( 'weight' )[ 0 ] )}" )
 print( f"Ending sparsity: {sparsity_measure( memr_arr.get_history( 'weight' )[ -1 ] )}" )
+print( "Pattern(s) learned" )
+print( sim.data[ inp_probe ][ 0 ] )
+print( "Pattern(s) for test" )
+print( sim.data[ inp_probe ][ -1 ] )
+print( "Final Ensemble Value" )
+print( sim.data[ pre_probe ][ -1 ] )"""
+
+memr_arr.memristors[ 0, 0 ].mem_plus.plot_memristor_curve()

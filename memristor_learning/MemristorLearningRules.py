@@ -40,7 +40,7 @@ class MemristorLearningRule:
 
 
 class mHopfieldHebbian( MemristorLearningRule ):
-    def __init__( self, learning_rate=1e-6, dt=0.001, beta=1.0 ):
+    def __init__( self, learning_rate=1e-6, dt=0.001 ):
         super().__init__( learning_rate, dt )
         
         self.rule_name = "mHopfieldHebbian"
@@ -67,6 +67,8 @@ class mHopfieldHebbian( MemristorLearningRule ):
                                                                           value="conductance",
                                                                           method="same"
                                                                           )
+        # set diagonal to zero
+        np.fill_diagonal( self.weights, 0. )
         
         # calculate the output at this timestep
         return np.dot( self.weights, input_activities )

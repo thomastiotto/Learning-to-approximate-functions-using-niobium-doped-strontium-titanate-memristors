@@ -122,3 +122,58 @@ class MemristorAnouk( Memristor ):
         self.r_curr = self.r_min + self.r_max * (((self.r_curr - self.r_min) / self.r_max)**(1 / c) + 1)**c
         
         return self.r_curr
+    
+    def plot_memristor_curve( self, V=1, threshold=100000 ):
+        import matplotlib.pyplot as plt
+        from math import fabs, floor
+        
+        c = self.a + self.b * V
+        
+        x = [ ]
+        y = [ ]
+        n = 0
+        step = 1
+        r_curr = self.r_max
+        while r_curr >= self.r_min + threshold:
+            r_pre = r_curr
+            n += step
+            r_curr = self.r_min + self.r_max * n**c
+            r_diff = fabs( r_curr - r_pre )
+            step += floor( 1 / r_diff )
+            
+            x.append( n )
+            y.append( r_curr )
+        
+        def expand_interpolate( oldx, oldy ):
+            from scipy.interpolate import interp1d
+            
+            try:
+                if oldx[ 1 ] - oldx[ 0 ] <= 1:
+                    return oldx[ 1 ] - oldx[ 0 ], None, None
+                
+                expanded_interval = np.arange( oldx[ 0 ], oldx[ 1 ] + 1 )
+                f = interp1d( oldx, oldy )
+                
+                return oldx[ 1 ] - oldx[ 0 ], expanded_interval[ 1:-1 ], f( expanded_interval[ 1:-1 ] )
+            except IndexError:
+                return oldx[ 0 ], None, None
+        
+        c = 0
+        
+        from tqdm import tqdm
+        with tqdm( total=x[ -1 ] ) as pbar:
+            while c < len( x ):
+                int_length, newx, newy = expand_interpolate( x[ c:c + 2 ], y[ c:c + 2 ] )
+                if newx is not None:
+                    for cc, (xx, yy) in enumerate( zip( newx, newy ) ):
+                        x.insert( c + cc + 1, xx )
+                        y.insert( c + cc + 1, yy )
+                c += int_length
+                pbar.update( int_length )
+        
+        plt.plot( x, y )
+        plt.yscale( 'log' )
+        plt.xlabel( "Pulses (n)" )
+        plt.ylabel( "Resistance (R)" )
+        plt.grid( alpha=.4, linestyle='--' )
+        plt.show()
