@@ -83,4 +83,4 @@ print( sim.data[ inp_probe ][ -1 ] )
 print( "Final Ensemble Value" )
 print( sim.data[ pre_probe ][ -1 ] )"""
 
-memr_arr.memristors[ 0, 0 ].mem_plus.plot_memristor_curve()
+memr_arr.memristors[ 0, 0 ].mem_plus.plot_memristor_curve_exhaustive()

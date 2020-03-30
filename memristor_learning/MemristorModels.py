@@ -123,7 +123,41 @@ class MemristorAnouk( Memristor ):
         
         return self.r_curr
     
-    def plot_memristor_curve( self, V=1, threshold=100000 ):
+    def plot_memristor_curve_exhaustive( self, V=1, threshold=1000, step=10 ):
+        import matplotlib.pyplot as plt
+        import sys, time
+        
+        c = self.a + self.b * V
+        
+        x = [ ]
+        y = [ ]
+        n = 1
+        r_curr = self.r_max
+        it = 1
+        
+        start_time = time.time()
+        while r_curr >= self.r_min + threshold:
+            x.append( n )
+            y.append( r_curr )
+            
+            n += step
+            it += 1
+            r_curr = self.r_min + self.r_max * n**c
+            sys.stdout.write( f"\rIteration {it}: "
+                              f"resistance {self.r_max}/{round( r_curr, 2 )}/{self.r_min} + {threshold} threshold"
+                              f", step {step}" )
+            sys.stdout.flush()
+        end_time = time.time()
+        print( f"\n{round( end_time - start_time, 2 )} seconds elapsed" )
+        
+        plt.plot( x, y )
+        plt.yscale( 'log' )
+        plt.xlabel( "Pulses (n)" )
+        plt.ylabel( "Resistance (R)" )
+        plt.grid( alpha=.4, linestyle='--' )
+        plt.show()
+    
+    def plot_memristor_curve_interpolate( self, V=1, threshold=1000 ):
         import matplotlib.pyplot as plt
         from math import fabs, floor
         
@@ -134,7 +168,9 @@ class MemristorAnouk( Memristor ):
         n = 0
         step = 1
         r_curr = self.r_max
-        while r_curr >= self.r_min + threshold:
+        
+        from tqdm import tqdm
+        with tqdm( total=self.r_max - (self.r_min + threshold) ) as pbar:
             r_pre = r_curr
             n += step
             r_curr = self.r_min + self.r_max * n**c
@@ -143,6 +179,8 @@ class MemristorAnouk( Memristor ):
             
             x.append( n )
             y.append( r_curr )
+            
+            pbar.update( n )
         
         def expand_interpolate( oldx, oldy ):
             from scipy.interpolate import interp1d
@@ -160,7 +198,6 @@ class MemristorAnouk( Memristor ):
         
         c = 0
         
-        from tqdm import tqdm
         with tqdm( total=x[ -1 ] ) as pbar:
             while c < len( x ):
                 int_length, newx, newy = expand_interpolate( x[ c:c + 2 ], y[ c:c + 2 ] )
