@@ -1,15 +1,15 @@
 import nengo
 from memristor_learning.MemristorHelpers import *
 from memristor_learning.MemristorControllers import MemristorArray
-from memristor_learning.MemristorModels import MemristorAnoukPair
+from memristor_learning.MemristorModels import MemristorAnoukPair, MemristorAnoukBidirectional
 from memristor_learning.MemristorLearningRules import mPES
 
 # hyperparameters
-neurons = 10
+neurons = 4
 simulation_time = 30.0
 learning_time = 15.0
 simulation_step = 0.001
-function_to_learn = lambda x: np.abs( x )
+function_to_learn = lambda x: x
 input_period = 4.0
 input_frequency = 1 / input_period
 pre_nrn = neurons
@@ -55,7 +55,7 @@ with nengo.Network() as model:
     
     # TODO get encoders at runtime
     memr_arr = MemristorArray(
-            model=MemristorAnoukPair,
+            model=MemristorAnoukBidirectional,
             learning_rule=mPES( post.encoders ),  # sim.data[ens].encoders
             in_size=pre_nrn,
             out_size=post_nrn

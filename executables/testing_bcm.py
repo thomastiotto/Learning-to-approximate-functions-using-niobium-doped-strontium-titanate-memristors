@@ -18,7 +18,7 @@ neurons = 10
 simulation_time = 30.0
 learning_time = 15.0
 simulation_step = 0.001
-function_to_learn = lambda x: x
+function_to_learn = lambda x: np.abs( x )
 input_period = 4.0
 input_frequency = 1 / input_period
 pre_nrn = neurons
@@ -69,7 +69,7 @@ with nengo.Network() as model:
             )
     
     nengo.Connection( inp, pre, synapse=None )
-    nengo.Connection( inp, gate_inp_to_post, synapse=None )
+    nengo.Connection( inp, gate_inp_to_post, function=function_to_learn, synapse=None )
     nengo.Connection( gate_inp_to_post, post, synapse=None )
     
     nengo.Connection( pre.neurons, learn[ :pre_nrn ], synapse=0.005 )

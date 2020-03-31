@@ -6,11 +6,17 @@ class MemristorPair:
         self.mem_plus = None
         self.mem_minus = None
     
-    def pulse( self, adj, value, method, scaled=True ):
-        raise NotImplementedError
+    def pulse( self, V ):
+        # TODO grade voltage based on signal coming from LearningRule, for now fixed at 1e-1
+        if V > 0:
+            self.mem_plus.pulse()
+        if V < 0:
+            self.mem_minus.pulse()
+        
+        return self.mem_plus.get_state() - self.mem_minus.get_state()
     
-    def get_state( self, value, scaled ):
-        return (self.mem_plus.get_state( value, scaled ) - self.mem_minus.get_state( value, scaled ))
+    def get_state( self, value="conductance", scaled=True ):
+        return self.mem_plus.get_state( value, scaled ) - self.mem_minus.get_state( value, scaled )
     
     def save_state( self ):
         self.mem_plus.save_state()
@@ -40,25 +46,10 @@ class MemristorAnoukPair( MemristorPair ):
         # instantiate memristor pair
         self.mem_plus = MemristorAnouk()
         self.mem_minus = MemristorAnouk()
-    
-    def pulse( self, adj, value, method, scaled=True ):
-        if method == "same":
-            if adj > 0:
-                self.mem_plus.pulse()
-            if adj < 0:
-                self.mem_minus.pulse()
-        if method == "inverse":
-            if adj < 0:
-                self.mem_plus.pulse()
-            if adj > 0:
-                self.mem_minus.pulse()
-        
-        return self.mem_plus.get_state( value, scaled ) - self.mem_minus.get_state( value, scaled )
 
 
 class Memristor:
     def __init__( self ):
-        self.n = 0
         # save resistance history for later analysis
         self.history = [ ]
         
@@ -70,9 +61,9 @@ class Memristor:
     def pulse( self, V=1e-1 ):
         
         pulse_number = self.compute_pulse_number( self.r_curr, V )
-        self.r_curr = self.compute_resistance( pulse_number, V )
+        self.r_curr = self.compute_resistance( pulse_number + 1, V )
         
-        return self.r_curr
+        return self.get_state()
     
     def compute_pulse_number( self, R, V ):
         raise NotImplementedError
@@ -103,7 +94,7 @@ class Memristor:
     def save_state( self ):
         self.history.append( self.r_curr )
     
-    def plot_state( self, value, i, j, range, ax, c ):
+    def plot_state( self, value, i, j, range, ax, c, combined=False ):
         if value == "resistance":
             tmp = self.history
         if value == "conductance":
@@ -135,16 +126,16 @@ class Memristor:
             x.append( n )
             y.append( r_curr )
             
+            r_curr = self.compute_resistance( n, V )
+            sys.stdout.write( f"\rIteration {it}"
+                              f", time {round( time.time() - start_time, 2 )}:"
+                              f" resistance {self.r_min}/{round( r_curr, 2 )}/{self.r_max}"
+                              f", threshold {threshold}"
+                              f", step {step}" )
             n += step
             it += 1
-            r_curr = self.pulse( V, writeback=False )
-            sys.stdout.write( f"\rIteration {it}: "
-                              f"resistance {self.r_min}/{round( r_curr, 2 )}/{self.r_max}"
-                              f" threshold {threshold}"
-                              f", step {step}" )
             sys.stdout.flush()
-        end_time = time.time()
-        print( f"\n{round( end_time - start_time, 2 )} seconds elapsed" )
+        print( f"\n{round( time.time() - start_time, 2 )} seconds elapsed" )
         
         plt.plot( x, y )
         plt.yscale( 'log' )
@@ -173,7 +164,7 @@ class Memristor:
         with tqdm( total=self.r_max - (self.r_min + threshold) ) as pbar:
             r_pre = r_curr
             n += step
-            r_curr = self.pulse( V, n, writeback=False )
+            r_curr = self.compute_resistance( n, V )
             r_diff = fabs( r_curr - r_pre )
             step += floor( 1 / r_diff )
             
@@ -234,7 +225,7 @@ class MemristorAnouk( Memristor ):
         return self.r_min + self.r_max * n**(self.a + self.b * V)
     
     def compute_pulse_number( self, R, V ):
-        return ((R - self.r_min) / self.r_max)**(1 / (self.a + self.b * V)) + 1
+        return ((R - self.r_min) / self.r_max)**(1 / (self.a + self.b * V))
 
 
 class MemristorAnoukBidirectional( Memristor ):
@@ -259,6 +250,6 @@ class MemristorAnoukBidirectional( Memristor ):
     
     def compute_pulse_number( self, R, V ):
         if V >= 0:
-            ((R - self.r_min) / self.r_max)**(1 / (self.a + self.b * V)) + 1
+            return round( ((R - self.r_min) / self.r_max)**(1 / (self.a + self.b * V)) + 1, 1 )
         else:
-            ((self.r_max - R) / (self.r_max - self.r_min))**(1 / (self.a + self.b * (-V / 4))) + 1
+            return round( ((self.r_max - R) / (self.r_max - self.r_min))**(1 / (self.a + self.b * (-V / 4))), 1 )

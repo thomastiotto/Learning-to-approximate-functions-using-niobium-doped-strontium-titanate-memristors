@@ -57,16 +57,10 @@ class mHopfieldHebbian( MemristorLearningRule ):
             for j, i in np.transpose( np.where( spiked_map ) ):
                 # ignore diagonal
                 if i != j:
-                    self.weights[ j, i ] = self.memristors[ j, i ].pulse( spiked_map[ j, i ],
-                                                                          value="conductance",
-                                                                          method="same"
-                                                                          )
+                    self.weights[ j, i ] = self.memristors[ j, i ].pulse( spiked_map[ j, i ] )
                     # symmetric update
                     # could also route memristor [j,i] to weight [i,j] like in the paper
-                    self.weights[ i, j ] = self.memristors[ i, j ].pulse( spiked_map[ i, j ],
-                                                                          value="conductance",
-                                                                          method="same"
-                                                                          )
+                    self.weights[ i, j ] = self.memristors[ i, j ].pulse( spiked_map[ i, j ] )
         # set diagonal to zero
         np.fill_diagonal( self.weights, 0. )
         
@@ -98,10 +92,7 @@ class mOja( MemristorLearningRule ):
         # we only need to update the weights for the neurons that spiked so we filter
         if spiked_map.any():
             for j, i in np.transpose( np.where( spiked_map ) ):
-                self.weights[ j, i ] = self.memristors[ j, i ].pulse( update_direction[ j, i ],
-                                                                      value="conductance",
-                                                                      method="same"
-                                                                      )
+                self.weights[ j, i ] = self.memristors[ j, i ].pulse( update_direction[ j, i ] )
         
         # calculate the output at this timestep
         return np.dot( self.weights, input_activities )
@@ -131,10 +122,7 @@ class mBCM( MemristorLearningRule ):
         # we only need to update the weights for the neurons that spiked so we filter
         if spiked_map.any():
             for j, i in np.transpose( np.where( spiked_map ) ):
-                self.weights[ j, i ] = self.memristors[ j, i ].pulse( update_direction[ j ],
-                                                                      value="conductance",
-                                                                      method="same"
-                                                                      )
+                self.weights[ j, i ] = self.memristors[ j, i ].pulse( update_direction[ j ] )
         
         # calculate the output at this timestep
         return np.dot( self.weights, input_activities )
@@ -147,17 +135,16 @@ class mPES( MemristorLearningRule ):
         self.rule_name = "mPES"
         
         self.encoders = encoders
-        # TODO mettere a True?
+        
         self.has_learning_signal = True
         self.has_error_signal = True
-        
-        # TODO can I remove the inverse method from pulse?
     
     def __call__( self, t, x ):
         input_activities = x[ :self.input_size ]
         # squash error to zero under a certain threshold or learning rule keeps running indefinitely
         error = x[ self.input_size: ] if abs( x[ self.input_size: ] ) > 10**-5 else 0
-        alpha = self.learning_rate * self.dt / self.input_size
+        # note the negative sign, for a positive error we want decrement the output
+        alpha = -self.learning_rate * self.dt / self.input_size
         
         self.last_error = error
         
@@ -170,10 +157,7 @@ class mPES( MemristorLearningRule ):
         # we only need to update the weights for the neurons that spiked so we filter for their columns
         if spiked_map.any():
             for j, i in np.transpose( np.where( spiked_map ) ):
-                self.weights[ j, i ] = self.memristors[ j, i ].pulse( local_error[ j ],
-                                                                      value="conductance",
-                                                                      method="inverse"
-                                                                      )
+                self.weights[ j, i ] = self.memristors[ j, i ].pulse( local_error[ j ] )
         
         # calculate the output at this timestep
         return np.dot( self.weights, input_activities )

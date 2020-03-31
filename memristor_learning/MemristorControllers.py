@@ -47,7 +47,6 @@ class MemristorController:
         if combined:
             fig, axes = plt.subplots( self.output_size, self.input_size )
         plt.xlabel( "Post neurons on rows\nPre neurons on columns" )
-        plt.ylabel( "Post neurons on columns" )
         # fig.suptitle( "Memristor " + value, fontsize=16 )
         colour = iter( cm.rainbow( np.linspace( 0, 1, self.memristors.size ) ) )
         for i in range( self.memristors.shape[ 0 ] ):
@@ -107,7 +106,7 @@ class MemristorArray( MemristorController ):
         for i in range( self.output_size ):
             for j in range( self.input_size ):
                 self.memristors[ i, j ] = self.memristor_model()
-                self.weights[ i, j ] = self.memristors[ i, j ].get_state( value="conductance", scaled=True )
+                self.weights[ i, j ] = self.memristors[ i, j ].get_state()
         
         self.learning_rule.weights = self.weights
         self.learning_rule.memristors = self.memristors
