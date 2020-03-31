@@ -66,7 +66,18 @@ class Memristor:
         self.r_max = None
         self.r_min = None
     
-    def pulse( self, V ):
+    # pulse the memristor with a tension
+    def pulse( self, V=1e-1 ):
+        
+        pulse_number = self.compute_pulse_number( self.r_curr, V )
+        self.r_curr = self.compute_resistance( pulse_number, V )
+        
+        return self.r_curr
+    
+    def compute_pulse_number( self, R, V ):
+        raise NotImplementedError
+    
+    def compute_resistance( self, n, V ):
         raise NotImplementedError
     
     def get_state( self, value="conductance", scaled=True, gain=10**4 ):
@@ -100,51 +111,36 @@ class Memristor:
         
         ax.plot( range, tmp, c=c )
         ax.annotate( "(" + str( i ), xy=(10, 10) )
-
-
-class MemristorAnouk( Memristor ):
-    def __init__( self, r0=100, r1=2.5 * 10**8, a=-0.128, b=-0.522 ):
-        super().__init__()
-        # set parameters of device
-        self.r_min = r0
-        self.r_max = r1
-        self.a = a
-        self.b = b
-        
-        # Weight initialisation
-        import random
-        self.r_curr = random.uniform( 10**8, 2.5 * 10**8 )
-        # self.r_curr = self.r_max
-    
-    # pulse the memristor with a tension
-    def pulse( self, V=1e-1 ):
-        c = self.a + self.b * V
-        self.r_curr = self.r_min + self.r_max * (((self.r_curr - self.r_min) / self.r_max)**(1 / c) + 1)**c
-        
-        return self.r_curr
     
     def plot_memristor_curve_exhaustive( self, V=1, threshold=1000, step=10 ):
         import matplotlib.pyplot as plt
         import sys, time
         
-        c = self.a + self.b * V
-        
         x = [ ]
         y = [ ]
         n = 1
-        r_curr = self.r_max
         it = 1
+        r_curr = self.r_max if V >= 0 else self.r_min
+        
+        def thresh():
+            if V >= 0 and r_curr >= self.r_min + threshold:
+                return True
+            elif V < 0 and r_curr <= self.r_max - threshold:
+                return True
+            else:
+                return False
         
         start_time = time.time()
-        while r_curr >= self.r_min + threshold:
+        while thresh():
             x.append( n )
             y.append( r_curr )
             
             n += step
             it += 1
-            r_curr = self.r_min + self.r_max * n**c
+            r_curr = self.pulse( V, writeback=False )
             sys.stdout.write( f"\rIteration {it}: "
-                              f"resistance {self.r_max}/{round( r_curr, 2 )}/{self.r_min} + {threshold} threshold"
+                              f"resistance {self.r_min}/{round( r_curr, 2 )}/{self.r_max}"
+                              f" threshold {threshold}"
                               f", step {step}" )
             sys.stdout.flush()
         end_time = time.time()
@@ -156,6 +152,10 @@ class MemristorAnouk( Memristor ):
         plt.ylabel( "Resistance (R)" )
         plt.grid( alpha=.4, linestyle='--' )
         plt.show()
+        
+        import pickle
+        with open( "../data/memristor_curve.pkl", "wb" ) as f:
+            pickle.dump( zip( x, y ), f )
     
     def plot_memristor_curve_interpolate( self, V=1, threshold=1000 ):
         import matplotlib.pyplot as plt
@@ -173,7 +173,7 @@ class MemristorAnouk( Memristor ):
         with tqdm( total=self.r_max - (self.r_min + threshold) ) as pbar:
             r_pre = r_curr
             n += step
-            r_curr = self.r_min + self.r_max * n**c
+            r_curr = self.pulse( V, n, writeback=False )
             r_diff = fabs( r_curr - r_pre )
             step += floor( 1 / r_diff )
             
@@ -214,3 +214,51 @@ class MemristorAnouk( Memristor ):
         plt.ylabel( "Resistance (R)" )
         plt.grid( alpha=.4, linestyle='--' )
         plt.show()
+
+
+class MemristorAnouk( Memristor ):
+    def __init__( self, r0=100, r1=2.5 * 10**8, a=-0.128, b=-0.522 ):
+        super().__init__()
+        # set parameters of device
+        self.r_min = r0
+        self.r_max = r1
+        self.a = a
+        self.b = b
+        
+        # Weight initialisation
+        import random
+        self.r_curr = random.uniform( 10**8, 2.5 * 10**8 )
+        # self.r_curr = self.r_max
+    
+    def compute_resistance( self, n, V ):
+        return self.r_min + self.r_max * n**(self.a + self.b * V)
+    
+    def compute_pulse_number( self, R, V ):
+        return ((R - self.r_min) / self.r_max)**(1 / (self.a + self.b * V)) + 1
+
+
+class MemristorAnoukBidirectional( Memristor ):
+    def __init__( self, r0=100, r1=2.5 * 10**8, a=-0.128, b=-0.522 ):
+        super().__init__()
+        # set parameters of device
+        self.r_min = r0
+        self.r_max = r1
+        self.a = a
+        self.b = b
+        
+        # Weight initialisation
+        import random
+        self.r_curr = random.uniform( 10**8, 2.5 * 10**8 )
+        # self.r_curr = self.r_max
+    
+    def compute_resistance( self, n, V ):
+        if V >= 0:
+            return self.r_min + self.r_max * n**(self.a + self.b * V)
+        else:
+            return self.r_max + self.r_min - (self.r_max + self.r_min) * n**(self.a + self.b * (-V / 4))
+    
+    def compute_pulse_number( self, R, V ):
+        if V >= 0:
+            ((R - self.r_min) / self.r_max)**(1 / (self.a + self.b * V)) + 1
+        else:
+            ((self.r_max - R) / (self.r_max - self.r_min))**(1 / (self.a + self.b * (-V / 4))) + 1

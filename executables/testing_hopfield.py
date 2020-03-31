@@ -60,7 +60,7 @@ with nengo.Network() as model:
     
     # nm.plot_network( model )
 
-"""with nengo.Simulator( model, dt=simulation_step, optimize=True ) as sim:
+with nengo.Simulator( model, dt=simulation_step, optimize=True ) as sim:
     sim.run( simulation_time )
 
 plot_ensemble_spikes( sim, "Pre", pre_spikes_probe, pre_probe )
@@ -81,6 +81,4 @@ print( sim.data[ inp_probe ][ 0 ] )
 print( "Pattern(s) for test" )
 print( sim.data[ inp_probe ][ -1 ] )
 print( "Final Ensemble Value" )
-print( sim.data[ pre_probe ][ -1 ] )"""
-
-memr_arr.memristors[ 0, 0 ].mem_plus.plot_memristor_curve_exhaustive()
+print( sim.data[ pre_probe ][ -1 ] )
