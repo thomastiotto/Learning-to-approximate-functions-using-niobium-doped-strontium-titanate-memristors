@@ -53,10 +53,10 @@ with nengo.Network() as model:
             label="Error"
             )
     
-    # TODO get encoders at runtime
+    # TODO get encoders at runtime as sim.data[ens].encoders
     memr_arr = MemristorArray(
             model=MemristorAnoukBidirectional,
-            learning_rule=mPES( post.encoders ),  # sim.data[ens].encoders
+            learning_rule=mPES( post.encoders ),
             in_size=pre_nrn,
             out_size=post_nrn
             )

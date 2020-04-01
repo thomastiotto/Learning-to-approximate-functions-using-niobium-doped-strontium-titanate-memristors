@@ -3,6 +3,28 @@ import matplotlib.pyplot as plt
 import nengo
 
 
+def expand_interpolate( oldx, oldy, step=1, include_start=False, include_end=False ):
+    from scipy.interpolate import interp1d
+    
+    start = 1
+    end = -1
+    if include_start:
+        start = 0
+    if include_end:
+        end = None
+    
+    try:
+        if oldx[ 1 ] - oldx[ 0 ] <= 1:
+            return oldx[ 1 ] - oldx[ 0 ], None, None
+        
+        expanded_interval = np.arange( oldx[ 0 ], oldx[ 1 ] + 1, step=step )
+        f = interp1d( oldx, oldy )
+        
+        return oldx[ 1 ] - oldx[ 0 ], expanded_interval[ start:end ], f( expanded_interval[ start:end ] )
+    except IndexError:
+        return oldx[ 0 ], None, None
+
+
 def sparsity_measure( vector ):  # Gini index
     # Max sparsity = 1 (single 1 in the vector)
     v = np.sort( np.abs( vector ) )
