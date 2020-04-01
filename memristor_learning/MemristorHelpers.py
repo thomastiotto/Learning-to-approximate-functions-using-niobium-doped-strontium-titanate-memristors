@@ -33,7 +33,7 @@ def sparsity_measure( vector ):  # Gini index
     l1norm = np.sum( v )
     summation = np.sum( (v / l1norm) * ((n - k + 0.5) / n) )
     
-    return 1 - 2 * summation
+    return 1 - 2 * summation if not np.isnan( summation ) else 0
 
 
 def mse( sim, x, y, learning_time, simulation_step ):

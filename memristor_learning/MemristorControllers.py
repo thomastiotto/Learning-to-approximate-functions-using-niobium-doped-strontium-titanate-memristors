@@ -4,7 +4,7 @@ from memristor_learning.MemristorModels import *
 
 
 class MemristorController:
-    def __init__( self, model, learning_rule, in_size, out_size, dt=0.001, logging=True ):
+    def __init__( self, model, learning_rule, in_size, out_size, dt=0.001, logging=True, seed=None ):
         self.memristor_model = model
         
         self.input_size = in_size
@@ -24,6 +24,8 @@ class MemristorController:
         self.logging = logging
         self.weight_history = [ ]
         self.error_history = [ ]
+        
+        self.seed = seed
     
     def get_components( self ):
         return self.memristors.flatten()
@@ -95,17 +97,17 @@ class MemristorController:
 
 
 class MemristorArray( MemristorController ):
-    def __init__( self, model, learning_rule, in_size, out_size ):
-        super().__init__( model, learning_rule, in_size, out_size )
+    def __init__( self, model, learning_rule, in_size, out_size, seed=None ):
+        super().__init__( model, learning_rule, in_size, out_size, seed=seed )
         
         # to hold future weights
         self.weights = np.zeros( (self.output_size, self.input_size), dtype=np.float )
         
         # create memristor array that implement the weights
-        self.memristors = np.empty( (self.output_size, self.input_size), dtype=MemristorAnouk )
+        self.memristors = np.empty( (self.output_size, self.input_size), dtype=Memristor )
         for i in range( self.output_size ):
             for j in range( self.input_size ):
-                self.memristors[ i, j ] = self.memristor_model()
+                self.memristors[ i, j ] = self.memristor_model( seed=self.seed )
                 self.weights[ i, j ] = self.memristors[ i, j ].get_state()
         
         self.learning_rule.weights = self.weights

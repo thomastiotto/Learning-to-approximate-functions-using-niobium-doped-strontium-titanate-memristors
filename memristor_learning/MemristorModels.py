@@ -2,9 +2,11 @@ import numpy as np
 
 
 class MemristorPair:
-    def __init__( self ):
+    def __init__( self, seed ):
         self.mem_plus = None
         self.mem_minus = None
+        
+        self.seed = seed
     
     def pulse( self, V ):
         # TODO grade voltage based on signal coming from LearningRule, for now fixed at 1e-1
@@ -41,21 +43,29 @@ class MemristorPair:
 
 
 class MemristorAnoukPair( MemristorPair ):
-    def __init__( self ):
-        super().__init__()
+    def __init__( self, seed=None ):
+        super().__init__( seed=seed )
         # instantiate memristor pair
-        self.mem_plus = MemristorAnouk()
-        self.mem_minus = MemristorAnouk()
+        self.mem_plus = MemristorAnouk( seed=self.seed )
+        self.mem_minus = MemristorAnouk( seed=self.seed )
 
 
 class Memristor:
-    def __init__( self ):
+    def __init__( self, seed=None ):
         # save resistance history for later analysis
         self.history = [ ]
         
         self.r_curr = None
         self.r_max = None
         self.r_min = None
+        
+        self.seed = seed
+        
+        # Weight initialisation
+        import random
+        random.seed( self.seed )
+        self.r_curr = random.uniform( 10**8, 2.5 * 10**8 )
+        # self.r_curr = self.r_max
     
     # pulse the memristor with a tension
     def pulse( self, V=1e-1 ):
@@ -213,18 +223,13 @@ class Memristor:
 
 
 class MemristorAnouk( Memristor ):
-    def __init__( self, r0=100, r1=2.5 * 10**8, a=-0.128, b=-0.522 ):
-        super().__init__()
+    def __init__( self, r0=100, r1=2.5 * 10**8, a=-0.128, b=-0.522, seed=None ):
+        super().__init__( seed=seed )
         # set parameters of device
         self.r_min = r0
         self.r_max = r1
         self.a = a
         self.b = b
-        
-        # Weight initialisation
-        import random
-        self.r_curr = random.uniform( 10**8, 2.5 * 10**8 )
-        # self.r_curr = self.r_max
     
     def compute_pulse_number( self, R, V ):
         return int( round( ((R - self.r_min) / self.r_max)**(1 / (self.a + self.b * V)), 0 ) )
@@ -234,18 +239,13 @@ class MemristorAnouk( Memristor ):
 
 
 class MemristorAnoukBidirectional( Memristor ):
-    def __init__( self, r0=100, r1=2.5 * 10**8, a=-0.128, b=-0.522 ):
-        super().__init__()
+    def __init__( self, r0=100, r1=2.5 * 10**8, a=-0.128, b=-0.522, seed=None ):
+        super().__init__( seed=seed )
         # set parameters of device
         self.r_min = r0
         self.r_max = r1
         self.a = a
         self.b = b
-        
-        # Weight initialisation
-        import random
-        self.r_curr = random.uniform( 10**8, 2.5 * 10**8 )
-        # self.r_curr = self.r_max
     
     def compute_pulse_number( self, R, V ):
         if V >= 0:

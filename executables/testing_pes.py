@@ -15,6 +15,7 @@ input_frequency = 1 / input_period
 pre_nrn = neurons
 post_nrn = neurons
 err_nrn = neurons
+seed = 0
 
 with nengo.Network() as model:
     inp = nengo.Node(
@@ -39,26 +40,30 @@ with nengo.Network() as model:
             n_neurons=pre_nrn,
             dimensions=1,
             encoders=generate_encoders( pre_nrn ),
-            label="Pre"
+            label="Pre",
+            seed=seed
             )
     post = nengo.Ensemble(
             n_neurons=post_nrn,
             dimensions=1,
             encoders=generate_encoders( post_nrn ),
-            label="Post"
+            label="Post",
+            seed=seed
             )
     error = nengo.Ensemble(
             n_neurons=err_nrn,
             dimensions=1,
-            label="Error"
+            label="Error",
+            seed=seed
             )
     
     # TODO get encoders at runtime as sim.data[ens].encoders
     memr_arr = MemristorArray(
-            model=MemristorAnoukBidirectional,
+            model=MemristorAnoukPair,
             learning_rule=mPES( post.encoders ),
             in_size=pre_nrn,
-            out_size=post_nrn
+            out_size=post_nrn,
+            seed=seed
             )
     learn = nengo.Node(
             output=memr_arr,
