@@ -24,6 +24,7 @@ class MemristorController:
         self.logging = logging
         self.weight_history = [ ]
         self.error_history = [ ]
+        self.conductance_history = [ ]
         
         self.seed = seed
     
@@ -35,7 +36,7 @@ class MemristorController:
             for i in range( self.input_size ):
                 self.memristors[ j, i ].save_state()
     
-    def plot_state( self, sim, value, err_probe=None, combined=False, time=None ):
+    def plot_state( self, sim, value, err_probe=None, combined=False, time=None, ylim=None ):
         import datetime
         import matplotlib.pyplot as plt
         from matplotlib.pyplot import cm
@@ -49,6 +50,8 @@ class MemristorController:
         if combined:
             fig, axes = plt.subplots( self.output_size, self.input_size )
         plt.xlabel( "Post neurons on rows\nPre neurons on columns" )
+        if ylim is not None:
+            plt.setp( axes, ylim=ylim )
         # fig.suptitle( "Memristor " + value, fontsize=16 )
         colour = iter( cm.rainbow( np.linspace( 0, 1, self.memristors.size ) ) )
         for i in range( self.memristors.shape[ 0 ] ):
@@ -89,11 +92,24 @@ class MemristorController:
         plt.title( "Weights at t=" + str( time ) )
         plt.show()
     
+    def get_stats( self, time, select ):
+        data = self.get_history( select )
+        data_at_time = data[ int( time[ 0 ] / self.dt ):int( time[ 1 ] / self.dt ) ]
+        
+        stats = { }
+        stats[ "max" ] = np.amax( data_at_time )
+        stats[ "min" ] = np.amin( data_at_time )
+        stats[ "mean" ] = np.mean( data_at_time )
+        
+        return stats
+    
     def get_history( self, select ):
         if select == "weight":
             return self.weight_history
         if select == "error":
             return self.error_history
+        if select == "conductance":
+            return self.conductance_history
 
 
 class MemristorArray( MemristorController ):
@@ -107,7 +123,7 @@ class MemristorArray( MemristorController ):
         self.memristors = np.empty( (self.output_size, self.input_size), dtype=Memristor )
         for i in range( self.output_size ):
             for j in range( self.input_size ):
-                self.memristors[ i, j ] = self.memristor_model( seed=self.seed )
+                self.memristors[ i, j ] = self.memristor_model( seed=seed )
                 self.weights[ i, j ] = self.memristors[ i, j ].get_state()
         
         self.learning_rule.weights = self.weights
@@ -132,7 +148,13 @@ class MemristorArray( MemristorController ):
                 self.error_history.append( self.learning_rule.get_error_signal() )
             except:
                 pass
-            self.save_state()
             self.weight_history.append( self.weights.copy() )
+            self.save_state()
+            conductances = np.zeros( (self.output_size, self.input_size), dtype=np.float )
+            for i in range( self.output_size ):
+                for j in range( self.input_size ):
+                    conductances[ j, i ] = self.memristors[ j, i ].get_state( value="conductance", scaled=False,
+                                                                              gain=1 )
+            self.conductance_history.append( conductances )
         
         return ret

@@ -1,8 +1,10 @@
 import nengo
 from memristor_learning.MemristorHelpers import *
 from memristor_learning.MemristorControllers import MemristorArray
-from memristor_learning.MemristorModels import MemristorAnoukPair, MemristorAnoukBidirectional
+from memristor_learning.MemristorModels import MemristorPair, MemristorAnouk, MemristorAnoukBidirectional
 from memristor_learning.MemristorLearningRules import mPES
+
+from functools import partial
 
 # hyperparameters
 neurons = 4
@@ -59,7 +61,8 @@ with nengo.Network() as model:
     
     # TODO get encoders at runtime as sim.data[ens].encoders
     memr_arr = MemristorArray(
-            model=MemristorAnoukPair,
+            # model=partial( MemristorPair, model=MemristorAnouk ),
+            model=partial( MemristorAnoukBidirectional ),
             learning_rule=mPES( post.encoders ),
             in_size=pre_nrn,
             out_size=post_nrn,
@@ -95,7 +98,11 @@ plot_ensemble_spikes( sim, "Pre", pre_spikes_probe, pre_probe )
 plot_ensemble_spikes( sim, "Post", post_spikes_probe, post_probe )
 plot_pre_post( sim, pre_probe, post_probe, inp_probe, memr_arr.get_history( "error" ), time=learning_time )
 if neurons <= 10:
-    memr_arr.plot_state( sim, "conductance", combined=True )
+    stats = memr_arr.get_stats( time=(0, learning_time), select="conductance" )
+    memr_arr.plot_state( sim, "conductance", combined=True,
+                         # ylim=(0, stats[ "max" ])
+                         ylim=(0, 2e-8)  # upper limit found by looking at the max for bidirectional memristor
+                         )
     for t in range( 0, int( learning_time + 1 ), 1 ):
         memr_arr.plot_weight_matrix( time=t )
 

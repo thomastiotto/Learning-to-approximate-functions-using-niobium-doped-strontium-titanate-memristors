@@ -2,9 +2,9 @@ import numpy as np
 
 
 class MemristorPair:
-    def __init__( self, seed ):
-        self.mem_plus = None
-        self.mem_minus = None
+    def __init__( self, model, seed=None ):
+        self.mem_plus = model()
+        self.mem_minus = model()
         
         self.seed = seed
     
@@ -17,12 +17,12 @@ class MemristorPair:
         
         return self.mem_plus.get_state() - self.mem_minus.get_state()
     
-    def get_state( self, value="conductance", scaled=True ):
-        return self.mem_plus.get_state( value, scaled ) - self.mem_minus.get_state( value, scaled )
+    def get_state( self, value="conductance", scaled=True, gain=10**4 ):
+        return self.mem_plus.get_state( value, scaled, gain ) - self.mem_minus.get_state( value, scaled, gain )
     
     def save_state( self ):
-        self.mem_plus.save_state()
-        self.mem_minus.save_state()
+        history_plus = self.mem_plus.save_state()
+        history_minus = self.mem_minus.save_state()
     
     def plot_state( self, value, i, j, range, ax, c, combined=False ):
         if value == "resistance":
@@ -40,14 +40,6 @@ class MemristorPair:
             ax.set_title( str( j + 1 ) + "->" + str( i + 1 ) )
             # ax.label_outer()
             # ax.set_yticklabels( [ ] )
-
-
-class MemristorAnoukPair( MemristorPair ):
-    def __init__( self, seed=None ):
-        super().__init__( seed=seed )
-        # instantiate memristor pair
-        self.mem_plus = MemristorAnouk( seed=self.seed )
-        self.mem_minus = MemristorAnouk( seed=self.seed )
 
 
 class Memristor:
@@ -91,7 +83,7 @@ class Memristor:
             if scaled:
                 ret_val = ((g_curr - g_min) / (g_max - g_min)) + epsilon
             else:
-                ret_val = g_curr + epsilon
+                ret_val = g_curr
         
         if value == "resistance":
             if scaled:
@@ -111,7 +103,7 @@ class Memristor:
             tmp = np.divide( 1.0, self.history )
         
         ax.plot( range, tmp, c=c )
-        ax.annotate( "(" + str( i ), xy=(10, 10) )
+        # ax.annotate( "(" + str( i ), xy=(10, 10) )
     
     def plot_memristor_curve_exhaustive( self, V=1, threshold=1000, step=10, interpolate_after_threshold=True ):
         import matplotlib.pyplot as plt
@@ -151,11 +143,11 @@ class Memristor:
         if interpolate_after_threshold:
             start_time = time.time()
             x_limit = self.r_min + threshold if V >= 0 else self.r_max - threshold
-            
+            y_limit = self.r_min if V >= 0 else self.r_max
             # subdivide remaining range into blocks of equal step size
             oldx = np.array( [ x[ -1 ], x[ -1 ] + round( x_limit / step, 1 ) ] )
             # interpolate from last real value to the theoretical maximum
-            oldy = np.array( [ y[ -1 ], self.r_max ] )
+            oldy = np.array( [ y[ -1 ], y_limit ] )
             int_length, newx, newy = expand_interpolate( oldx, oldy, step=step, include_end=True )
             
             x = np.array( x )
@@ -166,7 +158,7 @@ class Memristor:
             print( f"\n{round( time.time() - start_time, 2 )} seconds elapsed for interpolation step" )
         
         plt.plot( x, y )
-        plt.yscale( 'log' )
+        # plt.yscale( 'log' )
         plt.xlabel( "Pulses (n)" )
         plt.ylabel( "Resistance (R)" )
         plt.grid( alpha=.4, linestyle='--' )
@@ -175,6 +167,8 @@ class Memristor:
         import pickle
         with open( "../data/memristor_curve.pkl", "wb" ) as f:
             pickle.dump( zip( x, y ), f )
+        
+        return x, y
     
     def plot_memristor_curve_interpolate( self, V=1, threshold=1000 ):
         import matplotlib.pyplot as plt
@@ -239,22 +233,24 @@ class MemristorAnouk( Memristor ):
 
 
 class MemristorAnoukBidirectional( Memristor ):
-    def __init__( self, r0=100, r1=2.5 * 10**8, a=-0.128, b=-0.522, seed=None ):
+    def __init__( self, r0=100, r1=2.5 * 10**8, a=-0.128, b=-0.522, c=-0.128, d=-0.522, seed=None ):
         super().__init__( seed=seed )
         # set parameters of device
         self.r_min = r0
         self.r_max = r1
         self.a = a
         self.b = b
+        self.c = c
+        self.d = d
     
     def compute_pulse_number( self, R, V ):
         if V >= 0:
             return int( round( ((R - self.r_min) / self.r_max)**(1 / (self.a + self.b * V)), 0 ) )
         else:
-            return int( round( ((R - self.r_max) / (self.r_min - self.r_max))**(1 / (self.a + self.b * (-V / 4))), 0 ) )
+            return int( round( (1 - ((R - self.r_min) / self.r_max))**(1 / (self.a + self.b * -V)), 0 ) )
     
     def compute_resistance( self, n, V ):
         if V >= 0:
             return self.r_min + self.r_max * n**(self.a + self.b * V)
         else:
-            return self.r_max - (self.r_max - self.r_min) * n**(self.a + self.b * (-V / 4))
+            return self.r_min + self.r_max * (1 - n**(self.c + self.d * -V))
