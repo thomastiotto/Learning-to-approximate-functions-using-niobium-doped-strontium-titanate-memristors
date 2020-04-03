@@ -36,19 +36,18 @@ class MemristorController:
             for i in range( self.input_size ):
                 self.memristors[ j, i ].save_state()
     
-    def plot_state( self, sim, value, err_probe=None, combined=False, time=None, ylim=None ):
+    def plot_state( self, sim, value, err_probe=None, combined=False, time=None, figsize=None, ylim=None ):
         import datetime
         import matplotlib.pyplot as plt
         from matplotlib.pyplot import cm
         from nengo.utils.matplotlib import rasterplot
         
         # plot memristor resistance and error
-        plt.figure()
         # plt.suptitle( datetime.datetime.now().strftime( '%H:%M:%S %d-%m-%Y' ) )
         if not combined:
-            fig, axes = plt.subplots()
+            fig, axes = plt.subplots( figsize=figsize )
         if combined:
-            fig, axes = plt.subplots( self.output_size, self.input_size )
+            fig, axes = plt.subplots( self.output_size, self.input_size, figsize=figsize )
         plt.xlabel( "Post neurons on rows\nPre neurons on columns" )
         if ylim is not None:
             plt.setp( axes, ylim=ylim )

@@ -99,9 +99,12 @@ plot_ensemble_spikes( sim, "Post", post_spikes_probe, post_probe )
 plot_pre_post( sim, pre_probe, post_probe, inp_probe, memr_arr.get_history( "error" ), time=learning_time )
 if neurons <= 10:
     stats = memr_arr.get_stats( time=(0, learning_time), select="conductance" )
-    memr_arr.plot_state( sim, "conductance", combined=True,
+    memr_arr.plot_state( sim,
+                         "conductance",
+                         combined=True,
+                         figsize=(40, 20),
                          # ylim=(0, stats[ "max" ])
-                         ylim=(0, 2e-8)  # upper limit found by looking at the max for bidirectional memristor
+                         ylim=(0, 2e-8)  # upper limit found by looking at the max obtained with memristor pair
                          )
     for t in range( 0, int( learning_time + 1 ), 1 ):
         memr_arr.plot_weight_matrix( time=t )
