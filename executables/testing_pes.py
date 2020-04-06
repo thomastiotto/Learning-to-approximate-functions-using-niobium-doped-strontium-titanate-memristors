@@ -17,7 +17,7 @@ input_frequency = 1 / input_period
 pre_nrn = neurons
 post_nrn = neurons
 err_nrn = neurons
-seed = 0
+seed = None
 
 with nengo.Network() as model:
     inp = nengo.Node(
@@ -63,7 +63,7 @@ with nengo.Network() as model:
     memr_arr = MemristorArray(
             # model=partial( MemristorPair, model=MemristorAnouk ),
             model=partial( MemristorAnoukBidirectional ),
-            learning_rule=mPES( post.encoders ),
+            learning_rule=mPES( encoders=post.encoders ),
             in_size=pre_nrn,
             out_size=post_nrn,
             seed=seed
@@ -94,6 +94,7 @@ with nengo.Network() as model:
 with nengo.Simulator( model, dt=simulation_step ) as sim:
     sim.run( simulation_time )
 
+# plot_ensemble( sim, inp_probe )
 plot_ensemble_spikes( sim, "Pre", pre_spikes_probe, pre_probe )
 plot_ensemble_spikes( sim, "Post", post_spikes_probe, post_probe )
 plot_pre_post( sim, pre_probe, post_probe, inp_probe, memr_arr.get_history( "error" ), time=learning_time )
@@ -102,9 +103,9 @@ if neurons <= 10:
     memr_arr.plot_state( sim,
                          "conductance",
                          combined=True,
-                         figsize=(40, 20),
+                         # figsize=(40, 20),
                          # ylim=(0, stats[ "max" ])
-                         ylim=(0, 2e-8)  # upper limit found by looking at the max obtained with memristor pair
+                         ylim=(0, 2.2e-8)  # upper limit found by looking at the max obtained with memristor pair
                          )
     for t in range( 0, int( learning_time + 1 ), 1 ):
         memr_arr.plot_weight_matrix( time=t )

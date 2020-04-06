@@ -4,7 +4,8 @@ from memristor_learning.MemristorModels import *
 
 
 class MemristorController:
-    def __init__( self, model, learning_rule, in_size, out_size, dt=0.001, logging=True, seed=None ):
+    def __init__( self, model, learning_rule, in_size, out_size,
+                  dt=0.001, logging=True, seed=None, voltage_converter=lambda x: x ):
         self.memristor_model = model
         
         self.input_size = in_size
@@ -19,6 +20,7 @@ class MemristorController:
         self.learning_rule.input_size = in_size
         self.learning_rule.output_size = out_size
         self.learning_rule.logging = logging
+        self.voltage_converter = voltage_converter
         
         # save for analysis
         self.logging = logging
@@ -51,6 +53,7 @@ class MemristorController:
         plt.xlabel( "Post neurons on rows\nPre neurons on columns" )
         if ylim is not None:
             plt.setp( axes, ylim=ylim )
+        
         # fig.suptitle( "Memristor " + value, fontsize=16 )
         colour = iter( cm.rainbow( np.linspace( 0, 1, self.memristors.size ) ) )
         for i in range( self.memristors.shape[ 0 ] ):
@@ -122,7 +125,7 @@ class MemristorArray( MemristorController ):
         self.memristors = np.empty( (self.output_size, self.input_size), dtype=Memristor )
         for i in range( self.output_size ):
             for j in range( self.input_size ):
-                self.memristors[ i, j ] = self.memristor_model( seed=seed )
+                self.memristors[ i, j ] = self.memristor_model( seed=seed, voltage_converter=self.voltage_converter )
                 self.weights[ i, j ] = self.memristors[ i, j ].get_state()
         
         self.learning_rule.weights = self.weights

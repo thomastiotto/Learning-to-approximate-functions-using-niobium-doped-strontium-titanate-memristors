@@ -129,12 +129,13 @@ class mBCM( MemristorLearningRule ):
 
 
 class mPES( MemristorLearningRule ):
-    def __init__( self, encoders, learning_rate=1e-5, dt=0.001 ):
+    def __init__( self, encoders, learning_rate=1e-5, dt=0.001, error_threshold=1e-6 ):
         super().__init__( learning_rate, dt )
         
         self.rule_name = "mPES"
         
         self.encoders = encoders
+        self.error_threshold = error_threshold
         
         self.has_learning_signal = True
         self.has_error_signal = True
@@ -142,8 +143,9 @@ class mPES( MemristorLearningRule ):
     def __call__( self, t, x ):
         input_activities = x[ :self.input_size ]
         # squash error to zero under a certain threshold or learning rule keeps running indefinitely
-        error = x[ self.input_size: ] if abs( x[ self.input_size: ] ) > 10**-5 else [ 0 ]
-        # note the negative sign, for a positive error we want decrement the output
+        error = x[ self.input_size: ] if abs( x[ self.input_size: ] ) > self.error_threshold else [ 0 ]
+        # error = x[ self.input_size: ]
+        # note the negative sign, for a positive error we want to decrement the output
         alpha = -self.learning_rate * self.dt / self.input_size
         
         self.last_error = error

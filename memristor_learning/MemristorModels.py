@@ -2,9 +2,9 @@ import numpy as np
 
 
 class MemristorPair:
-    def __init__( self, model, seed=None ):
-        self.mem_plus = model()
-        self.mem_minus = model()
+    def __init__( self, model, seed=None, voltage_converter=None ):
+        self.mem_plus = model( seed=seed, voltage_converter=voltage_converter )
+        self.mem_minus = model( seed=seed, voltage_converter=voltage_converter )
         
         self.seed = seed
     
@@ -43,7 +43,7 @@ class MemristorPair:
 
 
 class Memristor:
-    def __init__( self, seed=None ):
+    def __init__( self, seed=None, voltage_converter=None ):
         # save resistance history for later analysis
         self.history = [ ]
         
@@ -52,6 +52,7 @@ class Memristor:
         self.r_min = None
         
         self.seed = seed
+        self.voltage_converter = voltage_converter
         
         # Weight initialisation
         import random
@@ -62,8 +63,10 @@ class Memristor:
     # pulse the memristor with a tension
     def pulse( self, V=1e-1 ):
         
-        pulse_number = self.compute_pulse_number( self.r_curr, V )
-        self.r_curr = self.compute_resistance( pulse_number + 1, V )
+        V_conv = self.voltage_converter( V )
+        
+        pulse_number = self.compute_pulse_number( self.r_curr, V_conv )
+        self.r_curr = self.compute_resistance( pulse_number + 1, V_conv )
         
         return self.get_state()
     
@@ -217,8 +220,8 @@ class Memristor:
 
 
 class MemristorAnouk( Memristor ):
-    def __init__( self, r0=100, r1=2.5 * 10**8, a=-0.128, b=-0.522, seed=None ):
-        super().__init__( seed=seed )
+    def __init__( self, r0=100, r1=2.5 * 10**8, a=-0.128, b=-0.522, seed=None, voltage_converter=None ):
+        super().__init__( seed=seed, voltage_converter=voltage_converter )
         # set parameters of device
         self.r_min = r0
         self.r_max = r1
@@ -233,8 +236,9 @@ class MemristorAnouk( Memristor ):
 
 
 class MemristorAnoukBidirectional( Memristor ):
-    def __init__( self, r0=100, r1=2.5 * 10**8, a=-0.128, b=-0.522, c=-0.128, d=-0.522, seed=None ):
-        super().__init__( seed=seed )
+    def __init__( self, r0=100, r1=2.5 * 10**8, a=-0.128, b=-0.522, c=-0.128, d=-0.522, seed=None,
+                  voltage_converter=None ):
+        super().__init__( seed=seed, voltage_converter=voltage_converter )
         # set parameters of device
         self.r_min = r0
         self.r_max = r1
