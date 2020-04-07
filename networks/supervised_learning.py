@@ -1,5 +1,6 @@
 import argparse
 from functools import partial
+import pickle
 import nengo
 from memristor_learning.MemristorHelpers import *
 from memristor_learning.MemristorControllers import *
@@ -7,11 +8,19 @@ from memristor_learning.MemristorLearningRules import *
 from memristor_learning.MemristorModels import *
 
 parser = argparse.ArgumentParser( description="Test voltage converters" )
-# parser.add_argument( "memristor_array", type=MemristorControllers, default=MemristorControllers.MemristorArray,
-#                      help="the memristor controller model" )
+parser.add_argument( "--memristor_array", type=bytes,
+                     default=pickle.dumps( partial( MemristorPair, model=MemristorAnouk, base_voltage=1e-10 ) ),
+                     help="the memristor controller model [pass complete object, ex. partial( MemristorPair, "
+                          "model=MemristorAnouk, base_voltage=1e-10 ) ]" )
+parser.add_argument( "--learning_rule", type=bytes, default=pickle.dumps( mPES ),
+                     help="the learning rule" )
+parser.add_argument( "--voltage_converter", type=bytes, default=pickle.dumps( VoltageConverter ),
+                     help="the voltage converter" )
 
 parser.add_argument( "--neurons", metavar="N", type=int, default=4,
                      help="the number of neurons in the ensembles" )
+parser.add_argument( "--base_voltage", metavar="v", type=int, default=1e-1,
+                     help="the unit voltage used to pulse the memristors" )
 parser.add_argument( "--simulation_time", metavar="T", type=int, default=30,
                      help="the total time to run the simulation for" )
 parser.add_argument( "--learning_time", metavar="L", type=int, default=15,
@@ -22,15 +31,18 @@ parser.add_argument( "--function", metavar="F", default="lambda x: x",
                      help="the function to learn" )
 parser.add_argument( "--input_period", metavar="p", type=float, default=4.0,
                      help="the period of the input sine wave" )
-parser.add_argument( "--seed", metavar="s", type=int, default=None,
+parser.add_argument( "--seed", metavar="s", type=int, default=0,
                      help="the seed to use to initialise the model" )
 args = parser.parse_args()
 
 # models
-# memristor_controller = eval( args.memristor_array )
+memristor_controller = pickle.loads( args.memristor_array )
+learning_rule = pickle.loads( args.learning_rule )
+voltage_converter = pickle.loads( args.voltage_converter )
 
 # hyperparameters
 neurons = args.neurons
+base_voltage = args.base_voltage
 simulation_time = args.simulation_time
 learning_time = args.learning_time
 simulation_step = args.simulation_step
@@ -40,7 +52,14 @@ input_frequency = 1 / input_period
 pre_nrn = neurons
 post_nrn = neurons
 err_nrn = neurons
-seed = None
+seed = args.seed
+
+print( f"Neurons: {neurons}" )
+print( f"Base voltage: {base_voltage}" )
+print( f"Simulation time: {simulation_time}" )
+print( f"Simulation step: {simulation_step}" )
+print( f"Function to learn: {function_to_learn}" )
+print( f"Seed: {seed}" )
 
 with nengo.Network() as model:
     inp = nengo.Node(
@@ -76,13 +95,13 @@ with nengo.Network() as model:
     
     # TODO get encoders at runtime as sim.data[ens].encoders
     memr_arr = MemristorArray(
-            model=partial( MemristorPair, model=MemristorAnouk, base_voltage=1e-1 ),
+            model=memristor_controller,
             # model=partial( MemristorAnoukBidirectional, base_voltage=1e-1 ),
-            learning_rule=mPES( encoders=post.encoders ),
+            learning_rule=learning_rule( encoders=post.encoders ),
             in_size=pre_nrn,
             out_size=post_nrn,
             seed=seed,
-            voltage_converter=VoltageConverter()
+            voltage_converter=voltage_converter()
             )
     learn = nengo.Node(
             output=memr_arr,
