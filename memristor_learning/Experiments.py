@@ -1,13 +1,10 @@
-from functools import partial
-import pickle
-import nengo
 from memristor_learning.MemristorHelpers import *
 from memristor_learning.MemristorControllers import *
 from memristor_learning.MemristorLearningRules import *
 from memristor_learning.MemristorModels import *
 
 
-class Network():
+class SupervisedLearning():
     def __init__( self,
                   memristor_controller,
                   memristor_model,
@@ -118,23 +115,24 @@ class Network():
                 sim.run( self.simulation_time )
             
             # plot_ensemble( sim, inp_probe )
-            plot_ensemble_spikes( sim, "Pre", pre_spikes_probe, pre_probe )
-            plot_ensemble_spikes( sim, "Post", post_spikes_probe, post_probe )
+            # plot_ensemble_spikes( sim, "Pre", pre_spikes_probe, pre_probe )
+            # plot_ensemble_spikes( sim, "Post", post_spikes_probe, post_probe )
             plot_pre_post( sim, pre_probe, post_probe, inp_probe, memr_arr.get_history( "error" ),
                            time=self.learning_time )
             if self.neurons <= 10:
                 stats = memr_arr.get_stats( time=(0, self.learning_time), select="conductance" )
-            memr_arr.plot_state( sim,
-                                 "conductance",
-                                 combined=True,
-                                 # figsize=(40, 20),
-                                 # ylim=(0, stats[ "max" ])
-                                 ylim=(0, 2.2e-8)
-                                 # upper limit found by looking at the max obtained with memristor pair
-                                 )
-            for t in range( 0, int( self.learning_time + 1 ), 1 ):
+                memr_arr.plot_state( sim,
+                                     "conductance",
+                                     combined=True,
+                                     figsize=(15, 10),
+                                     # ylim=(0, stats[ "max" ])
+                                     ylim=(0, 2.2e-8)
+                                     # upper limit found by looking at the max obtained with memristor pair
+                                     )
+            for t in range( 0, int( self.learning_time + 1 ), 5 ):
                 memr_arr.plot_weight_matrix( time=t )
             
             print( "Mean squared error:", mse( sim, inp_probe, post_probe, self.learning_time, self.simulation_step ) )
             print( f"Starting sparsity: {sparsity_measure( memr_arr.get_history( 'weight' )[ 0 ] )}" )
             print( f"Ending sparsity: {sparsity_measure( memr_arr.get_history( 'weight' )[ -1 ] )}" )
+            print()
