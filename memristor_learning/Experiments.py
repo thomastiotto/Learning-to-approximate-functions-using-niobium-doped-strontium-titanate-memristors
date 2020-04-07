@@ -86,7 +86,8 @@ class SupervisedLearning():
                     in_size=self.pre_nrn,
                     out_size=self.post_nrn,
                     seed=self.seed,
-                    voltage_converter=self.voltage_converter()
+                    voltage_converter=self.voltage_converter(),
+                    base_voltage=self.base_voltage
                     )
             learn = nengo.Node(
                     output=memr_arr,

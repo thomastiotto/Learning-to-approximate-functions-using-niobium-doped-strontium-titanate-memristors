@@ -34,7 +34,7 @@ class LevelsVoltageConverter( VoltageConverter ):
 
 class MemristorController:
     def __init__( self, model, learning_rule, in_size, out_size,
-                  dt=0.001, logging=True, seed=None, voltage_converter=lambda x: x ):
+                  dt=0.001, logging=True, seed=None, voltage_converter=lambda x: x, base_voltage=1e-1 ):
         self.memristor_model = model
         
         self.input_size = in_size
@@ -45,6 +45,7 @@ class MemristorController:
         self.weights = None
         self.memristors = None
         self.voltage_converter = voltage_converter
+        self.base_voltage = base_voltage
         
         self.learning_rule = learning_rule
         self.learning_rule.input_size = in_size
@@ -144,8 +145,10 @@ class MemristorController:
 
 
 class MemristorArray( MemristorController ):
-    def __init__( self, model, learning_rule, in_size, out_size, seed=None, voltage_converter=lambda x: x ):
-        super().__init__( model, learning_rule, in_size, out_size, seed=seed, voltage_converter=voltage_converter )
+    def __init__( self, model, learning_rule, in_size, out_size, seed=None, voltage_converter=lambda x: x,
+                  base_voltage=1e-1 ):
+        super().__init__( model, learning_rule, in_size, out_size, seed=seed, voltage_converter=voltage_converter,
+                          base_voltage=base_voltage )
         
         # to hold future weights
         self.weights = np.zeros( (self.output_size, self.input_size), dtype=np.float )
@@ -154,7 +157,8 @@ class MemristorArray( MemristorController ):
         self.memristors = np.empty( (self.output_size, self.input_size), dtype=Memristor )
         for i in range( self.output_size ):
             for j in range( self.input_size ):
-                self.memristors[ i, j ] = self.memristor_model( seed=seed, voltage_converter=self.voltage_converter )
+                self.memristors[ i, j ] = self.memristor_model( seed=seed, voltage_converter=self.voltage_converter,
+                                                                base_voltage=self.base_voltage )
                 self.weights[ i, j ] = self.memristors[ i, j ].get_state()
         
         self.learning_rule.weights = self.weights
