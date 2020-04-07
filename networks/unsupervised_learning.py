@@ -1,46 +1,27 @@
-import argparse
-from functools import partial
 import nengo
 from memristor_learning.MemristorHelpers import *
-from memristor_learning.MemristorControllers import *
-from memristor_learning.MemristorLearningRules import *
-from memristor_learning.MemristorModels import *
+from memristor_learning.MemristorControllers import MemristorArray
+from memristor_learning.MemristorModels import MemristorAnoukPair
+from memristor_learning.MemristorLearningRules import mBCM
 
-parser = argparse.ArgumentParser( description="Test voltage converters" )
-# parser.add_argument( "memristor_array", type=MemristorControllers, default=MemristorControllers.MemristorArray,
-#                      help="the memristor controller model" )
 
-parser.add_argument( "--neurons", metavar="N", type=int, default=4,
-                     help="the number of neurons in the ensembles" )
-parser.add_argument( "--simulation_time", metavar="T", type=int, default=30,
-                     help="the total time to run the simulation for" )
-parser.add_argument( "--learning_time", metavar="L", type=int, default=15,
-                     help="the time learn for" )
-parser.add_argument( "--simulation_step", metavar="s", type=float, default=0.001,
-                     help="the Nengo stepsize for the simulation" )
-parser.add_argument( "--function", metavar="F", default="lambda x: x",
-                     help="the function to learn" )
-parser.add_argument( "--input_period", metavar="p", type=float, default=4.0,
-                     help="the period of the input sine wave" )
-parser.add_argument( "--seed", metavar="s", type=int, default=None,
-                     help="the seed to use to initialise the model" )
-args = parser.parse_args()
+def generate_encoders( n_neurons ):
+    if n_neurons % 2 == 0:
+        return [ [ -1 ] ] * int( (n_neurons / 2) ) + [ [ 1 ] ] * int( (n_neurons / 2) )
+    else:
+        return [ [ -1 ] ] * int( (n_neurons / 2) ) + [ [ 1 ] ] + [ [ 1 ] ] * int( (n_neurons / 2) )
 
-# models
-# memristor_controller = eval( args.memristor_array )
 
 # hyperparameters
-neurons = args.neurons
-simulation_time = args.simulation_time
-learning_time = args.learning_time
-simulation_step = args.simulation_step
-function_to_learn = eval( args.function )
-input_period = args.input_period
+neurons = 10
+simulation_time = 30.0
+learning_time = 15.0
+simulation_step = 0.001
+function_to_learn = lambda x: x
+input_period = 4.0
 input_frequency = 1 / input_period
 pre_nrn = neurons
 post_nrn = neurons
-err_nrn = neurons
-seed = args.seed
 
 with nengo.Network() as model:
     inp = nengo.Node( lambda t: np.sin( input_frequency * 2 * np.pi * t ) )
@@ -59,7 +40,7 @@ with nengo.Network() as model:
             label="Post"
             )
     memr_arr = MemristorArray(
-            model=partial( MemristorPair, model=MemristorAnouk ),
+            model=MemristorAnoukPair,
             learning_rule=mBCM(),
             in_size=pre_nrn,
             out_size=post_nrn
