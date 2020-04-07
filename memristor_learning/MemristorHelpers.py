@@ -3,6 +3,13 @@ import matplotlib.pyplot as plt
 import nengo
 
 
+def generate_encoders( n_neurons ):
+    if n_neurons % 2 == 0:
+        return [ [ -1 ] ] * int( (n_neurons / 2) ) + [ [ 1 ] ] * int( (n_neurons / 2) )
+    else:
+        return [ [ -1 ] ] * int( (n_neurons / 2) ) + [ [ 1 ] ] + [ [ 1 ] ] * int( (n_neurons / 2) )
+
+
 def expand_interpolate( oldx, oldy, step=1, include_start=False, include_end=False ):
     from scipy.interpolate import interp1d
     

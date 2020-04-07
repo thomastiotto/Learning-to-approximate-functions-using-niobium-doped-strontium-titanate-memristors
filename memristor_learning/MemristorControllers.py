@@ -1,6 +1,35 @@
+from memristor_learning.MemristorModels import *
 import numpy as np
 
-from memristor_learning.MemristorModels import *
+
+class VoltageConverter:
+    def __init__( self, levels=1 ):
+        self.levels = levels
+    
+    def __call__( self, signal ):
+        return 1
+
+
+class LevelsVoltageConverter( VoltageConverter ):
+    def __init__( self, levels=10 ):
+        super().__init__( levels=levels )
+        
+        self.smallest_seen = 0
+        self.largest_seen = 0
+    
+    def __call__( self, signal ):
+        # update extremes of the range at each call
+        if signal < self.smallest_seen:
+            self.smallest_seen = signal
+        if signal > self.largest_seen:
+            self.largest_seen = signal
+        
+        # calculate array containining the ranges
+        steps = np.linspace( self.smallest_seen, self.largest_seen, num=self.levels )
+        # return index+1=number of steps for this signal
+        num_steps = np.searchsorted( steps, signal, side="right" )
+        
+        return num_steps
 
 
 class MemristorController:
@@ -15,12 +44,12 @@ class MemristorController:
         
         self.weights = None
         self.memristors = None
+        self.voltage_converter = voltage_converter
         
         self.learning_rule = learning_rule
         self.learning_rule.input_size = in_size
         self.learning_rule.output_size = out_size
         self.learning_rule.logging = logging
-        self.voltage_converter = voltage_converter
         
         # save for analysis
         self.logging = logging
@@ -115,8 +144,8 @@ class MemristorController:
 
 
 class MemristorArray( MemristorController ):
-    def __init__( self, model, learning_rule, in_size, out_size, seed=None ):
-        super().__init__( model, learning_rule, in_size, out_size, seed=seed )
+    def __init__( self, model, learning_rule, in_size, out_size, seed=None, voltage_converter=lambda x: x ):
+        super().__init__( model, learning_rule, in_size, out_size, seed=seed, voltage_converter=voltage_converter )
         
         # to hold future weights
         self.weights = np.zeros( (self.output_size, self.input_size), dtype=np.float )

@@ -8,12 +8,12 @@ class MemristorPair:
         
         self.seed = seed
     
-    def pulse( self, V ):
+    def pulse( self, signal ):
         # TODO grade voltage based on signal coming from LearningRule, for now fixed at 1e-1
-        if V > 0:
-            self.mem_plus.pulse()
-        if V < 0:
-            self.mem_minus.pulse()
+        if signal > 0:
+            self.mem_plus.pulse( signal )
+        if signal < 0:
+            self.mem_minus.pulse( signal )
         
         return self.mem_plus.get_state() - self.mem_minus.get_state()
     
@@ -58,15 +58,17 @@ class Memristor:
         import random
         random.seed( self.seed )
         self.r_curr = random.uniform( 10**8, 2.5 * 10**8 )
-        # self.r_curr = self.r_max
     
     # pulse the memristor with a tension
-    def pulse( self, V=1e-1 ):
+    def pulse( self, signal ):
+        base_voltage = 1e-10
         
-        V_conv = self.voltage_converter( V )
+        V = np.sign( signal ) * base_voltage
+        num_steps = self.voltage_converter( signal )
         
-        pulse_number = self.compute_pulse_number( self.r_curr, V_conv )
-        self.r_curr = self.compute_resistance( pulse_number + 1, V_conv )
+        for _ in range( num_steps ):
+            pulse_number = self.compute_pulse_number( self.r_curr, V )
+            self.r_curr = self.compute_resistance( pulse_number + 1, V )
         
         return self.get_state()
     
