@@ -2,9 +2,9 @@ import numpy as np
 
 
 class MemristorPair:
-    def __init__( self, model, seed=None, voltage_converter=None ):
-        self.mem_plus = model( seed=seed, voltage_converter=voltage_converter )
-        self.mem_minus = model( seed=seed, voltage_converter=voltage_converter )
+    def __init__( self, model, seed=None, voltage_converter=None, base_voltage=1e-1 ):
+        self.mem_plus = model( seed=seed, voltage_converter=voltage_converter, base_voltage=base_voltage )
+        self.mem_minus = model( seed=seed, voltage_converter=voltage_converter, base_voltage=base_voltage )
         
         self.seed = seed
     
@@ -13,7 +13,7 @@ class MemristorPair:
         if signal > 0:
             self.mem_plus.pulse( signal )
         if signal < 0:
-            self.mem_minus.pulse( signal )
+            self.mem_minus.pulse( -signal )
         
         return self.mem_plus.get_state() - self.mem_minus.get_state()
     
@@ -43,7 +43,7 @@ class MemristorPair:
 
 
 class Memristor:
-    def __init__( self, seed=None, voltage_converter=None ):
+    def __init__( self, seed=None, voltage_converter=None, base_voltage=1e-1 ):
         # save resistance history for later analysis
         self.history = [ ]
         
@@ -53,6 +53,7 @@ class Memristor:
         
         self.seed = seed
         self.voltage_converter = voltage_converter
+        self.base_voltage = base_voltage
         
         # Weight initialisation
         import random
@@ -61,9 +62,7 @@ class Memristor:
     
     # pulse the memristor with a tension
     def pulse( self, signal ):
-        base_voltage = 1e-10
-        
-        V = np.sign( signal ) * base_voltage
+        V = np.sign( signal ) * self.base_voltage
         num_steps = self.voltage_converter( signal )
         
         for _ in range( num_steps ):
@@ -222,8 +221,9 @@ class Memristor:
 
 
 class MemristorAnouk( Memristor ):
-    def __init__( self, r0=100, r1=2.5 * 10**8, a=-0.128, b=-0.522, seed=None, voltage_converter=None ):
-        super().__init__( seed=seed, voltage_converter=voltage_converter )
+    def __init__( self, r0=100, r1=2.5 * 10**8, a=-0.128, b=-0.522, seed=None, voltage_converter=None,
+                  base_voltage=1e-1 ):
+        super().__init__( seed=seed, voltage_converter=voltage_converter, base_voltage=base_voltage )
         # set parameters of device
         self.r_min = r0
         self.r_max = r1
@@ -239,8 +239,8 @@ class MemristorAnouk( Memristor ):
 
 class MemristorAnoukBidirectional( Memristor ):
     def __init__( self, r0=100, r1=2.5 * 10**8, a=-0.128, b=-0.522, c=-0.128, d=-0.522, seed=None,
-                  voltage_converter=None ):
-        super().__init__( seed=seed, voltage_converter=voltage_converter )
+                  voltage_converter=None, base_voltage=1e-1 ):
+        super().__init__( seed=seed, voltage_converter=voltage_converter, base_voltage=base_voltage )
         # set parameters of device
         self.r_min = r0
         self.r_max = r1
