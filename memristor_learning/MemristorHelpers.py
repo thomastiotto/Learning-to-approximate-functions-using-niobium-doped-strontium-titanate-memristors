@@ -2,10 +2,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import nengo
 
-mapping_dictionary = {
-        
-        }
-
 
 def generate_encoders( n_neurons ):
     if n_neurons % 2 == 0:

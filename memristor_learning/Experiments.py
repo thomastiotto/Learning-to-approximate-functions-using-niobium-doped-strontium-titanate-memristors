@@ -16,8 +16,8 @@ class SupervisedLearning():
                   learning_time=15.0,
                   simulation_step=0.001,
                   function_to_learn=lambda x: x,
-                  seed=None ):
-        
+                  seed=None,
+                  weights_to_plot=None ):
         self.memristor_controller = memristor_controller
         self.memristor_model = memristor_model
         self.learning_rule = learning_rule
@@ -37,6 +37,9 @@ class SupervisedLearning():
         self.post_nrn = neurons
         self.err_nrn = neurons
         
+        self.weights_to_plot = range( 0, int( self.learning_time + 1 ), 1 ) if weights_to_plot is None \
+            else weights_to_plot
+        
         print( f"Neurons: {neurons}" )
         print( f"Base voltage: {base_voltage}" )
         print( f"Simulation time: {simulation_time}" )
@@ -46,7 +49,6 @@ class SupervisedLearning():
         print( f"Seed: {seed}" )
     
     def __call__( self, ):
-        
         with nengo.Network() as model:
             inp = nengo.Node(
                     output=lambda t: np.sin( self.input_frequency * 2 * np.pi * t ),
@@ -130,9 +132,10 @@ class SupervisedLearning():
                                      ylim=(0, 2.2e-8)
                                      # upper limit found by looking at the max obtained with memristor pair
                                      )
-            for t in range( 0, int( self.learning_time + 1 ), 5 ):
+            for t in self.weights_to_plot:
                 memr_arr.plot_weight_matrix( time=t )
             
+            print()
             print( "Mean squared error:", mse( sim, inp_probe, post_probe, self.learning_time, self.simulation_step ) )
             print( f"Starting sparsity: {sparsity_measure( memr_arr.get_history( 'weight' )[ 0 ] )}" )
             print( f"Ending sparsity: {sparsity_measure( memr_arr.get_history( 'weight' )[ -1 ] )}" )

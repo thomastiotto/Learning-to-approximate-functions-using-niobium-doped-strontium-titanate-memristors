@@ -48,8 +48,8 @@ class Memristor:
         self.history = [ ]
         
         self.r_curr = None
-        self.r_max = None
-        self.r_min = None
+        self.r_1 = None
+        self.r_0 = None
         
         self.seed = seed
         self.voltage_converter = voltage_converter
@@ -63,7 +63,8 @@ class Memristor:
     # pulse the memristor with a tension
     def pulse( self, signal ):
         V = np.sign( signal ) * self.base_voltage
-        num_steps = self.voltage_converter( signal )
+        # if signal is zero we needn't make any adjustments
+        num_steps = self.voltage_converter( signal ) if signal != 0 else 0
         
         for _ in range( num_steps ):
             pulse_number = self.compute_pulse_number( self.r_curr, V )
@@ -82,8 +83,8 @@ class Memristor:
         
         if value == "conductance":
             g_curr = 1.0 / self.r_curr
-            g_min = 1.0 / self.r_max
-            g_max = 1.0 / self.r_min
+            g_min = 1.0 / self.r_1
+            g_max = 1.0 / self.r_0
             if scaled:
                 ret_val = ((g_curr - g_min) / (g_max - g_min)) + epsilon
             else:
@@ -91,7 +92,7 @@ class Memristor:
         
         if value == "resistance":
             if scaled:
-                ret_val = ((self.r_curr - self.r_min) / (self.r_max - self.r_min)) + epsilon
+                ret_val = ((self.r_curr - self.r_0) / (self.r_1 - self.r_0)) + epsilon
             else:
                 ret_val = self.r_curr + epsilon
         
@@ -118,12 +119,12 @@ class Memristor:
         y = [ ]
         n = 1
         it = 1
-        r_curr = self.r_max if V >= 0 else self.r_min
+        r_curr = self.r_1 if V >= 0 else self.r_0
         
         def thresh():
-            if V >= 0 and r_curr >= self.r_min + threshold:
+            if V >= 0 and r_curr >= self.r_0 + threshold:
                 return True
-            elif V < 0 and r_curr <= self.r_max - threshold:
+            elif V < 0 and r_curr <= self.r_1 - threshold:
                 return True
             else:
                 return False
@@ -136,7 +137,7 @@ class Memristor:
             r_curr = self.compute_resistance( n, V )
             sys.stdout.write( f"\rIteration {it}"
                               f", time {round( time.time() - start_time, 2 )}:"
-                              f" resistance {self.r_min}/{round( r_curr, 2 )}/{self.r_max}"
+                              f" resistance {self.r_0}/{round( r_curr, 2 )}/{self.r_1}"
                               f", threshold {threshold}"
                               f", step {step}" )
             n += step
@@ -146,8 +147,8 @@ class Memristor:
         
         if interpolate_after_threshold:
             start_time = time.time()
-            x_limit = self.r_min + threshold if V >= 0 else self.r_max - threshold
-            y_limit = self.r_min if V >= 0 else self.r_max
+            x_limit = self.r_0 + threshold if V >= 0 else self.r_1 - threshold
+            y_limit = self.r_0 if V >= 0 else self.r_1
             # subdivide remaining range into blocks of equal step size
             oldx = np.array( [ x[ -1 ], x[ -1 ] + round( x_limit / step, 1 ) ] )
             # interpolate from last real value to the theoretical maximum
@@ -185,10 +186,10 @@ class Memristor:
         y = [ ]
         n = 0
         step = 1
-        r_curr = self.r_max
+        r_curr = self.r_1
         
         from tqdm import tqdm
-        with tqdm( total=self.r_max - (self.r_min + threshold) ) as pbar:
+        with tqdm( total=self.r_1 - (self.r_0 + threshold) ) as pbar:
             r_pre = r_curr
             n += step
             r_curr = self.compute_resistance( n, V )
@@ -242,21 +243,29 @@ class MemristorAnoukBidirectional( Memristor ):
                   voltage_converter=None, base_voltage=1e-1 ):
         super().__init__( seed=seed, voltage_converter=voltage_converter, base_voltage=base_voltage )
         # set parameters of device
-        self.r_min = r0
-        self.r_max = r1
+        self.r_0 = r0
+        self.r_1 = r1
         self.a = a
         self.b = b
         self.c = c
         self.d = d
     
     def compute_pulse_number( self, R, V ):
+        r3 = 1e9
         if V >= 0:
-            return int( round( ((R - self.r_min) / self.r_max)**(1 / (self.a + self.b * V)), 0 ) )
+            return int( round( ((R - self.r_0) / self.r_1)**(1 / (self.a + self.b * V)), 0 ) )
         else:
-            return int( round( (1 - ((R - self.r_min) / self.r_max))**(1 / (self.a + self.b * -V)), 0 ) )
+            return int( round( (1 - ((R - self.r_0) / self.r_1))**(1 / (self.c + self.d * -V)), 0 ) )
+            # Niels'
+            # return int( round( ((r3 - R) / r3)**(1 / (self.c + self.d * -V)), 0 ) )
     
     def compute_resistance( self, n, V ):
-        if V >= 0:
-            return self.r_min + self.r_max * n**(self.a + self.b * V)
+        r3 = 1e9
+        if V > 0:
+            return self.r_0 + self.r_1 * n**(self.a + self.b * V)
+        elif V < 0:
+            return self.r_0 + self.r_1 * (1 - n**(self.c + self.d * -V))
+            # Niels'
+            # return r3 - r3 * n**(self.c + self.d * -V)
         else:
-            return self.r_min + self.r_max * (1 - n**(self.c + self.d * -V))
+            return self.r_curr
