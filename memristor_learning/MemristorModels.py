@@ -232,7 +232,7 @@ class MemristorAnouk( Memristor ):
         self.b = b
     
     def compute_pulse_number( self, R, V ):
-        return round( ((R - self.r_min) / self.r_max)**(1 / (self.a + self.b * V)), 0 )
+        return ((R - self.r_min) / self.r_max)**(1 / (self.a + self.b * V))
     
     def compute_resistance( self, n, V ):
         return self.r_min + self.r_max * n**(self.a + self.b * V)
@@ -253,11 +253,11 @@ class MemristorAnoukBidirectional( Memristor ):
     def compute_pulse_number( self, R, V ):
         r3 = 1e9
         if V >= 0:
-            return round( ((R - self.r_0) / self.r_1)**(1 / (self.a + self.b * V)), 0 )
+            return ((R - self.r_0) / self.r_1)**(1 / (self.a + self.b * V))
         else:
-            # return int( round( (1 - ((R - self.r_0) / self.r_1))**(1 / (self.c + self.d * -V)), 0 ) )
+            # return (1 - ((R - self.r_0) / self.r_1))**(1 / (self.c + self.d * -V))
             # Niels'
-            return round( ((r3 - R) / r3)**(1 / (self.c + self.d * -V)), 0 )
+            return ((r3 - R) / r3)**(1 / (self.c + self.d * -V))
     
     def compute_resistance( self, n, V ):
         r3 = 1e9
