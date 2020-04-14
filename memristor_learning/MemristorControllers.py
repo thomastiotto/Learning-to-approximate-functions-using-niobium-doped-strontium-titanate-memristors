@@ -108,7 +108,7 @@ class MemristorController:
     
     def plot_weight_matrix( self, time ):
         import matplotlib.pyplot as plt
-        
+        from decimal import Decimal
         weights_at_time = self.weight_history[ int( time / self.dt ) ]
         
         fig, ax = plt.subplots()
@@ -119,12 +119,29 @@ class MemristorController:
         
         for i in range( weights_at_time.shape[ 0 ] ):
             for j in range( weights_at_time.shape[ 1 ] ):
-                c = round( (weights_at_time[ j, i ] - min_weight) / (max_weight - min_weight), 2 )
-                ax.text( i, j, str( c ), va='center', ha='center' )
+                c = str( round( (weights_at_time[ j, i ] - min_weight) / (max_weight - min_weight), 2 ) )
+                ax.text( i, j, c, va='center', ha='center' )
+        plt.title( "Weights at t=" + str( time ) )
+        plt.show()
+    
+    def plot_conductance_matrix( self, time ):
+        import matplotlib.pyplot as plt
+        from decimal import Decimal
+        conductances_at_time = self.conductance_history[ int( time / self.dt ) ]
+        
+        fig, ax = plt.subplots()
+        
+        ax.matshow( conductances_at_time, cmap=plt.cm.Blues )
+        
+        for i in range( conductances_at_time.shape[ 0 ] ):
+            for j in range( conductances_at_time.shape[ 1 ] ):
+                c = f"{Decimal( conductances_at_time[ j, i ] ):.2E}"
+                ax.text( i, j, c, va='center', ha='center' )
         plt.title( "Weights at t=" + str( time ) )
         plt.show()
     
     def get_stats( self, time, select ):
+        
         data = self.get_history( select )
         data_at_time = data[ int( time[ 0 ] / self.dt ):int( time[ 1 ] / self.dt ) ]
         

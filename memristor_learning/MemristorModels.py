@@ -78,7 +78,7 @@ class Memristor:
     def compute_resistance( self, n, V ):
         raise NotImplementedError
     
-    def get_state( self, value="conductance", scaled=True, gain=10**4 ):
+    def get_state( self, value="conductance", scaled=True, gain=1e5 ):
         epsilon = np.finfo( float ).eps
         
         if value == "conductance":

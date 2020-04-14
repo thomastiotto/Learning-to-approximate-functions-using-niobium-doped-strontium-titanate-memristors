@@ -35,7 +35,7 @@ class SupervisedLearning():
         self.input_frequency = 1 / self.input_period
         self.pre_nrn = neurons
         self.post_nrn = neurons
-        self.err_nrn = neurons
+        self.err_nrn = 2 * neurons
         
         self.weights_to_plot = range( 0, int( self.learning_time + 1 ), 1 ) if weights_to_plot is None \
             else weights_to_plot
@@ -77,6 +77,7 @@ class SupervisedLearning():
             error = nengo.Ensemble(
                     n_neurons=self.err_nrn,
                     dimensions=1,
+                    radius=2,
                     label="Error",
                     seed=self.seed
                     )
@@ -129,11 +130,12 @@ class SupervisedLearning():
                                      combined=True,
                                      figsize=(15, 10),
                                      # ylim=(0, stats[ "max" ])
-                                     # ylim=(0, 2.2e-8)
+                                     ylim=(0, 2.2e-8)
                                      # upper limit found by looking at the max obtained with memristor pair
                                      )
             for t in self.weights_to_plot:
                 memr_arr.plot_weight_matrix( time=t )
+                memr_arr.plot_conductance_matrix( time=t )
             
             print()
             print( "Mean squared error:", mse( sim, inp_probe, post_probe, self.learning_time, self.simulation_step ) )
