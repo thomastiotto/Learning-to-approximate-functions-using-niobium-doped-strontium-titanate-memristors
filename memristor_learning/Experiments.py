@@ -129,7 +129,7 @@ class SupervisedLearning():
                                      combined=True,
                                      figsize=(15, 10),
                                      # ylim=(0, stats[ "max" ])
-                                     ylim=(0, 2.2e-8)
+                                     # ylim=(0, 2.2e-8)
                                      # upper limit found by looking at the max obtained with memristor pair
                                      )
             for t in self.weights_to_plot:

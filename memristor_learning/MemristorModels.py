@@ -58,7 +58,7 @@ class Memristor:
         # Weight initialisation
         import random
         random.seed( self.seed )
-        self.r_curr = random.uniform( 10**8, 2.5 * 10**8 )
+        self.r_curr = random.uniform( 1e8, 1.1e8 )
     
     # pulse the memristor with a tension
     def pulse( self, signal ):
@@ -226,16 +226,16 @@ class MemristorAnouk( Memristor ):
                   base_voltage=1e-1 ):
         super().__init__( seed=seed, voltage_converter=voltage_converter, base_voltage=base_voltage )
         # set parameters of device
-        self.r_min = r0
-        self.r_max = r1
+        self.r_0 = r0
+        self.r_1 = r1
         self.a = a
         self.b = b
     
     def compute_pulse_number( self, R, V ):
-        return ((R - self.r_min) / self.r_max)**(1 / (self.a + self.b * V))
+        return ((R - self.r_0) / self.r_1)**(1 / (self.a + self.b * V))
     
     def compute_resistance( self, n, V ):
-        return self.r_min + self.r_max * n**(self.a + self.b * V)
+        return self.r_0 + self.r_1 * n**(self.a + self.b * V)
 
 
 class MemristorAnoukBidirectional( Memristor ):

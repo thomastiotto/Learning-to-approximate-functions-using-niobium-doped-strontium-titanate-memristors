@@ -153,13 +153,16 @@ class mPES( MemristorLearningRule ):
         # we are adjusting weights so calculate local error
         local_error = alpha * np.dot( self.encoders, error )
         
+        # include input activities in error calculation
+        signal = np.outer( local_error, input_activities )
+        
         # squash spikes to False (0) or True (100/1000 ...) or everything is always adjusted
         spiked_map = self.find_spikes( input_activities )
         
         # we only need to update the weights for the neurons that spiked so we filter for their columns
         if spiked_map.any():
             for j, i in np.transpose( np.where( spiked_map ) ):
-                self.weights[ j, i ] = self.memristors[ j, i ].pulse( local_error[ j ] )
+                self.weights[ j, i ] = self.memristors[ j, i ].pulse( signal[ j, i ] )
         
         # calculate the output at this timestep
         return np.dot( self.weights, input_activities )
