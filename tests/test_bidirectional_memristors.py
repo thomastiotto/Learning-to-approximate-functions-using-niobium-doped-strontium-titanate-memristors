@@ -1,5 +1,5 @@
 from functools import partial
-from memristor_learning.Experiments import *
+from memristor_learning.Networks import *
 
 print( "\nPair, +0.1V" )
 net = SupervisedLearning( memristor_controller=MemristorArray,

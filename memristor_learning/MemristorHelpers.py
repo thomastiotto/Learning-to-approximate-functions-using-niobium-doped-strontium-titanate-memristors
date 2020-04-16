@@ -68,11 +68,13 @@ def plot_network( model ):
 
 
 def plot_ensemble( sim, ens, time=None ):
+    fig = plt.figure()
     plt.plot( sim.trange(), sim.data[ ens ], c="b", label="Ensemble" )
     if time:
         plt.axvline( x=time, c="k" )
         # ax[ 0 ].annotate( "Training end", xy=(time, np.amax( sim.data[ input ] )), xycoords='data' )
-    plt.show()
+    
+    return fig
 
 
 def plot_pre_post( sim, pre, post, input, error=None, time=None ):
@@ -82,7 +84,7 @@ def plot_pre_post( sim, pre, post, input, error=None, time=None ):
     num_subplots = 1
     if error:
         num_subplots = 2
-    fix, axes = plt.subplots( num_subplots, 1, sharex=True, sharey=True, squeeze=False )
+    fig, axes = plt.subplots( num_subplots, 1, sharex=True, sharey=True, squeeze=False )
     # axes = axes.flatten()
     # plot input, neural representations and error
     # plt.suptitle( datetime.datetime.now().strftime( '%H:%M:%S %d-%m-%Y' ) )
@@ -96,7 +98,9 @@ def plot_pre_post( sim, pre, post, input, error=None, time=None ):
             ax[ 0 ].axvline( x=time, c="k" )
             # ax[ 0 ].annotate( "Training end", xy=(time, np.amax( sim.data[ input ] )), xycoords='data' )
     plt.legend( loc='best' )
-    plt.show()
+    # plt.show()
+    
+    return fig
 
 
 def plot_ensemble_spikes( sim, name, ensemble, input=None, time=None ):
@@ -105,7 +109,7 @@ def plot_ensemble_spikes( sim, name, ensemble, input=None, time=None ):
     import matplotlib.pyplot as plt
     
     # plot spikes from pre
-    plt.figure()
+    fig = plt.figure()
     # plt.suptitle( datetime.datetime.now().strftime( '%H:%M:%S %d-%m-%Y' ) )
     fig, ax1 = plt.subplots()
     ax1 = plt.subplot( 1, 1, 1 )
@@ -121,4 +125,5 @@ def plot_ensemble_spikes( sim, name, ensemble, input=None, time=None ):
         for t in range( time ):
             plt.axvline( x=t, c="k" )
     plt.title( name + " neural activity" )
-    plt.show()
+    
+    return fig

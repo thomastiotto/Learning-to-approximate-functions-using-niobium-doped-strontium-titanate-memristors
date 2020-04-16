@@ -104,7 +104,8 @@ class MemristorController:
         if err_probe:
             ax2 = plt.twinx()
             ax2.plot( sim.trange(), sim.data[ err_probe ], c="r", label="Error" )
-        plt.show()
+        
+        return fig
     
     def plot_weight_matrix( self, time ):
         import matplotlib.pyplot as plt
@@ -122,7 +123,8 @@ class MemristorController:
                 c = str( round( (weights_at_time[ j, i ] - min_weight) / (max_weight - min_weight), 2 ) )
                 ax.text( i, j, c, va='center', ha='center' )
         plt.title( "Weights at t=" + str( time ) )
-        plt.show()
+        
+        return fig
     
     def plot_conductance_matrix( self, time ):
         import matplotlib.pyplot as plt
@@ -138,7 +140,8 @@ class MemristorController:
                 c = f"{Decimal( conductances_at_time[ j, i ] ):.2E}"
                 ax.text( i, j, c, va='center', ha='center' )
         plt.title( "Weights at t=" + str( time ) )
-        plt.show()
+        
+        return fig
     
     def get_stats( self, time, select ):
         

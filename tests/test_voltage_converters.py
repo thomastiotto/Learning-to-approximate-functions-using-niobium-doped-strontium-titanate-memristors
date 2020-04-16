@@ -2,7 +2,7 @@ import subprocess
 from functools import partial
 import pickle
 import nengo
-from memristor_learning.Experiments import *
+from memristor_learning.Networks import *
 
 """print( "\nPair, 1e-1, 1-constant VC" )
 net = SupervisedLearning( memristor_controller=MemristorArray,

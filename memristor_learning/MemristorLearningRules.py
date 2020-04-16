@@ -162,7 +162,9 @@ class mPES( MemristorLearningRule ):
         # we only need to update the weights for the neurons that spiked so we filter for their columns
         if spiked_map.any():
             for j, i in np.transpose( np.where( spiked_map ) ):
-                self.weights[ j, i ] = self.memristors[ j, i ].pulse( signal[ j, i ] )
+                update = self.memristors[ j, i ].pulse( signal[ j, i ] )
+                # update = update if update >=
+                self.weights[ j, i ] = update
         
         # calculate the output at this timestep
         return np.dot( self.weights, input_activities )

@@ -1,4 +1,5 @@
 import numpy as np
+import math
 
 
 class MemristorPair:
@@ -88,7 +89,7 @@ class Memristor:
             if scaled:
                 ret_val = ((g_curr - g_min) / (g_max - g_min)) + epsilon
             else:
-                ret_val = g_curr
+                ret_val = g_curr + epsilon
         
         if value == "resistance":
             if scaled:
@@ -110,7 +111,8 @@ class Memristor:
         ax.plot( range, tmp, c=c )
         # ax.annotate( "(" + str( i ), xy=(10, 10) )
     
-    def plot_memristor_curve_exhaustive( self, V=1, threshold=1000, step=10, interpolate_after_threshold=True ):
+    def plot_memristor_curve_exhaustive( self, V=1, threshold=1000, step=10, n_steps=math.inf, start_r=None,
+                                         interpolate_after_threshold=True ):
         import matplotlib.pyplot as plt
         import sys, time
         from memristor_learning.MemristorHelpers import expand_interpolate
@@ -120,6 +122,9 @@ class Memristor:
         n = 1
         it = 1
         r_curr = self.r_1 if V >= 0 else self.r_0
+        if start_r:
+            r_curr = start_r
+            n = self.compute_pulse_number( r_curr, V )
         
         def thresh():
             if V >= 0 and r_curr >= self.r_0 + threshold:
@@ -130,7 +135,7 @@ class Memristor:
                 return False
         
         start_time = time.time()
-        while thresh():
+        while thresh() and n < n_steps:
             x.append( n )
             y.append( r_curr )
             
@@ -162,10 +167,21 @@ class Memristor:
             
             print( f"\n{round( time.time() - start_time, 2 )} seconds elapsed for interpolation step" )
         
-        plt.plot( x, y )
-        # plt.yscale( 'log' )
+        derivative = np.abs( np.gradient( y, x ) )
+        second_derivative = np.abs( np.gradient( derivative, x ) )
+        
+        fig, (ax1, ax3) = plt.subplots( 2 )
+        ax1.plot( x, y )
+        # ax2.plot( x, y )
+        ax3.plot( x, derivative )
+        # ax4.plot( x, second_derivative )
+        ax1.set_title( "Linear" )
+        # ax2.set_title( "Log" )
+        ax3.set_title( "Derivative" )
+        # ax4.set_title( "Second derivative" )
+        # ax2.set_yscale( "log" )
         plt.xlabel( "Pulses (n)" )
-        plt.ylabel( "Resistance (R)" )
+        ax1.set_ylabel( "Resistance (R)" )
         plt.grid( alpha=.4, linestyle='--' )
         plt.show()
         
@@ -173,7 +189,7 @@ class Memristor:
         with open( "../data/memristor_curve.pkl", "wb" ) as f:
             pickle.dump( zip( x, y ), f )
         
-        return x, y
+        return np.array( x ), np.array( y ), derivative, second_derivative
     
     def plot_memristor_curve_interpolate( self, V=1, threshold=1000 ):
         import matplotlib.pyplot as plt
@@ -219,6 +235,32 @@ class Memristor:
         plt.ylabel( "Resistance (R)" )
         plt.grid( alpha=.4, linestyle='--' )
         plt.show()
+
+
+class BidirectionalPowerlawMemristor( Memristor ):
+    def __init__( self, a, c, r0, r1, seed=None, voltage_converter=None, base_voltage=None ):
+        super().__init__( seed=seed, voltage_converter=voltage_converter, base_voltage=base_voltage )
+        
+        self.a = a
+        self.c = c
+        self.r_0 = r0
+        self.r_1 = r1
+        
+        self.r_3 = 1e9
+    
+    def compute_pulse_number( self, R, V ):
+        if V >= 0:
+            return ((R - self.r_0) / self.r_1)**(1 / self.a)
+        else:
+            return ((self.r_3 - R) / self.r_3)**(1 / self.c)
+    
+    def compute_resistance( self, n, V ):
+        if V > 0:
+            return self.r_0 + self.r_1 * n**self.a
+        elif V < 0:
+            return self.r_3 - self.r_3 * n**self.c
+        else:
+            return self.r_curr
 
 
 class MemristorAnouk( Memristor ):
