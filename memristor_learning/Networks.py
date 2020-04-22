@@ -10,37 +10,44 @@ class SupervisedLearning():
                   memristor_model,
                   learning_rule=mPES,
                   voltage_converter=VoltageConverter,
+                  weight_regularizer=WeightModifier,
                   neurons=4,
                   base_voltage=1e-1,
+                  gain=1e5,
                   simulation_time=30.0,
-                  learning_time=16.0,
+                  learning_time=None,
                   simulation_step=0.001,
+                  input_function=lambda t: np.sin( 1 / 4 * 2 * np.pi * t ),
                   function_to_learn=lambda x: x,
                   seed=None,
                   weights_to_plot=None,
                   plot_ylim_lower=0,
                   plot_ylim_upper=2e-8,
-                  verbose=False ):
+                  verbose=True,
+                  generate_figures=True ):
         
         self.memristor_controller = memristor_controller
         self.memristor_model = memristor_model
         self.learning_rule = learning_rule
         self.voltage_converter = voltage_converter
+        self.weight_regularizer = weight_regularizer
         
         self.neurons = neurons
         self.base_voltage = base_voltage
+        self.gain = gain
         self.simulation_time = simulation_time
-        self.learning_time = learning_time
         self.simulation_step = simulation_step
+        self.input_function = input_function
         self.function_to_learn = function_to_learn
         self.seed = seed
+        if not learning_time:
+            self.learning_time = self.simulation_time / 2
         
         self.plot_ylim_lower = plot_ylim_lower
         self.plot_ylim_upper = plot_ylim_upper
         self.verbose = verbose
+        self.generate_figures = generate_figures
         
-        self.input_period = 4
-        self.input_frequency = 1 / self.input_period
         self.pre_nrn = neurons
         self.post_nrn = neurons
         self.err_nrn = 2 * neurons
@@ -49,18 +56,19 @@ class SupervisedLearning():
             else weights_to_plot
         
         if self.verbose:
-            print( f"Neurons: {neurons}" )
-            print( f"Base voltage: {base_voltage}" )
-            print( f"Simulation time: {simulation_time}" )
-            print( f"Learning time: {learning_time}" )
-            print( f"Simulation step: {simulation_step}" )
-            print( f"Function to learn: {function_to_learn}" )
-            print( f"Seed: {seed}" )
+            print( f"Neurons: {self.neurons}" )
+            print( f"Base voltage: {self.base_voltage}" )
+            print( f"Gain: {self.gain}" )
+            print( f"Simulation time: {self.simulation_time}" )
+            print( f"Learning time: {self.learning_time}" )
+            print( f"Simulation step: {self.simulation_step}" )
+            print( f"Function to learn: {self.function_to_learn}" )
+            print( f"Seed: {self.seed}" )
     
     def __call__( self, ):
         with nengo.Network() as model:
             inp = nengo.Node(
-                    output=lambda t: np.sin( self.input_frequency * 2 * np.pi * t ),
+                    output=self.input_function,
                     size_out=1,
                     label="Input"
                     )
@@ -99,7 +107,9 @@ class SupervisedLearning():
                     out_size=self.post_nrn,
                     seed=self.seed,
                     voltage_converter=self.voltage_converter(),
-                    base_voltage=self.base_voltage
+                    weight_regularizer=self.weight_regularizer(),
+                    base_voltage=self.base_voltage,
+                    gain=self.gain
                     )
             learn = nengo.Node(
                     output=memr_arr,
@@ -127,26 +137,39 @@ class SupervisedLearning():
             with nengo.Simulator( model, dt=self.simulation_step ) as sim:
                 sim.run( self.simulation_time )
             
-            fig_ensemble = plot_ensemble( sim, inp_probe )
-            fig_pre = plot_ensemble_spikes( sim, "Pre", pre_spikes_probe, pre_probe )
-            fig_post = plot_ensemble_spikes( sim, "Post", post_spikes_probe, post_probe )
-            fig_pre_post = plot_pre_post( sim, pre_probe, post_probe, inp_probe, memr_arr.get_history( "error" ),
-                                          time=self.learning_time )
-            if self.neurons <= 10:
-                stats = memr_arr.get_stats( time=(0, self.learning_time), select="conductance" )
-                fig_state = memr_arr.plot_state( sim,
-                                                 "conductance",
-                                                 combined=True,
-                                                 figsize=(15, 10),
-                                                 # ylim=(0, stats[ "max" ])
-                                                 ylim=(self.plot_ylim_lower, self.plot_ylim_upper)
-                                                 # upper limit found by looking at the max obtained with memristor pair
-                                                 )
-            figs_weights = [ ]
-            figs_conductances = [ ]
-            for t in self.weights_to_plot:
-                figs_weights.append( memr_arr.plot_weight_matrix( time=t ) )
-                figs_conductances.append( memr_arr.plot_conductance_matrix( time=t ) )
+            fig_ensemble = None
+            fig_pre = None
+            fig_post = None
+            fig_pre_post = None
+            fig_state = None
+            figs_weights = None
+            figs_weights_norm = None
+            figs_conductances = None
+            
+            stats = memr_arr.get_stats( time=(0, self.learning_time), select="conductance" )
+            if self.generate_figures:
+                fig_ensemble = plot_ensemble( sim, inp_probe )
+                fig_pre = plot_ensemble_spikes( sim, "Pre", pre_spikes_probe, pre_probe )
+                fig_post = plot_ensemble_spikes( sim, "Post", post_spikes_probe, post_probe )
+                fig_pre_post = plot_pre_post( sim, pre_probe, post_probe, inp_probe, memr_arr.get_history( "error" ),
+                                              time=self.learning_time )
+                if self.neurons <= 10:
+                    fig_state = memr_arr.plot_state( sim,
+                                                     "conductance",
+                                                     combined=True,
+                                                     figsize=(15, 10),
+                                                     # ylim=(0, stats[ "max" ])
+                                                     ylim=(self.plot_ylim_lower, self.plot_ylim_upper)
+                                                     # upper limit found by looking at the max obtained with
+                                                     # memristor pair
+                                                     )
+                figs_weights = [ ]
+                figs_weights_norm = [ ]
+                figs_conductances = [ ]
+                for t in self.weights_to_plot:
+                    figs_weights.append( memr_arr.plot_weight_matrix( time=t ) )
+                    figs_weights_norm.append( memr_arr.plot_weight_matrix( time=t, normalized=True ) )
+                    figs_conductances.append( memr_arr.plot_conductance_matrix( time=t ) )
             
             mean_squared_error = mse( sim, inp_probe, post_probe, self.learning_time, self.simulation_step )
             start_sparsity = sparsity_measure( memr_arr.get_history( 'weight' )[ 0 ] )
@@ -170,6 +193,10 @@ class SupervisedLearning():
                     "fig_pre_post"     : fig_pre_post,
                     "fig_state"        : fig_state,
                     "figs_weights"     : figs_weights,
+                    "figs_weights_norm": figs_weights_norm,
                     "figs_conductances": figs_conductances,
                     }
+            
+            # plt.close( "all" )
+            
             return output

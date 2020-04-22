@@ -34,7 +34,8 @@ class LevelsVoltageConverter( VoltageConverter ):
 
 class MemristorController:
     def __init__( self, model, learning_rule, in_size, out_size,
-                  dt=0.001, logging=True, seed=None, voltage_converter=lambda x: x, base_voltage=1e-1 ):
+                  dt=0.001, logging=True, seed=None, weight_regularizer=lambda x: x, voltage_converter=lambda x: x,
+                  base_voltage=1e-1, gain=1e5 ):
         self.memristor_model = model
         
         self.input_size = in_size
@@ -46,11 +47,15 @@ class MemristorController:
         self.memristors = None
         self.voltage_converter = voltage_converter
         self.base_voltage = base_voltage
+        self.gain = gain
         
+        # initialize learning rule parameters
         self.learning_rule = learning_rule
         self.learning_rule.input_size = in_size
         self.learning_rule.output_size = out_size
         self.learning_rule.logging = logging
+        self.learning_rule.weight_regularizer = weight_regularizer
+        self.learning_rule.dt = dt
         
         # save for analysis
         self.logging = logging
@@ -107,9 +112,10 @@ class MemristorController:
         
         return fig
     
-    def plot_weight_matrix( self, time ):
+    def plot_weight_matrix( self, time, normalized=False ):
         import matplotlib.pyplot as plt
         from decimal import Decimal
+        
         weights_at_time = self.weight_history[ int( time / self.dt ) ]
         
         fig, ax = plt.subplots()
@@ -120,7 +126,13 @@ class MemristorController:
         
         for i in range( weights_at_time.shape[ 0 ] ):
             for j in range( weights_at_time.shape[ 1 ] ):
-                c = str( round( (weights_at_time[ j, i ] - min_weight) / (max_weight - min_weight), 2 ) )
+                if np.all( weights_at_time == 0 ):
+                    c = "0.00"
+                else:
+                    if normalized:
+                        c = str( round( (weights_at_time[ j, i ] - min_weight) / (max_weight - min_weight), 2 ) )
+                    else:
+                        c = f"{Decimal( weights_at_time[ j, i ] ):.2E}"
                 ax.text( i, j, c, va='center', ha='center' )
         plt.title( "Weights at t=" + str( time ) )
         
@@ -129,6 +141,7 @@ class MemristorController:
     def plot_conductance_matrix( self, time ):
         import matplotlib.pyplot as plt
         from decimal import Decimal
+        
         conductances_at_time = self.conductance_history[ int( time / self.dt ) ]
         
         fig, ax = plt.subplots()
@@ -166,9 +179,11 @@ class MemristorController:
 
 class MemristorArray( MemristorController ):
     def __init__( self, model, learning_rule, in_size, out_size, seed=None, voltage_converter=lambda x: x,
-                  base_voltage=1e-1 ):
+                  weight_regularizer=lambda x: x,
+                  base_voltage=1e-1, gain=1e5 ):
         super().__init__( model, learning_rule, in_size, out_size, seed=seed, voltage_converter=voltage_converter,
-                          base_voltage=base_voltage )
+                          weight_regularizer=weight_regularizer,
+                          base_voltage=base_voltage, gain=gain )
         
         # to hold future weights
         self.weights = np.zeros( (self.output_size, self.input_size), dtype=np.float )
@@ -178,7 +193,7 @@ class MemristorArray( MemristorController ):
         for i in range( self.output_size ):
             for j in range( self.input_size ):
                 self.memristors[ i, j ] = self.memristor_model( seed=seed, voltage_converter=self.voltage_converter,
-                                                                base_voltage=self.base_voltage )
+                                                                base_voltage=self.base_voltage, gain=self.gain )
                 self.weights[ i, j ] = self.memristors[ i, j ].get_state()
         
         self.learning_rule.weights = self.weights

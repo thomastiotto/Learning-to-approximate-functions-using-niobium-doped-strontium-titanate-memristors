@@ -1,6 +1,58 @@
-import numpy as np
+import datetime
+import os
+import pickle
+import pprint
+import re
+from collections import defaultdict
+
 import matplotlib.pyplot as plt
 import nengo
+import numpy as np
+from tabulate import tabulate
+
+
+def make_timestamped_dir( root=None ):
+    if root is None:
+        root = "../data/"
+    
+    time_string = datetime.datetime.now().strftime( "%d-%m-%Y_%H-%M" )
+    dir_name = root + time_string + "/"
+    if os.path.isdir( dir_name ):
+        dir_name = dir_name[ :-1 ]
+        minutes = str( int( dir_name[ -1 ] ) + 1 )
+        dir_name = dir_name[ :-1 ] + minutes + "/"
+    dir_images = dir_name + "images/"
+    os.mkdir( dir_name )
+    os.mkdir( dir_images )
+    
+    return dir_name, dir_images
+
+
+def write_experiment_to_file( res, headers, table, dir_name, dir_images ):
+    with open( dir_name + "info.txt", "w+" ) as f:
+        f.write(
+                tabulate( table,
+                          headers=headers )
+                )
+        f.write( "\n\nSTATS:\n" + pprint.pformat( res[ "stats" ], width=1 ) )
+        f.write( f"\n\nMSE: {res[ 'mse' ]} " )
+        f.write( f"\nSPARSITY: {res[ 'initial_sparsity' ]} -> {res[ 'end_sparsity' ]} " )
+    for key in res:
+        if re.match( r'fig', key ):
+            if isinstance( res[ key ], list ):
+                for i, fig in enumerate( res[ key ] ):
+                    fig.savefig( dir_images + key + f"_{i}" )
+            else:
+                res[ key ].savefig( dir_images + key )
+    with open( dir_name + "res.pkl", "wb" ) as f:
+        pickle.dump( res, f )
+
+
+def nested_dict( n, type ):
+    if n == 1:
+        return defaultdict( type )
+    else:
+        return defaultdict( lambda: nested_dict( n - 1, type ) )
 
 
 def generate_encoders( n_neurons ):
@@ -34,13 +86,16 @@ def expand_interpolate( oldx, oldy, step=1, include_start=False, include_end=Fal
 
 def sparsity_measure( vector ):  # Gini index
     # Max sparsity = 1 (single 1 in the vector)
+    if np.all( vector == 0 ):
+        return 0
+    
     v = np.sort( np.abs( vector ) )
     n = v.shape[ 0 ]
     k = np.arange( n ) + 1
     l1norm = np.sum( v )
     summation = np.sum( (v / l1norm) * ((n - k + 0.5) / n) )
     
-    return 1 - 2 * summation if not np.isnan( summation ) else 0
+    return 1 - 2 * summation
 
 
 def mse( sim, x, y, learning_time, simulation_step ):
@@ -78,7 +133,6 @@ def plot_ensemble( sim, ens, time=None ):
 
 
 def plot_pre_post( sim, pre, post, input, error=None, time=None ):
-    import datetime
     import matplotlib.pyplot as plt
     
     num_subplots = 1
@@ -104,7 +158,6 @@ def plot_pre_post( sim, pre, post, input, error=None, time=None ):
 
 
 def plot_ensemble_spikes( sim, name, ensemble, input=None, time=None ):
-    import datetime
     from nengo.utils.matplotlib import rasterplot
     import matplotlib.pyplot as plt
     

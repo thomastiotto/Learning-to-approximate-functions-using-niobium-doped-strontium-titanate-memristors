@@ -3,9 +3,9 @@ import math
 
 
 class MemristorPair:
-    def __init__( self, model, seed=None, voltage_converter=None, base_voltage=1e-1 ):
-        self.mem_plus = model( seed=seed, voltage_converter=voltage_converter, base_voltage=base_voltage )
-        self.mem_minus = model( seed=seed, voltage_converter=voltage_converter, base_voltage=base_voltage )
+    def __init__( self, model, seed=None, voltage_converter=None, base_voltage=1e-1, gain=1e5 ):
+        self.mem_plus = model( seed=seed, voltage_converter=voltage_converter, base_voltage=base_voltage, gain=gain )
+        self.mem_minus = model( seed=seed, voltage_converter=voltage_converter, base_voltage=base_voltage, gain=gain )
         
         self.seed = seed
     
@@ -44,7 +44,7 @@ class MemristorPair:
 
 
 class Memristor:
-    def __init__( self, seed=None, voltage_converter=None, base_voltage=1e-1 ):
+    def __init__( self, seed=None, voltage_converter=None, base_voltage=1e-1, gain=1e5 ):
         # save resistance history for later analysis
         self.history = [ ]
         
@@ -55,6 +55,7 @@ class Memristor:
         self.seed = seed
         self.voltage_converter = voltage_converter
         self.base_voltage = base_voltage
+        self.gain = gain
         
         # Weight initialisation
         import random
@@ -71,7 +72,7 @@ class Memristor:
             pulse_number = self.compute_pulse_number( self.r_curr, V )
             self.r_curr = self.compute_resistance( pulse_number + 1, V )
         
-        return self.get_state()
+        return self.get_state( gain=self.gain )
     
     def compute_pulse_number( self, R, V ):
         raise NotImplementedError
@@ -184,10 +185,10 @@ class Memristor:
         ax1.set_ylabel( "Resistance (R)" )
         plt.grid( alpha=.4, linestyle='--' )
         plt.show()
-        
-        import pickle
-        with open( "../data/memristor_curve.pkl", "wb" ) as f:
-            pickle.dump( zip( x, y ), f )
+        #
+        # import pickle
+        # with open( "../data/memristor_curve.pkl", "wb" ) as f:
+        #     pickle.dump( zip( x, y ), f )
         
         return np.array( x ), np.array( y ), derivative, second_derivative
     
@@ -237,14 +238,33 @@ class Memristor:
         plt.show()
 
 
+class OnedirectionalPowerlawMemristor( Memristor ):
+    def __init__( self, a, r_0, r_1, seed=None, voltage_converter=None, base_voltage=None, gain=1e5 ):
+        super().__init__( seed=seed, voltage_converter=voltage_converter, base_voltage=base_voltage, gain=gain )
+        
+        self.a = a
+        self.r_0 = r_0
+        self.r_1 = r_1
+    
+    def compute_pulse_number( self, R, V ):
+        if V >= 0:
+            return ((R - self.r_0) / self.r_1)**(1 / self.a)
+    
+    def compute_resistance( self, n, V ):
+        if V > 0:
+            return self.r_0 + self.r_1 * n**self.a
+        else:
+            return self.r_curr
+
+
 class BidirectionalPowerlawMemristor( Memristor ):
-    def __init__( self, a, c, r0, r1, seed=None, voltage_converter=None, base_voltage=None ):
-        super().__init__( seed=seed, voltage_converter=voltage_converter, base_voltage=base_voltage )
+    def __init__( self, a, c, r_0, r_1, seed=None, voltage_converter=None, base_voltage=None, gain=1e3 ):
+        super().__init__( seed=seed, voltage_converter=voltage_converter, base_voltage=base_voltage, gain=gain )
         
         self.a = a
         self.c = c
-        self.r_0 = r0
-        self.r_1 = r1
+        self.r_0 = r_0
+        self.r_1 = r_1
         
         self.r_3 = 1e9
     
@@ -265,8 +285,8 @@ class BidirectionalPowerlawMemristor( Memristor ):
 
 class MemristorAnouk( Memristor ):
     def __init__( self, r0=100, r1=2.5 * 10**8, a=-0.128, b=-0.522, seed=None, voltage_converter=None,
-                  base_voltage=1e-1 ):
-        super().__init__( seed=seed, voltage_converter=voltage_converter, base_voltage=base_voltage )
+                  base_voltage=1e-1, gain=1e5 ):
+        super().__init__( seed=seed, voltage_converter=voltage_converter, base_voltage=base_voltage, gain=gain )
         # set parameters of device
         self.r_0 = r0
         self.r_1 = r1
@@ -282,8 +302,8 @@ class MemristorAnouk( Memristor ):
 
 class MemristorAnoukBidirectional( Memristor ):
     def __init__( self, r0=100, r1=2.5 * 10**8, a=-0.128, b=-0.522, c=-0.128, d=-0.522, seed=None,
-                  voltage_converter=None, base_voltage=1e-1 ):
-        super().__init__( seed=seed, voltage_converter=voltage_converter, base_voltage=base_voltage )
+                  voltage_converter=None, base_voltage=1e-1, gain=1e3 ):
+        super().__init__( seed=seed, voltage_converter=voltage_converter, base_voltage=base_voltage, gain=gain )
         # set parameters of device
         self.r_0 = r0
         self.r_1 = r1

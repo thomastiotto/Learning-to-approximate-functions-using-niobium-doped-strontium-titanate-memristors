@@ -1,12 +1,28 @@
 import numpy as np
 
 
+class WeightModifier():
+    def __call__( self, weights ):
+        return weights
+
+
+class ZeroShiftModifier( WeightModifier ):
+    def __init__( self ):
+        super().__init__()
+    
+    def __call__( self, weights ):
+        weights -= np.mean( weights )
+        
+        return weights
+
+
 class MemristorLearningRule:
-    def __init__( self, learning_rate, dt=0.001 ):
+    def __init__( self, learning_rate ):
         self.learning_rate = learning_rate
-        self.dt = dt
+        self.dt = None
         
         self.rule_name = None
+        self.weight_regularizer = None
         
         self.input_size = None
         self.output_size = None
@@ -129,8 +145,8 @@ class mBCM( MemristorLearningRule ):
 
 
 class mPES( MemristorLearningRule ):
-    def __init__( self, encoders, learning_rate=1e-5, dt=0.001, error_threshold=1e-6 ):
-        super().__init__( learning_rate, dt )
+    def __init__( self, encoders, learning_rate=1e-5, error_threshold=1e-6 ):
+        super().__init__( learning_rate )
         
         self.rule_name = "mPES"
         
@@ -165,6 +181,9 @@ class mPES( MemristorLearningRule ):
                 update = self.memristors[ j, i ].pulse( signal[ j, i ] )
                 # update = update if update >=
                 self.weights[ j, i ] = update
+            # select each column and centre around zero
+            for i in np.unique( np.transpose( np.where( spiked_map ) )[ :, 1 ] ):
+                self.weights[ :, i ] = self.weight_regularizer( self.weights[ :, i ] )
         
         # calculate the output at this timestep
         return np.dot( self.weights, input_activities )
