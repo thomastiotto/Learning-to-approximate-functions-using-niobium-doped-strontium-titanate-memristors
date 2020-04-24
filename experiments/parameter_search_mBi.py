@@ -54,7 +54,7 @@ for i, a in enumerate( a_list ):
 #     x[ "fig_pre_post" ].show()
 #     time.sleep( 2 )
 time_taken = time.time() - start_time
-dir_name, dir_images = make_timestamped_dir()
+dir_name, dir_images = make_timestamped_dir( root="../data/parameter_search/mPair/" )
 dataf = xr.DataArray( data=data, dims=dims, coords=coords )
 with open( f"{dir_name}mse.pkl", "wb" ) as f:
     pickle.dump( dataf, f )

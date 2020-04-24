@@ -22,7 +22,7 @@ class MemristorLearningRule:
         self.dt = None
         
         self.rule_name = None
-        self.weight_regularizer = None
+        self.weight_modifier = None
         
         self.input_size = None
         self.output_size = None
@@ -181,9 +181,9 @@ class mPES( MemristorLearningRule ):
                 update = self.memristors[ j, i ].pulse( signal[ j, i ] )
                 # update = update if update >=
                 self.weights[ j, i ] = update
-            # select each column and centre around zero
+            # select each column and pass it to modifier class
             for i in np.unique( np.transpose( np.where( spiked_map ) )[ :, 1 ] ):
-                self.weights[ :, i ] = self.weight_regularizer( self.weights[ :, i ] )
+                self.weights[ :, i ] = self.weight_modifier( self.weights[ :, i ] )
         
         # calculate the output at this timestep
         return np.dot( self.weights, input_activities )

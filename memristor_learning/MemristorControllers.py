@@ -34,7 +34,7 @@ class LevelsVoltageConverter( VoltageConverter ):
 
 class MemristorController:
     def __init__( self, model, learning_rule, in_size, out_size,
-                  dt=0.001, logging=True, seed=None, weight_regularizer=lambda x: x, voltage_converter=lambda x: x,
+                  dt=0.001, logging=True, seed=None, weight_modifier=lambda x: x, voltage_converter=lambda x: x,
                   base_voltage=1e-1, gain=1e5 ):
         self.memristor_model = model
         
@@ -54,7 +54,7 @@ class MemristorController:
         self.learning_rule.input_size = in_size
         self.learning_rule.output_size = out_size
         self.learning_rule.logging = logging
-        self.learning_rule.weight_regularizer = weight_regularizer
+        self.learning_rule.weight_modifier = weight_modifier
         self.learning_rule.dt = dt
         
         # save for analysis
@@ -179,10 +179,10 @@ class MemristorController:
 
 class MemristorArray( MemristorController ):
     def __init__( self, model, learning_rule, in_size, out_size, seed=None, voltage_converter=lambda x: x,
-                  weight_regularizer=lambda x: x,
+                  weight_modifier=lambda x: x,
                   base_voltage=1e-1, gain=1e5 ):
         super().__init__( model, learning_rule, in_size, out_size, seed=seed, voltage_converter=voltage_converter,
-                          weight_regularizer=weight_regularizer,
+                          weight_modifier=weight_modifier,
                           base_voltage=base_voltage, gain=gain )
         
         # to hold future weights

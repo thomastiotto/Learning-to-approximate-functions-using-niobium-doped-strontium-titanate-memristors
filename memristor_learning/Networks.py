@@ -10,7 +10,7 @@ class SupervisedLearning():
                   memristor_model,
                   learning_rule=mPES,
                   voltage_converter=VoltageConverter,
-                  weight_regularizer=WeightModifier,
+                  weight_modifier=WeightModifier,
                   neurons=4,
                   base_voltage=1e-1,
                   gain=1e5,
@@ -30,7 +30,7 @@ class SupervisedLearning():
         self.memristor_model = memristor_model
         self.learning_rule = learning_rule
         self.voltage_converter = voltage_converter
-        self.weight_regularizer = weight_regularizer
+        self.weight_modifier = weight_modifier
         
         self.neurons = neurons
         self.base_voltage = base_voltage
@@ -107,7 +107,7 @@ class SupervisedLearning():
                     out_size=self.post_nrn,
                     seed=self.seed,
                     voltage_converter=self.voltage_converter(),
-                    weight_regularizer=self.weight_regularizer(),
+                    weight_modifier=self.weight_modifier(),
                     base_voltage=self.base_voltage,
                     gain=self.gain
                     )
