@@ -4,34 +4,28 @@ import math
 
 class MemristorPair:
     def __init__( self, model, seed=None, voltage_converter=None, base_voltage=1e-1, gain=1e5 ):
-        self.mem_plus = model( seed=seed, voltage_converter=voltage_converter, base_voltage=base_voltage, gain=gain )
-        self.mem_minus = model( seed=seed, voltage_converter=voltage_converter, base_voltage=base_voltage, gain=gain )
+        self.mem_one = model( seed=seed, voltage_converter=voltage_converter, base_voltage=base_voltage, gain=gain )
+        self.mem_two = model( seed=seed, voltage_converter=voltage_converter, base_voltage=base_voltage, gain=gain )
         
         self.seed = seed
     
     def pulse( self, signal ):
-        # TODO grade voltage based on signal coming from LearningRule, for now fixed at 1e-1
-        if signal > 0:
-            self.mem_plus.pulse( signal )
-        if signal < 0:
-            self.mem_minus.pulse( -signal )
-        
-        return self.mem_plus.get_state() - self.mem_minus.get_state()
+        raise NotImplementedError
     
     def get_state( self, value="conductance", scaled=True, gain=10**4 ):
-        return self.mem_plus.get_state( value, scaled, gain ) - self.mem_minus.get_state( value, scaled, gain )
+        return self.mem_one.get_state( value, scaled, gain ) - self.mem_two.get_state( value, scaled, gain )
     
     def save_state( self ):
-        history_plus = self.mem_plus.save_state()
-        history_minus = self.mem_minus.save_state()
+        history_one = self.mem_one.save_state()
+        history_two = self.mem_two.save_state()
     
     def plot_state( self, value, i, j, range, ax, c, combined=False ):
         if value == "resistance":
-            tmp_plus = self.mem_plus.history
-            tmp_minus = self.mem_minus.history
+            tmp_plus = self.mem_one.history
+            tmp_minus = self.mem_two.history
         if value == "conductance":
-            tmp_plus = np.divide( 1, self.mem_plus.history )
-            tmp_minus = np.divide( 1, self.mem_minus.history )
+            tmp_plus = np.divide( 1, self.mem_one.history )
+            tmp_minus = np.divide( 1, self.mem_two.history )
         ax.plot( range, tmp_plus, c="r", label='Excitatory' )
         ax.plot( range, tmp_minus, c="b", label='Inhibitory' )
         if not combined:
@@ -41,6 +35,31 @@ class MemristorPair:
             ax.set_title( str( j + 1 ) + "->" + str( i + 1 ) )
             # ax.label_outer()
             # ax.set_yticklabels( [ ] )
+
+
+class MemristorPlusMinus( MemristorPair ):
+    def __init__( self, model, seed=None, voltage_converter=None, base_voltage=1e-1, gain=1e5 ):
+        super().__init__( model, seed, voltage_converter, base_voltage, gain )
+    
+    # on positive feedback the excitatory memristor gets a pulse
+    def pulse( self, signal ):
+        if signal > 0:
+            self.mem_one.pulse( signal )
+        if signal < 0:
+            self.mem_two.pulse( -signal )
+        
+        return self.mem_one.get_state() - self.mem_two.get_state()
+
+
+class MemristorComplementary( MemristorPair ):
+    def __init__( self, model, seed=None, voltage_converter=None, base_voltage=1e-1, gain=1e5 ):
+        super().__init__( model, seed, voltage_converter, base_voltage, gain )
+    
+    def pulse( self, signal ):
+        self.mem_one.pulse( signal )
+        self.mem_two.pulse( -signal )
+        
+        return self.mem_one.get_state() - self.mem_two.get_state()
 
 
 class Memristor:

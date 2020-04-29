@@ -28,12 +28,10 @@ def make_timestamped_dir( root=None ):
     return dir_name, dir_images
 
 
-def write_experiment_to_file( res, headers, table, dir_name, dir_images ):
+def write_experiment_to_file( params, res, headers, table, dir_name, dir_images ):
     with open( dir_name + "info.txt", "w+" ) as f:
-        f.write(
-                tabulate( table,
-                          headers=headers )
-                )
+        f.write( tabulate( table, headers=headers, tablefmt="github" ) )
+        f.write( "\n\nPARAMS:\n" + pprint.pformat( params, width=1 ) )
         f.write( "\n\nSTATS:\n" + pprint.pformat( res[ "stats" ], width=1 ) )
         f.write( f"\n\nMSE: {res[ 'mse' ]} " )
         f.write( f"\nSPARSITY: {res[ 'initial_sparsity' ]} -> {res[ 'end_sparsity' ]} " )

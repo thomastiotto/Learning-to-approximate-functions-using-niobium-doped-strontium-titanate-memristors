@@ -152,7 +152,7 @@ class MemristorController:
             for j in range( conductances_at_time.shape[ 1 ] ):
                 c = f"{Decimal( conductances_at_time[ j, i ] ):.2E}"
                 ax.text( i, j, c, va='center', ha='center' )
-        plt.title( "Weights at t=" + str( time ) )
+        plt.title( "Conductances at t=" + str( time ) )
         
         return fig
     

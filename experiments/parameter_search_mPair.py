@@ -41,7 +41,7 @@ curr_iteration = 0
 for k, a in enumerate( a_list ):
     net = SupervisedLearning( memristor_controller=MemristorArray,
                               memristor_model=
-                              partial( MemristorPair, model=
+                              partial( MemristorPlusMinus, model=
                               partial( OnedirectionalPowerlawMemristor, a=a, r_0=1e2, r_1=2.5e8 ) ),
                               seed=0,
                               neurons=4,

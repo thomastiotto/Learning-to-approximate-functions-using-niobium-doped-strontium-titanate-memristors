@@ -21,8 +21,7 @@ class SupervisedLearning():
                   function_to_learn=lambda x: x,
                   seed=None,
                   weights_to_plot=None,
-                  plot_ylim_lower=0,
-                  plot_ylim_upper=2e-8,
+                  plot_ylim=(0, 2e-8),  # upper limit chosen by looking at the max obtained with mPlusMinus
                   verbose=True,
                   generate_figures=True ):
         
@@ -43,8 +42,7 @@ class SupervisedLearning():
         if not learning_time:
             self.learning_time = self.simulation_time / 2
         
-        self.plot_ylim_lower = plot_ylim_lower
-        self.plot_ylim_upper = plot_ylim_upper
+        self.plot_ylim = plot_ylim
         self.verbose = verbose
         self.generate_figures = generate_figures
         
@@ -159,9 +157,7 @@ class SupervisedLearning():
                                                      combined=True,
                                                      figsize=(15, 10),
                                                      # ylim=(0, stats[ "max" ])
-                                                     ylim=(self.plot_ylim_lower, self.plot_ylim_upper)
-                                                     # upper limit found by looking at the max obtained with
-                                                     # memristor pair
+                                                     ylim=self.plot_ylim
                                                      )
                 figs_weights = [ ]
                 figs_weights_norm = [ ]
