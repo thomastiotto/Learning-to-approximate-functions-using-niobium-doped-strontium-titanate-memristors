@@ -62,7 +62,7 @@ table = [ [ "a", start_a, end_a, num_a ],
           [ "c", start_c, end_c, num_c ] ]
 headers = [ "Parameter", "Start", "End", "Number" ]
 with open( f"{dir_name}param.txt", "w+" ) as f:
-    f.write( tabulate( table, headers=headers ) )
+    f.write( tabulate( table, headers=headers, tablefmt="github" ) )
     f.write( f"\n\nTotal time: {datetime.timedelta( seconds=time_taken )}" )
     f.write( f"\nTime per iteration: {round( time_taken / total_iterations, 2 )} s" )
     

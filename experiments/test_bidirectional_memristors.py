@@ -19,3 +19,4 @@ write_experiment_to_file( res,
                             "Learned function" ],
                           [ [ "mBi", 0.01, 0.001, 4, "Sine", "Identity" ] ],
                           dir_name, dir_images )
+# TODO write paramters to file
