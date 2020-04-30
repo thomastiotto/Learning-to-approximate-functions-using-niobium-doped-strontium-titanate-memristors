@@ -32,9 +32,6 @@ coords[ dims[ 0 ] ] = a_list
 data = [ ]
 results_dict = nested_dict( len( dims ), dict )
 
-if os.path.exists( "../data/progress.txt" ):
-    os.remove( "../data/progress.txt" )
-
 start_time = time.time()
 curr_iteration = 0
 
@@ -53,15 +50,12 @@ for k, a in enumerate( a_list ):
     results_dict[ a ] = res
     curr_iteration += 1
     print( f"{curr_iteration}/{total_iterations}:  {a}\n" )
-    
-    with open( "../data/progress.txt", "a+" ) as f:
-        f.write( f"{curr_iteration}/{total_iterations}:  {a}\n" )
 
 # for i, x in enumerate( results ):
 #     x[ "fig_pre_post" ].show()
 #     time.sleep( 2 )
 time_taken = time.time() - start_time
-dir_name, dir_images = make_timestamped_dir( root="../data/parameter_search/mPair/" )
+dir_name, dir_images = make_timestamped_dir( root="../data/parameter_search/mPlusMinus/" )
 dataf = xr.DataArray( data=data, dims=dims, coords=coords, name="MSE" )
 with open( f"{dir_name}mse.pkl", "wb" ) as f:
     pickle.dump( dataf, f )

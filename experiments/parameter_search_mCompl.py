@@ -1,19 +1,22 @@
+import pickle
 import time
 from functools import partial
 import os
 import xarray as xr
+from tabulate import tabulate
+
 from memristor_learning.Networks import *
 
 # parameters to search
-start_a = -0.001
+start_a = -0.0001
 end_a = -1
-num_a = 100
-start_c = -0.001
+num_a = 30
+start_c = -0.0001
 end_c = -1
-num_c = 100
+num_c = 30
 
-a_list = np.linspace( start_a, end_a, num=num_a )
-c_list = np.linspace( start_c, end_c, num=num_c )
+a_list = np.linspace( start_a, end_a, num=1 )
+c_list = np.linspace( start_c, end_c, num=1 )
 total_iterations = num_a * num_c
 print( "Total iterations:", total_iterations )
 
@@ -32,7 +35,8 @@ for i, a in enumerate( a_list ):
     for j, c in enumerate( c_list ):
         net = SupervisedLearning( memristor_controller=MemristorArray,
                                   memristor_model=
-                                  partial( BidirectionalPowerlawMemristor, a=a, c=c, r_0=1e2, r_1=2.5e8 ),
+                                  partial( MemristorPlusMinus, model=
+                                  partial( BidirectionalPowerlawMemristor, a=-0.223, c=-0.001, r_0=1e2, r_1=2.5e8 ) ),
                                   seed=0,
                                   neurons=4,
                                   verbose=False,
@@ -44,11 +48,8 @@ for i, a in enumerate( a_list ):
         curr_iteration += 1
         print( f"{curr_iteration}/{total_iterations}: {a}, {c}\n" )
 
-# for i, x in enumerate( results ):
-#     x[ "fig_pre_post" ].show()
-#     time.sleep( 2 )
 time_taken = time.time() - start_time
-dir_name, dir_images = make_timestamped_dir( root="../data/parameter_search/mBi/" )
+dir_name, dir_images = make_timestamped_dir( root="../data/parameter_search/mCompl/" )
 dataf = xr.DataArray( data=data, dims=dims, coords=coords )
 with open( f"{dir_name}mse.pkl", "wb" ) as f:
     pickle.dump( dataf, f )
