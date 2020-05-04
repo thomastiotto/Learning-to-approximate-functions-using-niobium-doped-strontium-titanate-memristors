@@ -58,8 +58,10 @@ def generate_encoders( n_neurons, dimensions=1 ):
         return [ [ -1 ] * int( dimensions ) ] * int( (n_neurons / 2) ) + [ [ 1 ] * int( dimensions ) ] * int(
                 (n_neurons / 2) )
     else:
+        # toss a coin to fairly decide on the extra central encoder
+        centr_enc = -1 if np.random.binomial( 1, 0.5 ) == 0 else 1
         return [ [ -1 ] * int( dimensions ) ] * int( (n_neurons / 2) ) + \
-               [ [ 1 ] * int( dimensions ) ] \
+               [ [ centr_enc ] * int( dimensions ) ] \
                + [ [ 1 ] * int( dimensions ) ] * int( (n_neurons / 2) )
 
 
