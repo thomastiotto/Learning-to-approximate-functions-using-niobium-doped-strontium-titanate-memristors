@@ -53,11 +53,14 @@ def nested_dict( n, type ):
         return defaultdict( lambda: nested_dict( n - 1, type ) )
 
 
-def generate_encoders( n_neurons ):
+def generate_encoders( n_neurons, dimensions=1 ):
     if n_neurons % 2 == 0:
-        return [ [ -1 ] ] * int( (n_neurons / 2) ) + [ [ 1 ] ] * int( (n_neurons / 2) )
+        return [ [ -1 ] * int( dimensions ) ] * int( (n_neurons / 2) ) + [ [ 1 ] * int( dimensions ) ] * int(
+                (n_neurons / 2) )
     else:
-        return [ [ -1 ] ] * int( (n_neurons / 2) ) + [ [ 1 ] ] + [ [ 1 ] ] * int( (n_neurons / 2) )
+        return [ [ -1 ] * int( dimensions ) ] * int( (n_neurons / 2) ) + \
+               [ [ 1 ] * int( dimensions ) ] \
+               + [ [ 1 ] * int( dimensions ) ] * int( (n_neurons / 2) )
 
 
 def expand_interpolate( oldx, oldy, step=1, include_start=False, include_end=False ):
@@ -122,7 +125,8 @@ def plot_network( model ):
 
 def plot_ensemble( sim, ens, time=None ):
     fig = plt.figure()
-    plt.plot( sim.trange(), sim.data[ ens ], c="b", label="Ensemble" )
+    for e in ens:
+        plt.plot( sim.trange(), sim.data[ e ], c="b", label="Ensemble" )
     if time:
         plt.axvline( x=time, c="k" )
         # ax[ 0 ].annotate( "Training end", xy=(time, np.amax( sim.data[ input ] )), xycoords='data' )
@@ -140,7 +144,8 @@ def plot_pre_post( sim, pre, post, input, error=None, time=None ):
     # axes = axes.flatten()
     # plot input, neural representations and error
     # plt.suptitle( datetime.datetime.now().strftime( '%H:%M:%S %d-%m-%Y' ) )
-    axes[ 0, 0 ].plot( sim.trange(), sim.data[ input ], c="k", label="Input" )
+    for i in input:
+        axes[ 0, 0 ].plot( sim.trange(), sim.data[ i ], c="k", label="Input" )
     axes[ 0, 0 ].plot( sim.trange(), sim.data[ pre ], c="b", label="Pre" )
     axes[ 0, 0 ].plot( sim.trange(), sim.data[ post ], c="g", label="Post" )
     if error:

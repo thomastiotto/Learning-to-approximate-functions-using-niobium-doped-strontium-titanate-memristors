@@ -15,8 +15,8 @@ start_c = -0.0001
 end_c = -1
 num_c = 30
 
-a_list = np.linspace( start_a, end_a, num=1 )
-c_list = np.linspace( start_c, end_c, num=1 )
+a_list = np.linspace( start_a, end_a, num=num_a )
+c_list = np.linspace( start_c, end_c, num=num_c )
 total_iterations = num_a * num_c
 print( "Total iterations:", total_iterations )
 

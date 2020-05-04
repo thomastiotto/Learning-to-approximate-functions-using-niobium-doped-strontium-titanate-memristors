@@ -2,13 +2,15 @@ from functools import partial
 from memristor_learning.Networks import *
 
 params = { "base voltage": 1e-1,
-           "neurons"     : 4 }
+           "neurons"     : 5 }
 
 print( "\nPair, +0.1V" )
 net = SupervisedLearning( memristor_controller=MemristorArray,
-                          memristor_model=partial( MemristorPlusMinus, model=partial( MemristorAnouk ) ),
+                          memristor_model=partial( MemristorPlusMinus,
+                                                   model=partial( MemristorAnouk ) ),
                           # input_function=lambda t: np.sin( 1 / 30 * 2 * np.pi * t ),
-                          weight_modifier=ZeroShiftModifier,
+                          # function_to_learn=lambda x: np.abs( x ),
+                          # weight_modifier=ZeroShiftModifier,
                           base_voltage=params[ "base voltage" ],
                           seed=0,
                           weights_to_plot=[ 15 ],
