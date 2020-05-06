@@ -194,7 +194,7 @@ def plot_ensemble_spikes( sim, name, ensemble, input=None, time=None ):
     ax1.set_xlabel( 'Time (s)' )
     if input:
         ax2 = plt.twinx()
-        ax2.plot( sim.trange(), sim.data[ input ] )
+        ax2.plot( sim.trange(), sim.data[ input ], c="k" )
     if time:
         time = int( time )
         for t in range( time ):
