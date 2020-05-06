@@ -53,16 +53,35 @@ def nested_dict( n, type ):
         return defaultdict( lambda: nested_dict( n - 1, type ) )
 
 
-def generate_encoders( n_neurons, dimensions=1 ):
-    if n_neurons % 2 == 0:
-        return [ [ -1 ] * int( dimensions ) ] * int( (n_neurons / 2) ) + [ [ 1 ] * int( dimensions ) ] * int(
-                (n_neurons / 2) )
+def generate_encoders( n_neurons, dimensions=1, random_sample=True, seed=None ):
+    if not random_sample:
+        if n_neurons % 2 == 0:
+            return [ [ -1 ] * int( dimensions ) ] * int( (n_neurons / 2) ) + [ [ 1 ] * int( dimensions ) ] * int(
+                    (n_neurons / 2) )
+        else:
+            # toss a coin to fairly decide on the extra central encoder
+            centr_enc = -1 if np.random.binomial( 1, 0.5 ) == 0 else 1
+            return [ [ -1 ] * int( dimensions ) ] * int( (n_neurons / 2) ) + \
+                   [ [ centr_enc ] * int( dimensions ) ] \
+                   + [ [ 1 ] * int( dimensions ) ] * int( (n_neurons / 2) )
     else:
-        # toss a coin to fairly decide on the extra central encoder
-        centr_enc = -1 if np.random.binomial( 1, 0.5 ) == 0 else 1
-        return [ [ -1 ] * int( dimensions ) ] * int( (n_neurons / 2) ) + \
-               [ [ centr_enc ] * int( dimensions ) ] \
-               + [ [ 1 ] * int( dimensions ) ] * int( (n_neurons / 2) )
+        if seed is not None:
+            rng = np.random.RandomState( seed=seed )
+            return nengo.dists.UniformHypersphere( surface=True ).sample( n_neurons, dimensions, rng=rng )
+        else:
+            return nengo.dists.UniformHypersphere( surface=True ).sample( n_neurons, dimensions )
+
+
+def plot_encoders( text, xy ):
+    fig = plt.figure()
+    plt.title( text )
+    plt.scatter( xy[ :, 0 ], xy[ :, 1 ], label="Encoders" )
+    plt.xlim( -1.5, 1.5 )
+    plt.ylim( -1.5, 2 )
+    plt.legend()
+    plt.gca().set_aspect( 'equal' )
+    
+    return fig
 
 
 def expand_interpolate( oldx, oldy, step=1, include_start=False, include_end=False ):
@@ -105,7 +124,7 @@ def mse( sim, x, y, learning_time, simulation_step ):
     return (
             np.square( sim.data[ x ][ int( learning_time / simulation_step ): ] -
                        sim.data[ y ][ int( learning_time / simulation_step ): ] )
-    ).mean()
+    ).mean( axis=0 )
 
 
 def plot_tuning_curves( ens, sim ):
@@ -127,10 +146,9 @@ def plot_network( model ):
 
 def plot_ensemble( sim, ens, time=None ):
     fig = plt.figure()
-    for e in ens:
-        plt.plot( sim.trange(), sim.data[ e ], c="b", label="Ensemble" )
+    plt.plot( sim.trange(), sim.data[ ens ], c="b", label="Ensemble" )
     if time:
-        plt.axvline( x=time, c="k" )
+        plt.axvline( x=time )
         # ax[ 0 ].annotate( "Training end", xy=(time, np.amax( sim.data[ input ] )), xycoords='data' )
     
     return fig
@@ -146,12 +164,11 @@ def plot_pre_post( sim, pre, post, input, error=None, time=None ):
     # axes = axes.flatten()
     # plot input, neural representations and error
     # plt.suptitle( datetime.datetime.now().strftime( '%H:%M:%S %d-%m-%Y' ) )
-    for i in input:
-        axes[ 0, 0 ].plot( sim.trange(), sim.data[ i ], c="k", label="Input" )
+    axes[ 0, 0 ].plot( sim.trange(), sim.data[ input ], label="Input" )
     axes[ 0, 0 ].plot( sim.trange(), sim.data[ pre ], c="b", label="Pre" )
     axes[ 0, 0 ].plot( sim.trange(), sim.data[ post ], c="g", label="Post" )
     if error:
-        axes[ 1, 0 ].plot( sim.trange(), error, c="r", label="Error" )
+        axes[ 1, 0 ].plot( sim.trange(), error, label="Error" )
     if time:
         for ax in axes:
             ax[ 0 ].axvline( x=time, c="k" )
@@ -177,7 +194,7 @@ def plot_ensemble_spikes( sim, name, ensemble, input=None, time=None ):
     ax1.set_xlabel( 'Time (s)' )
     if input:
         ax2 = plt.twinx()
-        ax2.plot( sim.trange(), sim.data[ input ], c="k" )
+        ax2.plot( sim.trange(), sim.data[ input ] )
     if time:
         time = int( time )
         for t in range( time ):

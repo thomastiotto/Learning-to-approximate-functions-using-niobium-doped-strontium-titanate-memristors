@@ -158,8 +158,10 @@ class mPES( MemristorLearningRule ):
     
     def __call__( self, t, x ):
         input_activities = x[ :self.input_size ]
-        # squash error to zero under a certain threshold or learning rule keeps running indefinitely
-        error = x[ self.input_size: ] if abs( x[ self.input_size: ] ) > self.error_threshold else [ 0 ]
+        error = x[ self.input_size: ]
+        # squash error to zero under a certain threshold (maybe leads to better learning?)
+        error[ np.abs( error ) < self.error_threshold ] = 0
+        # error = x[ self.input_size: ] if np.abs( x[ self.input_size: ] ) > self.error_threshold else [ 0 ]
         # error = x[ self.input_size: ]
         # note the negative sign, for a positive error we want to decrement the output
         alpha = -self.learning_rate * self.dt / self.input_size

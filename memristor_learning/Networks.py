@@ -131,6 +131,7 @@ class SupervisedLearning():
             post_probe = nengo.Probe( post, synapse=0.01 )
             
             # plot_network( model )
+            # print( pre.encoders )
             
             with nengo.Simulator( model, dt=self.simulation_step ) as sim:
                 sim.run( self.simulation_time )
@@ -146,10 +147,10 @@ class SupervisedLearning():
             
             stats = memr_arr.get_stats( time=(0, self.learning_time), select="conductance" )
             if self.generate_figures:
-                fig_ensemble = plot_ensemble( sim, [ inp_probe ] )
+                fig_ensemble = plot_ensemble( sim, inp_probe )
                 fig_pre = plot_ensemble_spikes( sim, "Pre", pre_spikes_probe, pre_probe )
                 fig_post = plot_ensemble_spikes( sim, "Post", post_spikes_probe, post_probe )
-                fig_pre_post = plot_pre_post( sim, pre_probe, post_probe, [ inp_probe ],
+                fig_pre_post = plot_pre_post( sim, pre_probe, post_probe, inp_probe,
                                               memr_arr.get_history( "error" ),
                                               time=self.learning_time )
                 if self.neurons <= 10:
@@ -212,7 +213,7 @@ class SupervisedLearning2D():
                   simulation_time=30.0,
                   learning_time=None,
                   simulation_step=0.001,
-                  input_function=lambda t: np.sin( 1 / 4 * 2 * np.pi * t ),
+                  input_function=lambda t: (np.sin( 1 / 4 * 2 * np.pi * t ), np.sin( 1 / 4 * 2 * np.pi * t + np.pi )),
                   function_to_learn=lambda x: x,
                   seed=None,
                   weights_to_plot=None,
@@ -261,7 +262,7 @@ class SupervisedLearning2D():
     def __call__( self, ):
         with nengo.Network() as model:
             inp = nengo.Node(
-                    output=lambda t: (np.sin( 1 / 4 * 2 * np.pi * t ), np.sin( 1 / 4 * 2 * np.pi * t + np.pi )),
+                    output=self.input_function,
                     size_out=2,
                     label="Input"
                     )
@@ -273,14 +274,14 @@ class SupervisedLearning2D():
             pre = nengo.Ensemble(
                     n_neurons=self.pre_nrn,
                     dimensions=2,
-                    encoders=generate_encoders( self.pre_nrn, dimensions=2 ),
+                    encoders=generate_encoders( self.pre_nrn, dimensions=2, seed=self.seed ),
                     label="Pre",
                     seed=self.seed
                     )
             post = nengo.Ensemble(
                     n_neurons=self.post_nrn,
                     dimensions=2,
-                    encoders=generate_encoders( self.post_nrn, dimensions=2 ),
+                    encoders=generate_encoders( self.post_nrn, dimensions=2, seed=self.seed ),
                     label="Post",
                     seed=self.seed
                     )
@@ -312,7 +313,6 @@ class SupervisedLearning2D():
                     )
             
             nengo.Connection( inp, pre )
-            # nengo.Connection( inp_two, pre[ 1 ] )
             nengo.Connection( pre.neurons, learn[ :self.pre_nrn ], synapse=0.005 )
             nengo.Connection( post, error )
             nengo.Connection( pre, error, function=self.function_to_learn, transform=-1 )
@@ -320,13 +320,16 @@ class SupervisedLearning2D():
             nengo.Connection( learn, post.neurons, synapse=None )
             nengo.Connection( learning_switch, learn[ -1 ], synapse=None )
             
-            inp_probe_one = nengo.Probe( inp )
+            inp_probe = nengo.Probe( inp )
             pre_spikes_probe = nengo.Probe( pre.neurons )
             post_spikes_probe = nengo.Probe( post.neurons )
             pre_probe = nengo.Probe( pre, synapse=0.01 )
             post_probe = nengo.Probe( post, synapse=0.01 )
             
             # plot_network( model )
+            print( pre.encoders )
+            plot_encoders( "Pre", pre.encoders )
+            plt.show()
             
             with nengo.Simulator( model, dt=self.simulation_step ) as sim:
                 sim.run( self.simulation_time )
@@ -342,10 +345,10 @@ class SupervisedLearning2D():
             
             stats = memr_arr.get_stats( time=(0, self.learning_time), select="conductance" )
             if self.generate_figures:
-                fig_ensemble = plot_ensemble( sim, [ inp_probe_one, inp_probe_one ] )
+                fig_ensemble = plot_ensemble( sim, inp_probe )
                 fig_pre = plot_ensemble_spikes( sim, "Pre", pre_spikes_probe, pre_probe )
                 fig_post = plot_ensemble_spikes( sim, "Post", post_spikes_probe, post_probe )
-                fig_pre_post = plot_pre_post( sim, pre_probe, post_probe, [ inp_probe_one, inp_probe_one ],
+                fig_pre_post = plot_pre_post( sim, pre_probe, post_probe, inp_probe,
                                               memr_arr.get_history( "error" ),
                                               time=self.learning_time )
                 if self.neurons <= 10:
@@ -364,20 +367,20 @@ class SupervisedLearning2D():
                     figs_weights_norm.append( memr_arr.plot_weight_matrix( time=t, normalized=True ) )
                     figs_conductances.append( memr_arr.plot_conductance_matrix( time=t ) )
             
-            # mean_squared_error = mse( sim, inp_probe, post_probe, self.learning_time, self.simulation_step )
+            mean_squared_error = mse( sim, inp_probe, post_probe, self.learning_time, self.simulation_step )
             start_sparsity = sparsity_measure( memr_arr.get_history( 'weight' )[ 0 ] )
             end_sparsity = sparsity_measure( memr_arr.get_history( 'weight' )[ -1 ] )
             
             if self.verbose:
                 print()
-                # print( f"Mean squared error: {mean_squared_error}" )
+                print( f"Mean squared error: {mean_squared_error}" )
                 print( f"Starting sparsity: {start_sparsity}" )
                 print( f"Ending sparsity: {end_sparsity}" )
                 print()
             
             output = {
                     "stats"            : stats,
-                    # "mse"              : mean_squared_error,
+                    "mse"              : mean_squared_error,
                     "initial_sparsity" : start_sparsity,
                     "end_sparsity"     : end_sparsity,
                     "fig_ensemble"     : fig_ensemble,

@@ -2,7 +2,7 @@ from functools import partial
 from memristor_learning.Networks import *
 
 params = { "base voltage": 1e-1,
-           "neurons"     : 5 }
+           "neurons"     : 4 }
 
 print( "\nPair, +0.1V" )
 net = SupervisedLearning( memristor_controller=MemristorArray,
