@@ -1,3 +1,5 @@
+import random
+
 from memristor_learning.MemristorHelpers import *
 from memristor_learning.MemristorControllers import *
 from memristor_learning.MemristorLearningRules import *
@@ -24,7 +26,8 @@ class SupervisedLearning():
                   weights_to_plot=None,
                   plot_ylim=(0, 2e-8),  # upper limit chosen by looking at the max obtained with mPlusMinus
                   verbose=True,
-                  generate_figures=True ):
+                  generate_figures=True,
+                  smooth_plots=False ):
         
         self.memristor_controller = memristor_controller
         self.memristor_model = memristor_model
@@ -63,16 +66,19 @@ class SupervisedLearning():
         
         self.weights_to_plot = range( 0, int( self.learning_time + 1 ), 1 ) if weights_to_plot is None \
             else weights_to_plot
+        self.smooth_plots = smooth_plots
         
         if self.verbose:
+            print()
             print( f"Neurons: {self.neurons}" )
-        print( f"Base voltage: {self.base_voltage}" )
-        print( f"Gain: {self.gain}" )
-        print( f"Simulation time: {self.simulation_time}" )
-        print( f"Learning time: {self.learning_time}" )
-        print( f"Simulation step: {self.simulation_step}" )
-        print( f"Function to learn: {self.function_to_learn}" )
-        print( f"Seed: {self.seed}" )
+            print( f"Base voltage: {self.base_voltage}" )
+            print( f"Gain: {self.gain}" )
+            print( f"Simulation time: {self.simulation_time}" )
+            print( f"Learning time: {self.learning_time}" )
+            print( f"Simulation step: {self.simulation_step}" )
+            print( f"Function to learn: {self.function_to_learn}" )
+            print( f"Seed: {self.seed}" )
+            print()
     
     def __call__( self ):
         
@@ -109,7 +115,11 @@ class SupervisedLearning():
                     seed=self.seed
                     )
             
-            # TODO get encoders at runtime as sim.data[ens].encoders
+            if self.verbose:
+                print( f"Pre encoders:\n{pre.encoders}" )
+                print( f"Post encoders:\n{post.encoders}" )
+                print()
+            
             memr_arr = MemristorArray(
                     model=self.memristor_model,
                     learning_rule=self.learning_rule( encoders=post.encoders ),
@@ -143,10 +153,6 @@ class SupervisedLearning():
             post_probe = nengo.Probe( post, synapse=0.01 )
             
             # plot_network( model )
-            print( pre.encoders )
-            print( post.encoders )
-            plot_encoders( "Pre", pre.encoders )
-            plt.show()
             
             with nengo.Simulator( model, dt=self.simulation_step ) as sim:
                 sim.run( self.simulation_time )
@@ -159,15 +165,18 @@ class SupervisedLearning():
             figs_weights = None
             figs_weights_norm = None
             figs_conductances = None
+            figs_encoders = { "pre" : plot_encoders( "Pre", pre.encoders ),
+                              "post": plot_encoders( "Post", post.encoders ) }
             
             stats = memr_arr.get_stats( time=(0, self.learning_time), select="conductance" )
             if self.generate_figures:
                 fig_ensemble = plot_ensemble( sim, inp_probe )
                 fig_pre = plot_ensemble_spikes( sim, "Pre", pre_spikes_probe, pre_probe )
                 fig_post = plot_ensemble_spikes( sim, "Post", post_spikes_probe, post_probe )
-                fig_pre_post = plot_pre_post( sim, pre_probe, post_probe, inp_probe,
-                                              memr_arr.get_history( "error" ),
-                                              time=self.learning_time )
+                fig_pre_post = plot_pre_post( sim, pre_probe, post_probe,
+                                              error=memr_arr.get_history( "error" ),
+                                              time=self.learning_time,
+                                              smooth=self.smooth_plots )
                 if self.neurons <= 10:
                     fig_state = memr_arr.plot_state( sim,
                                                      "conductance",
@@ -196,6 +205,7 @@ class SupervisedLearning():
                 print()
             
             output = {
+                    "encoders"         : [ pre.encoders, post.encoders ],
                     "stats"            : stats,
                     "mse"              : mean_squared_error,
                     "initial_sparsity" : start_sparsity,
@@ -208,6 +218,7 @@ class SupervisedLearning():
                     "figs_weights"     : figs_weights,
                     "figs_weights_norm": figs_weights_norm,
                     "figs_conductances": figs_conductances,
+                    "figs_encoders"    : figs_encoders
                     }
             
             # plt.close( "all" )

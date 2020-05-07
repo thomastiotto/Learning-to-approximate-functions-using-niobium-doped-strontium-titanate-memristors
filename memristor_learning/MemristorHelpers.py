@@ -32,9 +32,11 @@ def write_experiment_to_file( params, res, headers, table, dir_name, dir_images 
     with open( dir_name + "info.txt", "w+" ) as f:
         f.write( tabulate( table, headers=headers, tablefmt="github" ) )
         f.write( "\n\nPARAMS:\n" + pprint.pformat( params, width=1 ) )
+        f.write( "\n\nENCODERS:\n" + pprint.pformat( res[ "encoders" ], width=1 ) )
         f.write( "\n\nSTATS:\n" + pprint.pformat( res[ "stats" ], width=1 ) )
         f.write( f"\n\nMSE: {res[ 'mse' ]} " )
         f.write( f"\nSPARSITY: {res[ 'initial_sparsity' ]} -> {res[ 'end_sparsity' ]} " )
+    
     for key in res:
         if re.match( r'fig', key ):
             if isinstance( res[ key ], list ):
@@ -177,7 +179,7 @@ def plot_ensemble( sim, ens, time=None ):
     return fig
 
 
-def plot_pre_post( sim, pre, post, input, error=None, time=None ):
+def plot_pre_post( sim, pre, post, input=None, error=None, time=None, smooth=False ):
     import matplotlib.pyplot as plt
     
     num_subplots = 1
@@ -187,16 +189,33 @@ def plot_pre_post( sim, pre, post, input, error=None, time=None ):
     # axes = axes.flatten()
     # plot input, neural representations and error
     # plt.suptitle( datetime.datetime.now().strftime( '%H:%M:%S %d-%m-%Y' ) )
-    axes[ 0, 0 ].plot( sim.trange(), sim.data[ input ], label="Input" )
-    axes[ 0, 0 ].plot( sim.trange(), sim.data[ pre ], c="b", label="Pre" )
-    axes[ 0, 0 ].plot( sim.trange(), sim.data[ post ], c="g", label="Post" )
+    if input:
+        axes[ 0, 0 ].plot( sim.trange(), sim.data[ input ], label="Input" )
+    
+    y_pre = sim.data[ pre ]
+    y_post = sim.data[ post ]
+    # smooth data or it gets very hard to see in higher dimensions
+    if smooth:
+        from scipy.signal import savgol_filter
+        
+        y_pre = np.apply_along_axis( savgol_filter, 0, sim.data[ pre ], window_length=51, polyorder=3 )
+        y_post = np.apply_along_axis( savgol_filter, 0, sim.data[ post ], window_length=51, polyorder=3 )
+    
+    axes[ 0, 0 ].set_prop_cycle( None )
+    axes[ 0, 0 ].plot( sim.trange(), y_pre, linestyle=":", label="Pre" )
+    axes[ 0, 0 ].set_prop_cycle( None )
+    axes[ 0, 0 ].plot( sim.trange(), y_post, label="Post" )
+    axes[ 0, 0 ].legend(
+        [ f"Pre dim {i}" for i in range( y_pre.shape[ 1 ] ) ] + [ f"Post dim {i}" for i in range( y_pre.shape[ 1 ] ) ],
+        loc='best' )
     if error:
         axes[ 1, 0 ].plot( sim.trange(), error, label="Error" )
+        axes[ 1, 0 ].legend( [ f"Error dim {i}" for i in range( y_pre.shape[ 1 ] ) ], loc='best' )
     if time:
         for ax in axes:
             ax[ 0 ].axvline( x=time, c="k" )
             # ax[ 0 ].annotate( "Training end", xy=(time, np.amax( sim.data[ input ] )), xycoords='data' )
-    plt.legend( loc='best' )
+    # plt.legend( loc='best' )
     # plt.show()
     
     return fig
