@@ -17,7 +17,8 @@ class SupervisedLearning():
                   simulation_time=30.0,
                   learning_time=None,
                   simulation_step=0.001,
-                  input_function=lambda t: np.sin( 1 / 4 * 2 * np.pi * t ),
+                  input_function=None,
+                  dimensions=1,
                   function_to_learn=lambda x: x,
                   seed=None,
                   weights_to_plot=None,
@@ -36,7 +37,17 @@ class SupervisedLearning():
         self.gain = gain
         self.simulation_time = simulation_time
         self.simulation_step = simulation_step
-        self.input_function = input_function
+        self.dimensions = dimensions
+        
+        # iteratively build the default input of phase shifted sines
+        s = "lambda t: ("
+        phase_shift = 0
+        for i in range( self.dimensions ):
+            s += f"np.sin( 1 / 4 * 2 * np.pi * t + {phase_shift}),"
+            phase_shift += np.pi / (i + 1)
+        s += ")"
+        
+        self.input_function = input_function if input_function is not None else eval( s )
         self.function_to_learn = function_to_learn
         self.seed = seed
         if not learning_time:
@@ -55,19 +66,20 @@ class SupervisedLearning():
         
         if self.verbose:
             print( f"Neurons: {self.neurons}" )
-            print( f"Base voltage: {self.base_voltage}" )
-            print( f"Gain: {self.gain}" )
-            print( f"Simulation time: {self.simulation_time}" )
-            print( f"Learning time: {self.learning_time}" )
-            print( f"Simulation step: {self.simulation_step}" )
-            print( f"Function to learn: {self.function_to_learn}" )
-            print( f"Seed: {self.seed}" )
+        print( f"Base voltage: {self.base_voltage}" )
+        print( f"Gain: {self.gain}" )
+        print( f"Simulation time: {self.simulation_time}" )
+        print( f"Learning time: {self.learning_time}" )
+        print( f"Simulation step: {self.simulation_step}" )
+        print( f"Function to learn: {self.function_to_learn}" )
+        print( f"Seed: {self.seed}" )
     
-    def __call__( self, ):
+    def __call__( self ):
+        
         with nengo.Network() as model:
             inp = nengo.Node(
                     output=self.input_function,
-                    size_out=1,
+                    size_out=self.dimensions,
                     label="Input"
                     )
             learning_switch = nengo.Node(
@@ -77,21 +89,21 @@ class SupervisedLearning():
             
             pre = nengo.Ensemble(
                     n_neurons=self.pre_nrn,
-                    dimensions=1,
-                    encoders=generate_encoders( self.pre_nrn ),
+                    dimensions=self.dimensions,
+                    encoders=generate_encoders( self.pre_nrn, dimensions=self.dimensions, seed=self.seed ),
                     label="Pre",
                     seed=self.seed
                     )
             post = nengo.Ensemble(
                     n_neurons=self.post_nrn,
-                    dimensions=1,
-                    encoders=generate_encoders( self.post_nrn ),
+                    dimensions=self.dimensions,
+                    encoders=generate_encoders( self.post_nrn, dimensions=self.dimensions, seed=self.seed ),
                     label="Post",
                     seed=self.seed
                     )
             error = nengo.Ensemble(
                     n_neurons=self.err_nrn,
-                    dimensions=1,
+                    dimensions=self.dimensions,
                     radius=2,
                     label="Error",
                     seed=self.seed
@@ -131,7 +143,10 @@ class SupervisedLearning():
             post_probe = nengo.Probe( post, synapse=0.01 )
             
             # plot_network( model )
-            # print( pre.encoders )
+            print( pre.encoders )
+            print( post.encoders )
+            plot_encoders( "Pre", pre.encoders )
+            plt.show()
             
             with nengo.Simulator( model, dt=self.simulation_step ) as sim:
                 sim.run( self.simulation_time )

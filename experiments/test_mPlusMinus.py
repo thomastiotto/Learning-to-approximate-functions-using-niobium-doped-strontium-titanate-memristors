@@ -8,6 +8,7 @@ print( "\nPair, +0.1V" )
 net = SupervisedLearning( memristor_controller=MemristorArray,
                           memristor_model=partial( MemristorPlusMinus,
                                                    model=partial( MemristorAnouk ) ),
+                          dimensions=4,
                           # input_function=lambda t: np.sin( 1 / 30 * 2 * np.pi * t ),
                           # function_to_learn=lambda x: np.abs( x ),
                           # weight_modifier=ZeroShiftModifier,

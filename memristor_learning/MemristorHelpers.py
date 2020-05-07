@@ -72,14 +72,37 @@ def generate_encoders( n_neurons, dimensions=1, random_sample=True, seed=None ):
             return nengo.dists.UniformHypersphere( surface=True ).sample( n_neurons, dimensions )
 
 
-def plot_encoders( text, xy ):
+def plot_encoders( text, data ):
     fig = plt.figure()
+    
+    if data.shape[ 1 ] == 1:
+        x = data[ :, 0 ]
+        y = np.zeros_like( data[ :, 0 ] )
+        z = None
+        ax = fig.add_subplot( 111 )
+        plt.gca().set_aspect( 'equal' )
+    if data.shape[ 1 ] == 2:
+        x = data[ :, 0 ]
+        y = data[ :, 1 ]
+        z = None
+        ax = fig.add_subplot( 111 )
+        plt.gca().set_aspect( 'equal' )
+    if data.shape[ 1 ] == 3:
+        from mpl_toolkits.mplot3d import Axes3D
+        x = data[ :, 0 ]
+        y = data[ :, 1 ]
+        z = data[ :, 2 ]
+        ax = fig.add_subplot( 111, projection="3d" )
+        ax.set_zlim( -1.5, 1.5 )
+    if data.shape[ 1 ] > 3:
+        plt.title( "Can't plot higher than 3D encoders" )
+        return fig
+    
     plt.title( text )
-    plt.scatter( xy[ :, 0 ], xy[ :, 1 ], label="Encoders" )
+    ax.scatter( x, y, z, label="Encoders" )
     plt.xlim( -1.5, 1.5 )
-    plt.ylim( -1.5, 2 )
+    plt.ylim( -1.5, 1.5 )
     plt.legend()
-    plt.gca().set_aspect( 'equal' )
     
     return fig
 
