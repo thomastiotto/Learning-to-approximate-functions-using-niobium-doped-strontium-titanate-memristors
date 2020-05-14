@@ -44,10 +44,9 @@ class SupervisedLearning():
         
         # iteratively build the default input of phase shifted sines
         s = "lambda t: ("
-        phase_shift = 0
+        phase_shift = (2 * np.pi) / self.dimensions
         for i in range( self.dimensions ):
-            s += f"np.sin( 1 / 4 * 2 * np.pi * t + {phase_shift}),"
-            phase_shift += np.pi / (i + 1)
+            s += f"np.sin( 1 / 4 * 2 * np.pi * t + {i * phase_shift}),"
         s += ")"
         
         self.input_function = input_function if input_function is not None else eval( s )
@@ -154,7 +153,8 @@ class SupervisedLearning():
             
             # plot_network( model )
             
-            with nengo.Simulator( model, dt=self.simulation_step ) as sim:
+            # optimize=True is slower
+            with nengo.Simulator( model, dt=self.simulation_step, optimize=False ) as sim:
                 sim.run( self.simulation_time )
             
             fig_ensemble = None
