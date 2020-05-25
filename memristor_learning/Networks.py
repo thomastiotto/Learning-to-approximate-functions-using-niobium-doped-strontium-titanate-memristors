@@ -6,6 +6,8 @@ from memristor_learning.MemristorLearningRules import *
 from memristor_learning.MemristorModels import *
 
 
+# TODO why does error not show as zero after learning, in graphs?
+
 class SupervisedLearning():
     def __init__( self,
                   memristor_controller,
@@ -381,7 +383,7 @@ class SupervisedLearning2D():
                     fig_state = memr_arr.plot_state( sim,
                                                      "conductance",
                                                      combined=True,
-                                                     figsize=(15, 10),
+                                                     # figsize=(15, 10),
                                                      # ylim=(0, stats[ "max" ])
                                                      ylim=self.plot_ylim
                                                      )

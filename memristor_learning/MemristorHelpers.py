@@ -37,13 +37,18 @@ def write_experiment_to_file( params, res, headers, table, dir_name, dir_images 
         f.write( f"\n\nMSE: {res[ 'mse' ]} " )
         f.write( f"\nSPARSITY: {res[ 'initial_sparsity' ]} -> {res[ 'end_sparsity' ]} " )
     
+    # TODO write figures into nested dict
     for key in res:
         if re.match( r'fig', key ):
             if isinstance( res[ key ], list ):
                 for i, fig in enumerate( res[ key ] ):
                     fig.savefig( dir_images + key + f"_{i}" )
+            elif isinstance( res[ key ], dict ):
+                for key, fig in res[ key ].items():
+                    fig.savefig( dir_images + key )
             else:
                 res[ key ].savefig( dir_images + key )
+    
     with open( dir_name + "res.pkl", "wb" ) as f:
         pickle.dump( res, f )
 
@@ -200,16 +205,18 @@ def plot_pre_post( sim, pre, post, input=None, error=None, time=None, smooth=Fal
         
         y_pre = np.apply_along_axis( savgol_filter, 0, sim.data[ pre ], window_length=51, polyorder=3 )
         y_post = np.apply_along_axis( savgol_filter, 0, sim.data[ post ], window_length=51, polyorder=3 )
+        y_error = np.apply_along_axis( savgol_filter, 0, error, window_length=51, polyorder=3 )
     
     axes[ 0, 0 ].set_prop_cycle( None )
     axes[ 0, 0 ].plot( sim.trange(), y_pre, linestyle=":", label="Pre" )
     axes[ 0, 0 ].set_prop_cycle( None )
     axes[ 0, 0 ].plot( sim.trange(), y_post, label="Post" )
     axes[ 0, 0 ].legend(
-        [ f"Pre dim {i}" for i in range( y_pre.shape[ 1 ] ) ] + [ f"Post dim {i}" for i in range( y_pre.shape[ 1 ] ) ],
-        loc='best' )
+            [ f"Pre dim {i}" for i in range( y_pre.shape[ 1 ] ) ] +
+            [ f"Post dim {i}" for i in range( y_pre.shape[ 1 ] ) ],
+            loc='best' )
     if error:
-        axes[ 1, 0 ].plot( sim.trange(), error, label="Error" )
+        axes[ 1, 0 ].plot( sim.trange(), y_error, label="Error" )
         axes[ 1, 0 ].legend( [ f"Error dim {i}" for i in range( y_pre.shape[ 1 ] ) ], loc='best' )
     if time:
         for ax in axes:

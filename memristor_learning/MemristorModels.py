@@ -56,8 +56,12 @@ class MemristorComplementary( MemristorPair ):
         super().__init__( model, seed, voltage_converter, base_voltage, gain )
     
     def pulse( self, signal ):
-        self.mem_one.pulse( signal )
-        self.mem_two.pulse( -signal )
+        if signal > 0:
+            self.mem_one.pulse( signal )
+            self.mem_two.pulse( -signal )
+        if signal < 0:
+            self.mem_one.pulse( -signal )
+            self.mem_two.pulse( signal )
         
         return self.mem_one.get_state() - self.mem_two.get_state()
 
