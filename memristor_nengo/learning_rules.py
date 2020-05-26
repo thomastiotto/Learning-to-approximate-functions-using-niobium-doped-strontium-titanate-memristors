@@ -1,19 +1,17 @@
 import warnings
+import numpy as np
 
-from nengo.params import (
-    Default,
-    NumberParam,
-    )
 from nengo.synapses import Lowpass, SynapseParam
 from nengo.learning_rules import LearningRuleType
-
-import numpy as np
 
 from nengo.builder import Builder, Operator, Signal
 from nengo.builder.operator import Reset
 from nengo.ensemble import Ensemble
 from nengo.learning_rules import PES
 from nengo.node import Node
+
+from nengo.params import Default, IntParam, NumberParam, Parameter, FrozenObject
+from nengo.dists import DistOrArrayParam, Uniform
 
 
 class mPES( LearningRuleType ):
@@ -44,12 +42,13 @@ class mPES( LearningRuleType ):
 
 class SimmPES( Operator ):
     def __init__(
-            self, pre_filtered, error, delta, learning_rate, encoders, memristor_model, tag=None
+            self, pre_filtered, error, delta, learning_rate, encoders, memristor_model, memristors, tag=None
             ):
         super( SimmPES, self ).__init__( tag=tag )
         
         self.learning_rate = learning_rate
         self.memristor_model = memristor_model
+        self.memristors = memristors
         
         # create memristor array that implement the weights
         self.memristors = np.empty_like( delta.initial_value, dtype=object )
@@ -68,7 +67,7 @@ class SimmPES( Operator ):
     
     @property
     def encoders( self ):
-        return None if len( self.reads ) < 3 else self.reads[ 2 ]
+        return self.reads[ 2 ]
     
     @property
     def error( self ):
@@ -102,15 +101,17 @@ class SimmPES( Operator ):
             
             return np.logical_and( spiked_pre, spiked_post )
         
+        # def memristor_sim( learning_signal ):
+        
         def step_simmpes():
             local_error = alpha * np.dot( encoders, error )
-            signal = np.outer( local_error, pre_filtered )
+            learning_signal = np.outer( local_error, pre_filtered )
             
             spiked_map = find_spikes( pre_filtered )
             
             if spiked_map.any():
                 for j, i in np.transpose( np.where( spiked_map ) ):
-                    update = self.memristors[ j, i ].pulse( signal[ j, i ], delta=True )
+                    update = self.memristors[ j, i ].pulse( learning_signal[ j, i ] )
                     # update = update if update >=
                     delta[ j, i ] = update
             
@@ -150,10 +151,14 @@ def build_mpes( model, pes, rule ):
     post = get_post_ens( conn )
     encoders = model.sig[ post ][ "encoders" ][ :, conn.post_slice ]
     
+    # create signal to keep track of memristor resistance
+    memristors = Signal( initial_value=np.random.randint( 1e8, 1.1e8, (encoders.shape[ 0 ], acts.shape[ 0 ]) ) )
+    
     model.add_op(
             SimmPES(
                     acts, error, model.sig[ rule ][ "delta" ], pes.learning_rate, encoders=encoders,
-                    memristor_model=pes.memristor_model
+                    memristor_model=pes.memristor_model,
+                    memristors=pes.memristors
                     )
             )
     
