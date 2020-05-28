@@ -35,9 +35,10 @@ class mPES( LearningRuleType ):
         self.r_max = r_max
         self.r_min = r_min
     
+    # TODO return normalized conductances
     @staticmethod
     def initial_normalized_conductances( low, high, shape ):
-        return np.random.randint( low, high, shape )
+        return np.random.uniform( low, high, shape )
     
     @property
     def _argdefaults( self ):
@@ -56,16 +57,21 @@ class SimmPES( Operator ):
             learning_rate,
             encoders,
             weights,
+            states,
             tag=None
             ):
         super( SimmPES, self ).__init__( tag=tag )
         
         self.learning_rate = learning_rate
         
-        self.sets = [ ]
+        self.sets = [ ] + states
         self.incs = [ ]
         self.reads = [ pre_filtered, error, encoders, weights ]
         self.updates = [ delta ]
+    
+    @property
+    def pulse_number( self ):
+        return self.sets[ 0 ]
     
     @property
     def pre_filtered( self ):
@@ -98,6 +104,7 @@ class SimmPES( Operator ):
         alpha = -self.learning_rate * dt / n_neurons
         encoders = signals[ self.encoders ]
         weights = signals[ self.weights ]
+        pulse_number = signals[ self.pulse_number ]
         
         def find_spikes( input_activities, shape, output_activities=None ):
             input_size = shape[ 1 ]
@@ -116,8 +123,9 @@ class SimmPES( Operator ):
         def step_simmpes():
             # TODO pass parameters or equations/functions directly
             # TODO keep track of pulse numbers in a Signal
-            a = 1e-3
-            c = 1e-3
+            a = -0.128
+            # TODO learning works but reverse bias has basically no effect
+            c = -1e-3
             r_min = 1e2
             r_max = 2.5e8
             r_3 = 1e9
@@ -130,14 +138,20 @@ class SimmPES( Operator ):
             # spiked_map = find_spikes( pre_filtered, pes_delta.shape )
             # np.logical_and( pes_delta, spiked_map, out=pes_delta )
             
+            # analytical derivative of
+            def deriv( n, a ):
+                return a * n**(a - 1)
+            
             # set update direction and magnitude (unused with powerlaw memristor equations)
             V = np.sign( pes_delta ) * 1e-1
             # use the correct equation for the bidirectional powerlaw memristor update
+            # I am using forward difference 1st order approximation to calculate the update delta
             try:
-                delta[ V > 0 ] = r_min + r_max * ((weights[ V > 0 ] - r_min) / r_max)**(1 / a)**a
-                delta[ V < 0 ] = r_3 - r_3 * ((r_3 - weights[ V < 0 ]) / r_3)**(1 / c)**c
+                delta[ V > 0 ] = r_max * deriv( (((weights[ V > 0 ] - r_min) / r_max)**(1 / a)), a )
+                delta[ V < 0 ] = -r_3 * deriv( (((r_3 - weights[ V < 0 ]) / r_3)**(1 / c)), c )
             except:
                 pass
+            print( delta )
         
         return step_simmpes
 
@@ -157,10 +171,10 @@ def build_or_passthrough( model, obj, signal ):
 
 
 @Builder.register( mPES )
-def build_mpes( model, pes, rule ):
+def build_mpes( model, mpes, rule ):
     conn = rule.connection
     
-    # NB "pes" is the "mPES()" frontend class
+    # NB "mpes" is the "mPES()" frontend class
     
     # Create input error signal
     error = Signal( shape=rule.size_in, name="mPES:memristors" )
@@ -168,19 +182,32 @@ def build_mpes( model, pes, rule ):
     model.sig[ rule ][ "in" ] = error  # error connection will attach here
     
     # Filter pre-synaptic activities with pre_synapse
-    acts = build_or_passthrough( model, pes.pre_synapse, model.sig[ conn.pre_obj ][ "out" ] )
+    acts = build_or_passthrough( model, mpes.pre_synapse, model.sig[ conn.pre_obj ][ "out" ] )
     
     post = get_post_ens( conn )
     encoders = model.sig[ post ][ "encoders" ][ :, conn.post_slice ]
+    
+    out_size = encoders.shape[ 0 ]
+    in_size = acts.shape[ 0 ]
+    
+    # model.sig[ conn ][ "weights" ] = mpes.initial_normalized_conductances( 1e8, 1.1e8, (out_size, in_size) )
+    
+    model.sig[ rule ][ "pulse_number" ] = Signal( shape=(out_size, in_size),
+                                                  name="%s.pulse_number" % rule,
+                                                  # initial_value=
+                                                  )
     
     model.add_op(
             SimmPES(
                     acts,
                     error,
                     model.sig[ rule ][ "delta" ],
-                    pes.learning_rate,
+                    mpes.learning_rate,
                     encoders,
-                    model.sig[ conn ][ "weights" ]
+                    model.sig[ conn ][ "weights" ],
+                    states=[
+                            model.sig[ rule ][ "pulse_number" ]
+                            ]
                     )
             )
     
