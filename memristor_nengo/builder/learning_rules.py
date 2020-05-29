@@ -1,74 +1,3 @@
-import warnings
-import numpy as np
-
-from nengo.synapses import Lowpass, SynapseParam
-from nengo.learning_rules import LearningRuleType
-
-from nengo.builder import Builder, Operator, Signal
-from nengo.builder.operator import Reset
-from nengo.ensemble import Ensemble
-from nengo.learning_rules import PES
-from nengo.node import Node
-
-from nengo.params import Default, IntParam, NumberParam, Parameter, FrozenObject
-from nengo.dists import DistOrArrayParam, Uniform
-
-
-class mPES( LearningRuleType ):
-    modifies = "weights"
-    probeable = ("error", "activities", "delta")
-    
-    learning_rate = NumberParam( "learning_rate", low=0, readonly=True, default=1e-4 )
-    pre_synapse = SynapseParam( "pre_synapse", default=Lowpass( tau=0.005 ), readonly=True )
-    r_max = NumberParam( "r_max", readonly=True, default=2.5e8 )
-    r_min = NumberParam( "r_min", readonly=True, default=1e2 )
-    
-    def __init__( self, learning_rate=Default, pre_synapse=Default, r_max=Default, r_min=Default ):
-        super().__init__( learning_rate, size_in="post_state" )
-        if learning_rate is not Default and learning_rate >= 1.0:
-            warnings.warn(
-                    "This learning rate is very high, and can result "
-                    "in floating point errors from too much current."
-                    )
-        
-        self.pre_synapse = pre_synapse
-        self.r_max = r_max
-        self.r_min = r_min
-    
-    def normalized_conductance( self, R ):
-        epsilon = np.finfo( float ).eps
-        gain = 1e5
-        
-        g_curr = 1.0 / R
-        g_min = 1.0 / self.r_max
-        g_max = 1.0 / self.r_min
-        
-        return gain * (((g_curr - g_min) / (g_max - g_min)) + epsilon)
-    
-    # TODO return normalized conductances
-    @staticmethod
-    def initial_normalized_conductances( low, high, shape, r_max=2.5e8, r_min=1e2 ):
-        epsilon = np.finfo( float ).eps
-        gain = 1e5
-        
-        g_curr = 1.0 / np.random.uniform( low, high, shape )
-        g_min = 1.0 / r_max
-        g_max = 1.0 / r_min
-        
-        return gain * (((g_curr - g_min) / (g_max - g_min)) + epsilon)
-    
-    @staticmethod
-    def initial_resistances( low, high, shape ):
-        return np.random.uniform( low, high, shape )
-    
-    @property
-    def _argdefaults( self ):
-        return (
-                ("learning_rate", PES.learning_rate.default),
-                ("pre_synapse", PES.pre_synapse.default),
-                )
-
-
 import numpy as np
 
 from nengo.builder import Builder, Operator, Signal
@@ -161,12 +90,7 @@ class SimmPES( Operator ):
             c = -1e-3
             r_min = 1e2
             r_max = 2.5e8
-            g_min = 1.0 / r_max
-            g_max = 1.0 / r_min
             r_3 = 1e9
-            gain = 1e5
-            epsilon = np.finfo( float ).eps
-            dtt = dt
             
             # calculate the magnitude of the update based on PES learning rule
             local_error = alpha * np.dot( encoders, error )
@@ -179,18 +103,6 @@ class SimmPES( Operator ):
             # analytical derivative of pulse number
             def deriv( n, a ):
                 return a * n**(a - 1)
-            
-            def resistance2conductance( R ):
-                g_curr = 1.0 / R
-                g_norm = ((g_curr - g_min) / (g_max - g_min))
-                
-                return gain * (g_norm + epsilon)
-            
-            def conductance2resistance( G ):
-                g_clean = (G / gain) - epsilon
-                g_unnorm = g_clean * (g_max - g_min) + g_min
-                
-                return 1.0 / g_unnorm
             
             # set update direction and magnitude (unused with powerlaw memristor equations)
             V = np.sign( pes_delta ) * 1e-1

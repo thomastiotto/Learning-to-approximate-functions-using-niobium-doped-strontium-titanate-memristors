@@ -4,7 +4,7 @@ from memristor_learning.Networks import *
 params = { "c"           : -0.001,
            "d"           : 0,
            "base voltage": 1e-1,
-           "neurons"     : 4 }
+           "neurons"     : 10 }
 
 net = SupervisedLearning( memristor_controller=MemristorArray,
                           memristor_model=partial( MemristorAnoukBidirectional, c=params[ "c" ], d=params[ "d" ] ),
