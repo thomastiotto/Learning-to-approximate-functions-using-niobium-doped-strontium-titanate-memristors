@@ -2,7 +2,7 @@ from functools import partial
 from memristor_learning.Networks import *
 
 params = { "base voltage": 1e-1,
-           "neurons"     : 10,
+           "neurons"     : 4,
            "dimensions"  : 1 }
 
 print( "\nPair, +0.1V" )

@@ -1,17 +1,9 @@
 import warnings
-import numpy as np
 
+from nengo.params import Default, NumberParam
 from nengo.synapses import Lowpass, SynapseParam
 from nengo.learning_rules import LearningRuleType
-
-from nengo.builder import Builder, Operator, Signal
-from nengo.builder.operator import Reset
-from nengo.ensemble import Ensemble
 from nengo.learning_rules import PES
-from nengo.node import Node
-
-from nengo.params import Default, IntParam, NumberParam, Parameter, FrozenObject
-from nengo.dists import DistOrArrayParam, Uniform
 
 
 class mPES( LearningRuleType ):
@@ -76,7 +68,6 @@ from nengo.builder.operator import Copy, Reset
 from nengo.connection import LearningRule
 from nengo.ensemble import Ensemble
 from nengo.exceptions import BuildError
-from memristor_nengo.learning_rules import mPES
 from nengo.node import Node
 
 
@@ -153,9 +144,7 @@ class SimmPES( Operator ):
             return np.logical_and( spiked_pre, spiked_post )
         
         def step_simmpes():
-            # TODO pass everything into conductances
             # TODO pass parameters or equations/functions directly
-            # TODO keep track of pulse numbers in a Signal
             a = -0.128
             # TODO learning works but reverse bias has basically no effect
             c = -1e-3
@@ -180,25 +169,29 @@ class SimmPES( Operator ):
             def deriv( n, a ):
                 return a * n**(a - 1)
             
-            def resistance2conductance( R ):
-                g_curr = 1.0 / R
-                g_norm = ((g_curr - g_min) / (g_max - g_min))
-                
-                return gain * (g_norm + epsilon)
-            
             def conductance2resistance( G ):
                 g_clean = (G / gain) - epsilon
                 g_unnorm = g_clean * (g_max - g_min) + g_min
                 
                 return 1.0 / g_unnorm
             
+            def resistance2conductance( R ):
+                g_curr = 1.0 / R
+                g_norm = (g_curr - g_min) / (g_max - g_min)
+                
+                return gain * (g_norm + epsilon)
+            
+            # convert connection weights to un-normalized resistance
+            weights_res = conductance2resistance( weights )
             # set update direction and magnitude (unused with powerlaw memristor equations)
             V = np.sign( pes_delta ) * 1e-1
             # use the correct equation for the bidirectional powerlaw memristor update
             # I am using forward difference 1st order approximation to calculate the update delta
             try:
-                delta[ V > 0 ] = r_max * deriv( (((weights[ V > 0 ] - r_min) / r_max)**(1 / a)), a )
-                delta[ V < 0 ] = -r_3 * deriv( (((r_3 - weights[ V < 0 ]) / r_3)**(1 / c)), c )
+                pos_update = r_max * deriv( (((weights_res[ V > 0 ] - r_min) / r_max)**(1 / a)), a )
+                neg_update = -r_3 * deriv( (((r_3 - weights_res[ V < 0 ]) / r_3)**(1 / c)), c )
+                delta[ V > 0 ] = resistance2conductance( weights_res[ V > 0 ] + pos_update ) - weights[ V > 0 ]
+                delta[ V < 0 ] = weights[ V < 0 ] - resistance2conductance( weights_res[ V < 0 ] + neg_update )
             except:
                 pass
         
