@@ -205,7 +205,6 @@ def plot_pre_post( sim, pre, post, input=None, error=None, time=None, smooth=Fal
         
         y_pre = np.apply_along_axis( savgol_filter, 0, sim.data[ pre ], window_length=51, polyorder=3 )
         y_post = np.apply_along_axis( savgol_filter, 0, sim.data[ post ], window_length=51, polyorder=3 )
-        y_error = np.apply_along_axis( savgol_filter, 0, error, window_length=51, polyorder=3 )
     
     axes[ 0, 0 ].set_prop_cycle( None )
     axes[ 0, 0 ].plot( sim.trange(), y_pre, linestyle=":", label="Pre" )
@@ -216,6 +215,11 @@ def plot_pre_post( sim, pre, post, input=None, error=None, time=None, smooth=Fal
             [ f"Post dim {i}" for i in range( y_pre.shape[ 1 ] ) ],
             loc='best' )
     if error:
+        y_error = error
+        if smooth:
+            from scipy.signal import savgol_filter
+            
+            y_error = np.apply_along_axis( savgol_filter, 0, error, window_length=51, polyorder=3 )
         axes[ 1, 0 ].plot( sim.trange(), y_error, label="Error" )
         axes[ 1, 0 ].legend( [ f"Error dim {i}" for i in range( y_pre.shape[ 1 ] ) ], loc='best' )
     if time:
