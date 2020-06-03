@@ -39,15 +39,18 @@ class mPES( LearningRuleType ):
     
     # TODO return normalized conductances
     @staticmethod
-    def initial_normalized_conductances( low, high, shape, r_max=2.5e8, r_min=1e2 ):
+    def initial_normalized_conductances( low, high, shape, r_max=2.5e8, r_min=1e2, seed=None ):
         epsilon = np.finfo( float ).eps
         gain = 1e5
+        
+        np.random.seed( seed )
         
         g_curr = 1.0 / np.random.uniform( low, high, shape )
         g_min = 1.0 / r_max
         g_max = 1.0 / r_min
         
-        return gain * (((g_curr - g_min) / (g_max - g_min)) + epsilon)
+        # return gain * (((g_curr - g_min) / (g_max - g_min)) + epsilon)
+        return (g_curr - g_min) / (g_max - g_min)
     
     @staticmethod
     def initial_resistances( low, high, shape ):
@@ -170,8 +173,9 @@ class SimmPES( Operator ):
                 return a * n**(a - 1)
             
             def conductance2resistance( G ):
-                g_clean = (G / gain) - epsilon
-                g_unnorm = g_clean * (g_max - g_min) + g_min
+                # g_clean = (G / gain) - epsilon
+                # g_unnorm = g_clean * (g_max - g_min) + g_min
+                g_unnorm = G * (g_max - g_min) + g_min
                 
                 return 1.0 / g_unnorm
             
@@ -179,9 +183,11 @@ class SimmPES( Operator ):
                 g_curr = 1.0 / R
                 g_norm = (g_curr - g_min) / (g_max - g_min)
                 
-                return gain * (g_norm + epsilon)
+                # return gain * (g_norm + epsilon)
+                return g_norm
+                
+                # convert connection weights to un-normalized resistance
             
-            # convert connection weights to un-normalized resistance
             weights_res = conductance2resistance( weights )
             # set update direction and magnitude (unused with powerlaw memristor equations)
             V = np.sign( pes_delta ) * 1e-1
