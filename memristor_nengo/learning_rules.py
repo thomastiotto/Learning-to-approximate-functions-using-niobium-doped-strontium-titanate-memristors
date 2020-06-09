@@ -134,7 +134,8 @@ class SimmPES( Operator ):
         
         def step_simmpes():
             # TODO pass parameters or equations/functions directly
-            a = -0.128
+            # a = -0.128
+            a = -0.1802
             # TODO reverse bias has basically no effect
             c = -1e-3
             r_min = 1e2
@@ -175,11 +176,16 @@ class SimmPES( Operator ):
             V = np.sign( pes_delta ) * 1e-1
             
             # update the two memristor pairs separately
-            
             n_pos = ((pos_memristors[ V > 0 ] - r_min) / r_max)**(1 / a)
             n_neg = ((neg_memristors[ V < 0 ] - r_min) / r_max)**(1 / a)
-            pos_update = r_max * monom_deriv( n_pos, a )
-            neg_update = r_max * monom_deriv( n_neg, a )
+            
+            pos_memristors[ V > 0 ] = r_min + r_max * (n_pos + 1)**a
+            neg_memristors[ V < 0 ] = r_min + r_max * (n_neg + 1)**a
+            
+            delta[ : ] = resistance2conductance( pos_memristors[ : ] ) - resistance2conductance( neg_memristors[ : ] )
+            
+            """# pos_update = r_max * monom_deriv( n_pos, a )
+            # neg_update = r_max * monom_deriv( n_neg, a )
             delta[ V > 0 ] = resistance2conductance( pos_memristors[ V > 0 ] + pos_update ) \
                              - resistance2conductance( pos_memristors[ V > 0 ] )
             delta[ V < 0 ] = resistance2conductance( neg_memristors[ V < 0 ] + neg_update ) \
@@ -187,7 +193,7 @@ class SimmPES( Operator ):
             pos_memristors[ V > 0 ] += pos_update
             neg_memristors[ V < 0 ] += neg_update
             # pos_memristors[ V > 0 ] = r_min + r_max * (n_pos + 1)**a
-            # neg_memristors[ V < 0 ] = r_min + r_max * (n_neg + 1)**a
+            # neg_memristors[ V < 0 ] = r_min + r_max * (n_neg + 1)**a"""
             
             pass
             

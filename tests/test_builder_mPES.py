@@ -10,7 +10,7 @@ from nengo.learning_rules import PES
 from memristor_learning.MemristorModels import (MemristorPlusMinus, MemristorAnouk)
 from memristor_nengo.learning_rules import mPES
 
-n_neurons = 10
+n_neurons = 4
 dimensions = 1
 sim_time = 30
 learn_time = int( sim_time * 1 / 2 )
@@ -70,8 +70,9 @@ with model:
     error_probe = nengo.Probe( error, synapse=0.01 )
     learn_probe = nengo.Probe( stop_learning, synapse=None )
     weight_probe = nengo.Probe( conn, "weights", synapse=0.01, sample_every=0.01 )
-    pos_memr_probe = nengo.Probe( conn.learning_rule, "pos_memristors", synapse=0.01, sample_every=0.01 )
-    neg_memr_probe = nengo.Probe( conn.learning_rule, "neg_memristors", synapse=0.01, sample_every=0.01 )
+    if isinstance( conn.learning_rule_type, mPES ):
+        pos_memr_probe = nengo.Probe( conn.learning_rule, "pos_memristors", synapse=0.01, sample_every=0.01 )
+        neg_memr_probe = nengo.Probe( conn.learning_rule, "neg_memristors", synapse=0.01, sample_every=0.01 )
     
     # Create the simulator
     with nengo.Simulator( model ) as sim:

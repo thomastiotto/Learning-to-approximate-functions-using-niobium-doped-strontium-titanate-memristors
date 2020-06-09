@@ -177,6 +177,13 @@ class mPES( MemristorLearningRule ):
         # squash spikes to False (0) or True (100/1000 ...) or everything is always adjusted
         spiked_map = self.find_spikes( input_activities )
         
+        # for j in range( signal.shape[ 0 ] ):
+        #     for i in range( signal.shape[ 1 ] ):
+        #         if signal[ j, i ] != 0:
+        #             update = self.memristors[ j, i ].pulse( signal[ j, i ] )
+        #             # update = update if update >=
+        #             self.weights[ j, i ] = update
+        
         # we only need to update the weights for the neurons that spiked so we filter for their columns
         if spiked_map.any():
             for j, i in np.transpose( np.where( spiked_map ) ):

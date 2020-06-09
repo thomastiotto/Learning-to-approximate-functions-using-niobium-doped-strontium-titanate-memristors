@@ -14,11 +14,12 @@ net = SupervisedLearning( memristor_controller=MemristorArray,
                           # function_to_learn=lambda x: np.abs( x ),
                           # weight_modifier=ZeroShiftModifier,
                           base_voltage=params[ "base voltage" ],
-                          seed=None,
+                          seed=0,
                           weights_to_plot=[ 15 ],
                           neurons=params[ "neurons" ],
                           plot_ylim=(0, 2.5e-8),
-                          smooth_plots=True
+                          smooth_plots=True,
+                          input_function=lambda t: np.sin( 1 / 4 * 2 * np.pi * t )
                           )
 res = net()
 
