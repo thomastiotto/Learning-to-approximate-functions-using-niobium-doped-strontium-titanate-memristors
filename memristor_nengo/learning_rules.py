@@ -143,7 +143,7 @@ class SimmPES( Operator ):
             g_min = 1.0 / r_max
             g_max = 1.0 / r_min
             r_3 = 1e9
-            gain = 1e6
+            gain = 1
             error_threshold = 1e-5
             
             # analytical derivative of pulse number
