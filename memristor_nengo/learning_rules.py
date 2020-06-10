@@ -144,10 +144,7 @@ class SimmPES( Operator ):
             g_max = 1.0 / r_min
             r_3 = 1e9
             gain = 1e6
-            
-            # calculate the magnitude of the update based on PES learning rule
-            local_error = alpha * np.dot( encoders, error )
-            pes_delta = np.outer( local_error, pre_filtered )
+            error_threshold = 1e-5
             
             # analytical derivative of pulse number
             def monom_deriv( base, exp ):
@@ -166,46 +163,27 @@ class SimmPES( Operator ):
                 
                 # return gain * (g_norm + epsilon)
                 return g_norm * gain
+            
+            # set update to zero if error is small or adjustments go on for ever
+            if np.any( np.absolute( error ) > error_threshold ):
+                # calculate the magnitude of the update based on PES learning rule
+                local_error = alpha * np.dot( encoders, error )
+                pes_delta = np.outer( local_error, pre_filtered )
                 
-                # convert connection weights to un-normalized resistance
-            
-            """# convert from conductance to weights
-            weights_res = conductance2resistance( weights )"""
-            
-            # set update direction and magnitude (unused with powerlaw memristor equations)
-            V = np.sign( pes_delta ) * 1e-1
-            
-            # update the two memristor pairs separately
-            n_pos = ((pos_memristors[ V > 0 ] - r_min) / r_max)**(1 / a)
-            n_neg = ((neg_memristors[ V < 0 ] - r_min) / r_max)**(1 / a)
-            
-            pos_memristors[ V > 0 ] = r_min + r_max * (n_pos + 1)**a
-            neg_memristors[ V < 0 ] = r_min + r_max * (n_neg + 1)**a
-            
-            delta[ : ] = resistance2conductance( pos_memristors[ : ] ) - resistance2conductance( neg_memristors[ : ] )
-            
-            """# pos_update = r_max * monom_deriv( n_pos, a )
-            # neg_update = r_max * monom_deriv( n_neg, a )
-            delta[ V > 0 ] = resistance2conductance( pos_memristors[ V > 0 ] + pos_update ) \
-                             - resistance2conductance( pos_memristors[ V > 0 ] )
-            delta[ V < 0 ] = resistance2conductance( neg_memristors[ V < 0 ] + neg_update ) \
-                             - resistance2conductance( neg_memristors[ V < 0 ] )
-            pos_memristors[ V > 0 ] += pos_update
-            neg_memristors[ V < 0 ] += neg_update
-            # pos_memristors[ V > 0 ] = r_min + r_max * (n_pos + 1)**a
-            # neg_memristors[ V < 0 ] = r_min + r_max * (n_neg + 1)**a"""
-            
-            pass
-            
-            """
-            # I am using forward difference 1st order approximation to calculate the update deltas
-            pos_update = r_max * monom_deriv( (((weights_res[ V > 0 ] - r_min) / r_max)**(1 / a)), a )
-            neg_update = -r_max * monom_deriv( (((weights_res[ V < 0 ] - r_min) / r_max)**(1 / a)), a )
-            # neg_update = -r_3 * monom_deriv( (((r_3 - weights_res[ V < 0 ]) / r_3)**(1 / c)), c )
-            
-            delta[ V > 0 ] = (resistance2conductance( weights_res[ V > 0 ] + pos_update ) - weights[ V > 0 ]) * 1e6
-            delta[ V < 0 ] = (resistance2conductance( weights_res[ V < 0 ] + neg_update ) - weights[ V < 0 ]) * 1e6
-            pass"""
+                # set update direction and magnitude (unused with powerlaw memristor equations)
+                V = np.sign( pes_delta ) * 1e-1
+                
+                # update the two memristor pairs separately
+                n_pos = ((pos_memristors[ V > 0 ] - r_min) / r_max)**(1 / a)
+                n_neg = ((neg_memristors[ V < 0 ] - r_min) / r_max)**(1 / a)
+                
+                pos_memristors[ V > 0 ] = r_min + r_max * (n_pos + 1)**a
+                neg_memristors[ V < 0 ] = r_min + r_max * (n_neg + 1)**a
+                
+                delta[ : ] = resistance2conductance( pos_memristors[ : ] ) \
+                             - resistance2conductance( neg_memristors[ : ] )
+            else:
+                delta[ : ] = np.zeros_like( delta )
         
         return step_simmpes
 

@@ -2,12 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import nengo
 
-from functools import partial
-
 from nengo.learning_rules import PES
-
-# custom models
-from memristor_learning.MemristorModels import (MemristorPlusMinus, MemristorAnouk)
 from memristor_nengo.learning_rules import mPES
 
 n_neurons = 4
@@ -69,10 +64,10 @@ with model:
     post_probe = nengo.Probe( post, synapse=0.01 )
     error_probe = nengo.Probe( error, synapse=0.01 )
     learn_probe = nengo.Probe( stop_learning, synapse=None )
-    weight_probe = nengo.Probe( conn, "weights", synapse=0.01, sample_every=0.01 )
+    weight_probe = nengo.Probe( conn, "weights", synapse=None )
     if isinstance( conn.learning_rule_type, mPES ):
-        pos_memr_probe = nengo.Probe( conn.learning_rule, "pos_memristors", synapse=0.01, sample_every=0.01 )
-        neg_memr_probe = nengo.Probe( conn.learning_rule, "neg_memristors", synapse=0.01, sample_every=0.01 )
+        pos_memr_probe = nengo.Probe( conn.learning_rule, "pos_memristors", synapse=None )
+        neg_memr_probe = nengo.Probe( conn.learning_rule, "neg_memristors", synapse=None )
     
     # Create the simulator
     with nengo.Simulator( model ) as sim:
@@ -125,12 +120,29 @@ with model:
     plt.subplot( 2, 1, 2 )
     # Find weight row with max variance
     neuron = np.argmax( np.mean( np.var( sim.data[ weight_probe ], axis=0 ), axis=1 ) )
-    plt.plot( sim.trange( sample_every=0.01 ), sim.data[ weight_probe ][ ..., neuron ] )
+    plt.plot( sim.trange(), sim.data[ weight_probe ][ ..., neuron ] )
     plt.ylabel( "Connection weight" )
+    plt.show()
+    
+    n_cols = 5
+    n_rows = int( learn_time / 5 )
+    plt.figure( figsize=(12, 8) )
+    fig, axes = plt.subplots( n_rows, n_cols )
+    t = 0
+    for i in range( axes.shape[ 0 ] ):
+        for j in range( axes.shape[ 1 ] ):
+            axes[ i, j ].matshow( sim.data[ weight_probe ][ int( t / sim.dt ), ... ], cmap=plt.cm.Blues )
+            axes[ i, j ].set_title( f"{t}" )
+            print( t )
+            print( sim.data[ weight_probe ][ int( t / sim.dt ), ... ] )
+            t += 1
+    plt.suptitle( "Weights over learning" )
+    plt.tight_layout()
     plt.show()
     
     plt.figure( figsize=(12, 8) )
     for i in range( n_neurons ):
-        plt.plot( sim.trange( sample_every=0.01 ), sim.data[ pos_memr_probe ][ ..., i ], c="r" )
-        plt.plot( sim.trange( sample_every=0.01 ), sim.data[ neg_memr_probe ][ ..., i ], c="b" )
+        plt.plot( sim.trange(), sim.data[ pos_memr_probe ][ ..., i ], c="r" )
+        plt.plot( sim.trange(), sim.data[ neg_memr_probe ][ ..., i ], c="b" )
+        plt.ylabel( "Memristor resistances" )
     plt.show()
