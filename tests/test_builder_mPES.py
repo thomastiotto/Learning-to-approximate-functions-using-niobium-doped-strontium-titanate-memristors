@@ -1,12 +1,14 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import nengo
+from sklearn.metrics import mean_squared_error
 
 from nengo.learning_rules import PES
 from memristor_nengo.learning_rules import mPES
+from memristor_nengo.extras import *
 
 n_neurons = 4
-dimensions = 1
+dimensions = 2
 sim_time = 30
 learn_time = int( sim_time * 1 / 2 )
 seed = 0
@@ -15,10 +17,7 @@ model = nengo.Network( seed=seed )
 with model:
     # Create an input node
     input_node = nengo.Node(
-            # output=lambda t: (np.sin( 1 / 4 * 2 * np.pi * t ), np.sin( 1 / 4 * 2 * np.pi * t + np.pi )),
-            # output=nengo.processes.WhiteSignal( 60, high=0.1 ),
-            # output=lambda t: int( 6 * t / 5 ) / 3.0 % 2 - 1,
-            output=lambda t: np.sin( 1 / 4 * 2 * np.pi * t )
+            output=generate_sines( dimensions )
             )
     
     # Shut off learning by inhibiting the error population
@@ -39,7 +38,7 @@ with model:
     # the matrix given to transform are the initial weights found in model.sig[conn]["weights"]
     
     # Apply the mPES learning rule to conn
-    conn.learning_rule_type = mPES()
+    conn.learning_rule_type = mPES( seed=seed )
     print( "Simulating with", conn.learning_rule_type )
     
     # Provide an error signal to the learning rule
@@ -84,17 +83,12 @@ plt.plot(
 plt.plot(
         sim.trange(),
         sim.data[ learn_probe ],
-        label='Stop learning?',
+        label='Stop learning',
         color='r',
         linewidth=2.0 )
 plt.legend( loc='lower left' )
 plt.ylim( -1.2, 1.2 )
 plt.subplot( 3, 1, 2 )
-plt.plot(
-        sim.trange(),
-        sim.data[ pre_probe ],
-        label='Input',
-        linewidth=2.0 )
 plt.plot(
         sim.trange(),
         sim.data[ post_probe ],
@@ -140,11 +134,15 @@ plt.suptitle( "Weights over learning" )
 plt.tight_layout()
 plt.show()
 
-plt.figure( figsize=(12, 8) )
-for i in range( n_neurons ):
-    plt.plot( sim.trange(), sim.data[ pos_memr_probe ][ ..., i ], c="r" )
-    plt.plot( sim.trange(), sim.data[ neg_memr_probe ][ ..., i ], c="b" )
-    plt.ylabel( "Memristor resistances" )
-plt.show()
-
+print( "Final weights average:" )
 print( np.average( sim.data[ weight_probe ][ int( learn_time / sim.dt ), ... ] ) )
+print( "MSE:" )
+print( mean_squared_error( sim.data[ input_node_probe ][ int( t / sim.dt ):, ... ],
+                           sim.data[ post_probe ][ int( t / sim.dt ):, ... ] ) )
+
+# plt.figure( figsize=(12, 8) )
+# for i in range( n_neurons ):
+#     plt.plot( sim.trange(), sim.data[ pos_memr_probe ][ ..., i ], c="r" )
+#     plt.plot( sim.trange(), sim.data[ neg_memr_probe ][ ..., i ], c="b" )
+#     plt.ylabel( "Memristor resistances" )
+# plt.show()

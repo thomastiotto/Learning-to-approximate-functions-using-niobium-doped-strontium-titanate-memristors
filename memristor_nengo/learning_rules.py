@@ -27,7 +27,8 @@ class mPES( LearningRuleType ):
         self.r_max = r_max
         self.r_min = r_min
         
-        np.random.seed( seed )
+        self.seed = seed
+        np.random.seed( self.seed )
     
     def normalized_conductance( self, R ):
         epsilon = np.finfo( float ).eps
@@ -60,10 +61,8 @@ class mPES( LearningRuleType ):
 import numpy as np
 
 from nengo.builder import Builder, Operator, Signal
-from nengo.builder.operator import Copy, Reset
-from nengo.connection import LearningRule
+from nengo.builder.operator import Reset
 from nengo.ensemble import Ensemble
-from nengo.exceptions import BuildError
 from nengo.node import Node
 
 
@@ -134,15 +133,11 @@ class SimmPES( Operator ):
         
         def step_simmpes():
             # TODO pass parameters or equations/functions directly
-            # a = -0.128
-            a = -0.1802
-            # TODO reverse bias has basically no effect
-            c = -1e-3
+            a = -0.1
             r_min = 1e2
             r_max = 2.5e8
             g_min = 1.0 / r_max
             g_max = 1.0 / r_min
-            r_3 = 1e9
             gain = 1
             error_threshold = 1e-5
             
