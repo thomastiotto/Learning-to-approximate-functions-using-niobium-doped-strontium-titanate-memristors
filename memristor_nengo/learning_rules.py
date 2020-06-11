@@ -27,8 +27,7 @@ class mPES( LearningRuleType ):
         self.r_max = r_max
         self.r_min = r_min
         
-        self.seed = seed
-        np.random.seed( self.seed )
+        np.random.seed( seed )
     
     def normalized_conductance( self, R ):
         epsilon = np.finfo( float ).eps
@@ -74,7 +73,6 @@ class SimmPES( Operator ):
             delta,
             learning_rate,
             encoders,
-            weights,
             pos_memristors,
             neg_memristors,
             states=None,
@@ -86,7 +84,7 @@ class SimmPES( Operator ):
         
         self.sets = [ ] + ([ ] if states is None else [ states ])
         self.incs = [ ]
-        self.reads = [ pre_filtered, error, encoders, weights ]
+        self.reads = [ pre_filtered, error, encoders ]
         self.updates = [ delta, pos_memristors, neg_memristors ]
     
     @property
@@ -102,10 +100,6 @@ class SimmPES( Operator ):
         return self.reads[ 2 ]
     
     @property
-    def weights( self ):
-        return self.reads[ 3 ]
-    
-    @property
     def delta( self ):
         return self.updates[ 0 ]
     
@@ -118,7 +112,7 @@ class SimmPES( Operator ):
         return self.updates[ 2 ]
     
     def _descstr( self ):
-        return "pre=%s, error=%s, weights=%s -> %s" % (self.pre_filtered, self.error, self.weights, self.delta)
+        return "pre=%s, error=%s -> %s" % (self.pre_filtered, self.error, self.delta)
     
     def make_step( self, signals, dt, rng ):
         pre_filtered = signals[ self.pre_filtered ]
@@ -127,7 +121,6 @@ class SimmPES( Operator ):
         n_neurons = pre_filtered.shape[ 0 ]
         alpha = -self.learning_rate * dt / n_neurons
         encoders = signals[ self.encoders ]
-        weights = signals[ self.weights ]
         pos_memristors = signals[ self.pos_memristor ]
         neg_memristors = signals[ self.neg_memristor ]
         
@@ -160,6 +153,7 @@ class SimmPES( Operator ):
                 return g_norm * gain
             
             # set update to zero if error is small or adjustments go on for ever
+            # if error is small return zero delta
             if np.any( np.absolute( error ) > error_threshold ):
                 # calculate the magnitude of the update based on PES learning rule
                 local_error = alpha * np.dot( encoders, error )
@@ -232,7 +226,6 @@ def build_mpes( model, mpes, rule ):
                     model.sig[ rule ][ "delta" ],
                     mpes.learning_rate,
                     encoders,
-                    model.sig[ conn ][ "weights" ],
                     model.sig[ conn ][ "pos_memristors" ],
                     model.sig[ conn ][ "neg_memristors" ]
                     )
