@@ -66,8 +66,7 @@ def generate_sines( dimensions ):
 
 
 def plot_ensemble_spikes( name, spikes, decoded ):
-    # plot spikes from pre
-    plt.figure()
+    plt.figure( figsize=plot_sizes )
     # plt.suptitle( datetime.datetime.now().strftime( '%H:%M:%S %d-%m-%Y' ) )
     fig, ax1 = plt.subplots()
     ax1 = plt.subplot( 1, 1, 1 )
@@ -127,4 +126,5 @@ def plot_weight_matrices_over_time( n_cols, learn_time, weights, dt ):
             t += 1
     plt.suptitle( "Weights over time" )
     plt.tight_layout()
-    plt.show()
+    
+    return fig

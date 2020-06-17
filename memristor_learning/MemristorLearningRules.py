@@ -50,7 +50,9 @@ class MemristorLearningRule:
         spiked_post = np.tile(
                 np.expand_dims(
                         np.array( np.rint( output_activities ), dtype=bool ), axis=1 ), (1, self.input_size)
-                ) if output_activities is not None else np.ones( (1, self.input_size) )
+                ) \
+            if output_activities is not None \
+            else np.ones( (1, self.input_size) )
         
         return np.logical_and( spiked_pre, spiked_post )
 
@@ -181,7 +183,7 @@ class mPES( MemristorLearningRule ):
         #     for i in range( signal.shape[ 1 ] ):
         #         if signal[ j, i ] != 0:
         #             update = self.memristors[ j, i ].pulse( signal[ j, i ] )
-        #             # update = update if update >=
+        #
         #             self.weights[ j, i ] = update
         
         # we only need to update the weights for the neurons that spiked so we filter for their columns
@@ -190,9 +192,9 @@ class mPES( MemristorLearningRule ):
                 update = self.memristors[ j, i ].pulse( signal[ j, i ] )
                 # update = update if update >=
                 self.weights[ j, i ] = update
-            # select each column and pass it to modifier class
-            for i in np.unique( np.transpose( np.where( spiked_map ) )[ :, 1 ] ):
-                self.weights[ :, i ] = self.weight_modifier( self.weights[ :, i ] )
+        # select each column and pass it to modifier class
+        # for i in np.unique( np.transpose( np.where( spiked_map ) )[ :, 1 ] ):
+        #     self.weights[ :, i ] = self.weight_modifier( self.weights[ :, i ] )
         
         # calculate the output at this timestep
         return np.dot( self.weights, input_activities )

@@ -10,7 +10,7 @@ n_neurons = 4
 dimensions = 1
 sim_time = 30
 learn_time = int( sim_time * 3 / 4 )
-seed = 0
+seed = None
 
 model = nengo.Network( seed=seed )
 with model:
@@ -23,8 +23,12 @@ with model:
     stop_learning = nengo.Node( output=lambda t: t >= learn_time )
     
     # Create the ensemble to represent the input, the learned output, and the error
-    pre = nengo.Ensemble( n_neurons, dimensions=dimensions, seed=seed )
-    post = nengo.Ensemble( n_neurons, dimensions=dimensions, seed=seed )
+    pre = nengo.Ensemble( n_neurons, dimensions=dimensions, seed=seed,
+                          # encoders=[ [ 1. ], [ -1. ], [ -1. ], [ -1. ] ]
+                          )
+    post = nengo.Ensemble( n_neurons, dimensions=dimensions, seed=seed,
+                           # encoders=[ [ 1. ], [ -1. ], [ -1. ], [ -1. ] ]
+                           )
     error = nengo.Ensemble( n_neurons, dimensions=dimensions, radius=2, seed=seed )
     
     # Connect pre and post with a communication channel
@@ -37,6 +41,7 @@ with model:
     
     # Apply the mPES learning rule to conn
     conn.learning_rule_type = mPES( seed=seed )
+    # conn.learning_rule_type = PES()
     print( "Simulating with", conn.learning_rule_type )
     
     # Provide an error signal to the learning rule
@@ -74,13 +79,20 @@ with nengo.Simulator( model ) as sim:
 set_plot_params( sim.trange(), post.n_neurons, pre.n_neurons )
 plot_results( sim.data[ input_node_probe ], sim.data[ learn_probe ], sim.data[ pre_probe ], sim.data[ post_probe ],
               sim.data[ error_probe ] )
+plt.show()
 plot_ensemble_spikes( "Post", sim.data[ post_spikes_probe ], sim.data[ post_probe ] )
+plt.show()
 plot_weight_matrices_over_time( 5, learn_time, sim.data[ weight_probe ], sim.dt )
+plt.show()
 plot_weights_over_time( sim.data[ pos_memr_probe ], sim.data[ neg_memr_probe ] )
+plt.show()
 plot_conductances_over_time( sim.data[ pos_memr_probe ], sim.data[ neg_memr_probe ] )
 plt.show()
 
 print( "Final weights average:" )
 print( np.average( sim.data[ weight_probe ][ -1, ... ] ) )
 print( "MSE (input vs. post):" )
-print( mean_squared_error( sim.data[ input_node_probe ], sim.data[ post_probe ] ) )
+print( mean_squared_error( sim.data[ pre_probe ][ int( learn_time / sim.dt ):, ... ],
+                           sim.data[ post_probe ][ int( learn_time / sim.dt ):, ... ]
+                           )
+       )

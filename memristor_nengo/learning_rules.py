@@ -75,6 +75,7 @@ class SimmPES( Operator ):
             encoders,
             pos_memristors,
             neg_memristors,
+            weights,
             states=None,
             tag=None
             ):
@@ -84,7 +85,7 @@ class SimmPES( Operator ):
         
         self.sets = [ ] + ([ ] if states is None else [ states ])
         self.incs = [ ]
-        self.reads = [ pre_filtered, error, encoders ]
+        self.reads = [ pre_filtered, error, encoders, weights ]
         self.updates = [ delta, pos_memristors, neg_memristors ]
     
     @property
@@ -98,6 +99,10 @@ class SimmPES( Operator ):
     @property
     def encoders( self ):
         return self.reads[ 2 ]
+    
+    @property
+    def weights( self ):
+        return self.reads[ 3 ]
     
     @property
     def delta( self ):
@@ -123,6 +128,7 @@ class SimmPES( Operator ):
         encoders = signals[ self.encoders ]
         pos_memristors = signals[ self.pos_memristor ]
         neg_memristors = signals[ self.neg_memristor ]
+        weights = signals[ self.weights ]
         
         def step_simmpes():
             # TODO pass parameters or equations/functions directly
@@ -131,7 +137,7 @@ class SimmPES( Operator ):
             r_max = 2.5e8
             g_min = 1.0 / r_max
             g_max = 1.0 / r_min
-            gain = 1
+            gain = 1e5
             error_threshold = 1e-5
             
             # analytical derivative of pulse number
@@ -152,12 +158,32 @@ class SimmPES( Operator ):
                 # return gain * (g_norm + epsilon)
                 return g_norm * gain
             
+            def find_spikes( input_activities, shape, output_activities=None, invert=False ):
+                output_size = shape[ 0 ]
+                input_size = shape[ 1 ]
+                spiked_pre = np.tile(
+                        np.array( np.rint( input_activities ), dtype=bool ), (output_size, 1)
+                        )
+                spiked_post = np.tile(
+                        np.expand_dims(
+                                np.array( np.rint( output_activities ), dtype=bool ), axis=1 ), (1, input_size)
+                        ) \
+                    if output_activities is not None \
+                    else np.ones( (1, input_size) )
+                
+                out = np.logical_and( spiked_pre, spiked_post )
+                return out if not invert else np.logical_not( out )
+            
             # set update to zero if error is small or adjustments go on for ever
             # if error is small return zero delta
             if np.any( np.absolute( error ) > error_threshold ):
                 # calculate the magnitude of the update based on PES learning rule
                 local_error = alpha * np.dot( encoders, error )
                 pes_delta = np.outer( local_error, pre_filtered )
+                
+                # some memristors are adjusted erroneously if we don't filter
+                spiked_map = find_spikes( pre_filtered, delta.shape, invert=True )
+                pes_delta[ spiked_map ] = 0
                 
                 # set update direction and magnitude (unused with powerlaw memristor equations)
                 V = np.sign( pes_delta ) * 1e-1
@@ -169,8 +195,11 @@ class SimmPES( Operator ):
                 pos_memristors[ V > 0 ] = r_min + r_max * (n_pos + 1)**a
                 neg_memristors[ V < 0 ] = r_min + r_max * (n_neg + 1)**a
                 
-                delta[ : ] = resistance2conductance( pos_memristors[ : ] ) \
-                             - resistance2conductance( neg_memristors[ : ] )
+                weights[ : ] = (resistance2conductance( pos_memristors[ : ] )
+                                - resistance2conductance( neg_memristors[ : ] ))
+                # delta[ : ] = weights[ : ] - \
+                #              (resistance2conductance( pos_memristors[ : ] )
+                #               - resistance2conductance( neg_memristors[ : ] ))
             else:
                 delta[ : ] = np.zeros_like( delta )
         
@@ -212,9 +241,9 @@ def build_mpes( model, mpes, rule ):
     in_size = acts.shape[ 0 ]
     
     pos_memristors = Signal( shape=(out_size, in_size), name="mPES:pos_memristors",
-                             initial_value=mpes.initial_resistances( 1e8, 1.1e8, (out_size, in_size) ) )
+                             initial_value=mpes.initial_resistances( 1e8, 1e8, (out_size, in_size) ) )
     neg_memristors = Signal( shape=(out_size, in_size), name="mPES:neg_memristors",
-                             initial_value=mpes.initial_resistances( 1e8, 1.1e8, (out_size, in_size) ) )
+                             initial_value=mpes.initial_resistances( 1e8, 1e8, (out_size, in_size) ) )
     
     model.sig[ conn ][ "pos_memristors" ] = pos_memristors
     model.sig[ conn ][ "neg_memristors" ] = neg_memristors
@@ -227,7 +256,8 @@ def build_mpes( model, mpes, rule ):
                     mpes.learning_rate,
                     encoders,
                     model.sig[ conn ][ "pos_memristors" ],
-                    model.sig[ conn ][ "neg_memristors" ]
+                    model.sig[ conn ][ "neg_memristors" ],
+                    model.sig[ conn ][ "weights" ]
                     )
             )
     
