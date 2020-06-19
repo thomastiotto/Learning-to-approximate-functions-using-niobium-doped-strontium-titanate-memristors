@@ -34,7 +34,10 @@ def plot_results( input, learn, pre, post, error, smooth=False ):
             label='Stop learning',
             color='r',
             linewidth=2.0 )
-    plt.legend( loc='lower left' )
+    if n_dimensions <= 3:
+        axes[ 0, 0 ].legend(
+                [ f"Input dim {i}" for i in range( n_dimensions ) ],
+                loc='best' )
     
     if smooth:
         from scipy.signal import savgol_filter

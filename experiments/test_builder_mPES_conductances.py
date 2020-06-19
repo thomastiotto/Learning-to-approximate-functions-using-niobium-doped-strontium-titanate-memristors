@@ -3,7 +3,7 @@ import nengo
 from sklearn.metrics import mean_squared_error
 
 from nengo.learning_rules import PES
-from memristor_nengo.learning_rules import mPES
+from memristor_nengo.learning_rules_conductances import mPES
 from memristor_nengo.extras import *
 
 n_neurons = 4
@@ -88,7 +88,7 @@ with nengo.Simulator( model ) as sim:
 
 set_plot_params( sim.trange(), post.n_neurons, pre.n_neurons )
 plot_results( sim.data[ input_node_probe ], sim.data[ learn_probe ], sim.data[ pre_probe ], sim.data[ post_probe ],
-              sim.data[ error_probe ] )
+              sim.data[ error_probe ], smooth=True )
 plt.show()
 plot_ensemble_spikes( "Post", sim.data[ post_spikes_probe ], sim.data[ post_probe ] )
 plt.show()

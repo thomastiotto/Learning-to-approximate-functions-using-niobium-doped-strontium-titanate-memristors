@@ -6,11 +6,20 @@ from nengo.learning_rules import PES
 from memristor_nengo.learning_rules import mPES
 from memristor_nengo.extras import *
 
-n_neurons = 10
-dimensions = 1
+timestep = 0.001
+n_neurons = 100
+dimensions = 2
 sim_time = 30
 learn_time = int( sim_time * 3 / 4 )
 seed = None
+reduce_memory = True
+
+if reduce_memory:
+    optimize = False
+    sample_every = timestep * 1e2
+else:
+    optimize = True
+    sample_every = timestep
 
 model = nengo.Network( seed=seed )
 with model:
@@ -61,22 +70,22 @@ with model:
             error.neurons,
             transform=-20 * np.ones( (error.n_neurons, 1) ) )
     
-    input_node_probe = nengo.Probe( input_node )
-    pre_probe = nengo.Probe( pre, synapse=0.01 )
-    post_probe = nengo.Probe( post, synapse=0.01 )
-    error_probe = nengo.Probe( error, synapse=0.01 )
-    learn_probe = nengo.Probe( stop_learning, synapse=None )
-    weight_probe = nengo.Probe( conn, "weights", synapse=None )
-    post_spikes_probe = nengo.Probe( post.neurons )
+    input_node_probe = nengo.Probe( input_node, sample_every=sample_every )
+    pre_probe = nengo.Probe( pre, synapse=0.01, sample_every=sample_every )
+    post_probe = nengo.Probe( post, synapse=0.01, sample_every=sample_every )
+    error_probe = nengo.Probe( error, synapse=0.01, sample_every=sample_every )
+    learn_probe = nengo.Probe( stop_learning, synapse=None, sample_every=sample_every )
+    weight_probe = nengo.Probe( conn, "weights", synapse=None, sample_every=sample_every )
+    post_spikes_probe = nengo.Probe( post.neurons, sample_every=sample_every )
     if isinstance( conn.learning_rule_type, mPES ):
-        pos_memr_probe = nengo.Probe( conn.learning_rule, "pos_memristors", synapse=None )
-        neg_memr_probe = nengo.Probe( conn.learning_rule, "neg_memristors", synapse=None )
+        pos_memr_probe = nengo.Probe( conn.learning_rule, "pos_memristors", synapse=None, sample_every=sample_every )
+        neg_memr_probe = nengo.Probe( conn.learning_rule, "neg_memristors", synapse=None, sample_every=sample_every )
 
 # Create the simulator
-with nengo.Simulator( model ) as sim:
+with nengo.Simulator( model, dt=timestep, optimize=optimize ) as sim:
     sim.run( sim_time )
 
-set_plot_params( sim.trange(), post.n_neurons, pre.n_neurons, plot_size=(30, 25) )
+set_plot_params( sim.trange( sample_every=sample_every ), post.n_neurons, pre.n_neurons, plot_size=(30, 25) )
 plot_results( sim.data[ input_node_probe ], sim.data[ learn_probe ], sim.data[ pre_probe ], sim.data[ post_probe ],
               sim.data[ error_probe ],
               smooth=True )
@@ -94,7 +103,8 @@ if n_neurons <= 5:
 print( "Final weights average:" )
 print( np.average( sim.data[ weight_probe ][ -1, ... ] ) )
 print( "MSE (input vs. post):" )
-print( mean_squared_error( sim.data[ pre_probe ][ int( learn_time / sim.dt ):, ... ],
-                           sim.data[ post_probe ][ int( learn_time / sim.dt ):, ... ]
+print( mean_squared_error( sim.data[ pre_probe ][ int( (learn_time / sim.dt) / (sample_every / timestep) ):, ... ],
+                           sim.data[ post_probe ][ int( (learn_time / sim.dt) / (sample_every / timestep) ):, ... ]
                            )
        )
+# TODO add MSE as annotation in plots
