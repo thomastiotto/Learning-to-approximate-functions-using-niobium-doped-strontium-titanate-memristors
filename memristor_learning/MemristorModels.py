@@ -83,8 +83,8 @@ class Memristor:
         # Weight initialisation
         import random
         random.seed( self.seed )
-        # TODO change it back to 1.1e8
-        self.r_curr = random.uniform( 1e8, 1e8 )
+        
+        self.r_curr = random.uniform( 1e8, 1.1e8 )
     
     # pulse the memristor with a tension
     def pulse( self, signal ):

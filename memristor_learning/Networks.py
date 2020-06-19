@@ -97,16 +97,14 @@ class SupervisedLearning():
             pre = nengo.Ensemble(
                     n_neurons=self.pre_nrn,
                     dimensions=self.dimensions,
-                    # encoders=generate_encoders( self.pre_nrn, dimensions=self.dimensions, seed=self.seed ),
-                    encoders=[ [ 17.06494325 ], [ 127.20920942 ], [ 16.40331351 ], [ -261.73542123 ] ],
+                    encoders=generate_encoders( self.pre_nrn, dimensions=self.dimensions, seed=self.seed ),
                     label="Pre",
                     seed=self.seed
                     )
             post = nengo.Ensemble(
                     n_neurons=self.post_nrn,
                     dimensions=self.dimensions,
-                    # encoders=generate_encoders( self.post_nrn, dimensions=self.dimensions, seed=self.seed ),
-                    encoders=[ [ 17.06494325 ], [ 127.20920942 ], [ 16.40331351 ], [ -261.73542123 ] ],
+                    encoders=generate_encoders( self.post_nrn, dimensions=self.dimensions, seed=self.seed ),
                     label="Post",
                     seed=self.seed
                     )

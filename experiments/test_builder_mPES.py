@@ -6,7 +6,7 @@ from nengo.learning_rules import PES
 from memristor_nengo.learning_rules import mPES
 from memristor_nengo.extras import *
 
-n_neurons = 4
+n_neurons = 10
 dimensions = 1
 sim_time = 30
 learn_time = int( sim_time * 3 / 4 )
@@ -76,18 +76,20 @@ with model:
 with nengo.Simulator( model ) as sim:
     sim.run( sim_time )
 
-set_plot_params( sim.trange(), post.n_neurons, pre.n_neurons )
+set_plot_params( sim.trange(), post.n_neurons, pre.n_neurons, plot_size=(30, 25) )
 plot_results( sim.data[ input_node_probe ], sim.data[ learn_probe ], sim.data[ pre_probe ], sim.data[ post_probe ],
-              sim.data[ error_probe ] )
+              sim.data[ error_probe ],
+              smooth=True )
 plt.show()
 plot_ensemble_spikes( "Post", sim.data[ post_spikes_probe ], sim.data[ post_probe ] )
 plt.show()
-plot_weight_matrices_over_time( 5, learn_time, sim.data[ weight_probe ], sim.dt )
-plt.show()
-plot_weights_over_time( sim.data[ pos_memr_probe ], sim.data[ neg_memr_probe ] )
-plt.show()
-plot_conductances_over_time( sim.data[ pos_memr_probe ], sim.data[ neg_memr_probe ] )
-plt.show()
+if n_neurons <= 5:
+    plot_weight_matrices_over_time( 5, learn_time, sim.data[ weight_probe ], sim.dt )
+    plt.show()
+    plot_weights_over_time( sim.data[ pos_memr_probe ], sim.data[ neg_memr_probe ] )
+    plt.show()
+    plot_values_over_time( 1 / sim.data[ pos_memr_probe ], 1 / sim.data[ neg_memr_probe ] )
+    plt.show()
 
 print( "Final weights average:" )
 print( np.average( sim.data[ weight_probe ][ -1, ... ] ) )
