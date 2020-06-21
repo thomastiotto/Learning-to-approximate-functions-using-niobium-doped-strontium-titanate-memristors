@@ -2,19 +2,19 @@ import matplotlib.pyplot as plt
 import nengo
 from sklearn.metrics import mean_squared_error
 
+from nengo.processes import WhiteSignal
 from nengo.learning_rules import PES
 from memristor_nengo.learning_rules import mPES
 from memristor_nengo.extras import *
 
-function_to_learn = lambda x: x**2
-
+function_to_learn = lambda x: x
 timestep = 0.001
-n_neurons = 10
+n_neurons = 4
 dimensions = 1
 sim_time = 30
 learn_time = int( sim_time * 3 / 4 )
 seed = None
-optimisations = "run"
+optimisations = "memory"
 
 if optimisations == "build":
     optimize = False
@@ -30,7 +30,9 @@ model = nengo.Network( seed=seed )
 with model:
     # Create an input node
     input_node = nengo.Node(
-            output=generate_sines( dimensions )
+            output=generate_sines( dimensions ),
+            # output=WhiteSignal( 60, high=5, seed=seed ),
+            size_out=dimensions
             )
     
     # Shut off learning by inhibiting the error population
@@ -94,24 +96,23 @@ print( "Final weights average:" )
 print( np.average( sim.data[ weight_probe ][ -1, ... ] ) )
 print( "MSE (input vs. post):" )
 mse = mean_squared_error(
-    function_to_learn( sim.data[ pre_probe ][ int( (learn_time / sim.dt) / (sample_every / timestep) ):, ... ] ),
-    sim.data[ post_probe ][ int( (learn_time / sim.dt) / (sample_every / timestep) ):, ... ]
-    )
+        function_to_learn( sim.data[ pre_probe ][ int( (learn_time / sim.dt) / (sample_every / timestep) ):, ... ] ),
+        sim.data[ post_probe ][ int( (learn_time / sim.dt) / (sample_every / timestep) ):, ... ]
+        )
 print( mse )
 
-set_plot_params( sim.trange( sample_every=sample_every ), post.n_neurons, pre.n_neurons, dimensions, learn_time,
-                 plot_size=(30, 25) )
-plot_results( sim.data[ input_node_probe ], sim.data[ pre_probe ], sim.data[ post_probe ],
-              sim.data[ post_probe ] - function_to_learn( sim.data[ pre_probe ] ),
-              smooth=True,
-              mse=mse )
-plt.show()
-plot_ensemble_spikes( "Post", sim.data[ post_spikes_probe ], sim.data[ post_probe ] )
-plt.show()
+plotter = Plotter( sim.trange( sample_every=sample_every ), post.n_neurons, pre.n_neurons, dimensions, learn_time,
+                   plot_size=(30, 25) )
+
+plotter.plot_results( sim.data[ input_node_probe ], sim.data[ pre_probe ], sim.data[ post_probe ],
+                      sim.data[ post_probe ] - function_to_learn( sim.data[ pre_probe ] ),
+                      smooth=True,
+                      mse=mse ).show()
+
+plotter.plot_ensemble_spikes( "Post", sim.data[ post_spikes_probe ], sim.data[ post_probe ] ).show()
 if n_neurons <= 5:
-    plot_weight_matrices_over_time( 5, learn_time, sim.data[ weight_probe ], sim.dt )
-    plt.show()
-    plot_weights_over_time( sim.data[ pos_memr_probe ], sim.data[ neg_memr_probe ] )
-    plt.show()
-    plot_values_over_time( 1 / sim.data[ pos_memr_probe ], 1 / sim.data[ neg_memr_probe ] )
-    plt.show()
+    plotter.plot_weight_matrices_over_time( sim.data[ weight_probe ], sample_every=sample_every ).show()
+    
+    plotter.plot_weights_over_time( sim.data[ pos_memr_probe ], sim.data[ neg_memr_probe ] ).show()
+    
+    plotter.plot_values_over_time( 1 / sim.data[ pos_memr_probe ], 1 / sim.data[ neg_memr_probe ] ).show()
