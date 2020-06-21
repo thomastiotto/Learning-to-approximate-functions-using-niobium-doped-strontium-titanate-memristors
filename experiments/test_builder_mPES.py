@@ -6,20 +6,25 @@ from nengo.learning_rules import PES
 from memristor_nengo.learning_rules import mPES
 from memristor_nengo.extras import *
 
+function_to_learn = lambda x: x**2
+
 timestep = 0.001
-n_neurons = 100
-dimensions = 2
+n_neurons = 10
+dimensions = 1
 sim_time = 30
 learn_time = int( sim_time * 3 / 4 )
 seed = None
-reduce_memory = True
+optimisations = "run"
 
-if reduce_memory:
+if optimisations == "build":
     optimize = False
-    sample_every = timestep * 1e2
-else:
+    sample_every = timestep
+elif optimisations == "run":
     optimize = True
     sample_every = timestep
+elif optimisations == "memory":
+    optimize = False
+    sample_every = timestep * 1e2
 
 model = nengo.Network( seed=seed )
 with model:
@@ -60,7 +65,7 @@ with model:
     nengo.Connection( post, error )
     
     # Subtract the target (this would normally come from some external system)
-    nengo.Connection( pre, error, function=lambda x: x, transform=-1 )
+    nengo.Connection( pre, error, function=function_to_learn, transform=-1 )
     
     # Connect the input node to ensemble pre
     nengo.Connection( input_node, pre )
@@ -85,10 +90,21 @@ with model:
 with nengo.Simulator( model, dt=timestep, optimize=optimize ) as sim:
     sim.run( sim_time )
 
-set_plot_params( sim.trange( sample_every=sample_every ), post.n_neurons, pre.n_neurons, plot_size=(30, 25) )
-plot_results( sim.data[ input_node_probe ], sim.data[ learn_probe ], sim.data[ pre_probe ], sim.data[ post_probe ],
-              sim.data[ error_probe ],
-              smooth=True )
+print( "Final weights average:" )
+print( np.average( sim.data[ weight_probe ][ -1, ... ] ) )
+print( "MSE (input vs. post):" )
+mse = mean_squared_error(
+    function_to_learn( sim.data[ pre_probe ][ int( (learn_time / sim.dt) / (sample_every / timestep) ):, ... ] ),
+    sim.data[ post_probe ][ int( (learn_time / sim.dt) / (sample_every / timestep) ):, ... ]
+    )
+print( mse )
+
+set_plot_params( sim.trange( sample_every=sample_every ), post.n_neurons, pre.n_neurons, dimensions, learn_time,
+                 plot_size=(30, 25) )
+plot_results( sim.data[ input_node_probe ], sim.data[ pre_probe ], sim.data[ post_probe ],
+              sim.data[ post_probe ] - function_to_learn( sim.data[ pre_probe ] ),
+              smooth=True,
+              mse=mse )
 plt.show()
 plot_ensemble_spikes( "Post", sim.data[ post_spikes_probe ], sim.data[ post_probe ] )
 plt.show()
@@ -99,12 +115,3 @@ if n_neurons <= 5:
     plt.show()
     plot_values_over_time( 1 / sim.data[ pos_memr_probe ], 1 / sim.data[ neg_memr_probe ] )
     plt.show()
-
-print( "Final weights average:" )
-print( np.average( sim.data[ weight_probe ][ -1, ... ] ) )
-print( "MSE (input vs. post):" )
-print( mean_squared_error( sim.data[ pre_probe ][ int( (learn_time / sim.dt) / (sample_every / timestep) ):, ... ],
-                           sim.data[ post_probe ][ int( (learn_time / sim.dt) / (sample_every / timestep) ):, ... ]
-                           )
-       )
-# TODO add MSE as annotation in plots
