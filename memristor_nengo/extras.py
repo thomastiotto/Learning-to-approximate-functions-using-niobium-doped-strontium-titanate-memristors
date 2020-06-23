@@ -123,7 +123,7 @@ class Plotter():
                 axes[ i, j ].set_title( f"{j}->{i}" )
                 axes[ i, j ].set_yticklabels( [ ] )
                 axes[ i, j ].set_xticklabels( [ ] )
-                # plt.subplots_adjust( hspace=0.7 )
+                plt.subplots_adjust( hspace=0.7 )
         fig.get_axes()[ 0 ].annotate( "Conductances over time", (0.5, 0.94),
                                       xycoords='figure fraction', ha='center',
                                       fontsize=18
@@ -143,7 +143,7 @@ class Plotter():
                 axes[ i, j ].set_title( f"{j}->{i}" )
                 axes[ i, j ].set_yticklabels( [ ] )
                 axes[ i, j ].set_xticklabels( [ ] )
-                # plt.subplots_adjust( hspace=0.7 )
+                plt.subplots_adjust( hspace=0.7 )
         fig.get_axes()[ 0 ].annotate( "Weights over time", (0.5, 0.94),
                                       xycoords='figure fraction', ha='center',
                                       fontsize=18
@@ -202,3 +202,17 @@ def make_timestamped_dir( root=None ):
     os.mkdir( dir_images )
     
     return dir_name, dir_images
+
+
+def sparsity_measure( vector ):  # Gini index
+    # Max sparsity = 1 (single 1 in the vector)
+    if np.all( vector == 0 ):
+        return 0
+    
+    v = np.sort( np.abs( vector ) )
+    n = v.shape[ 0 ]
+    k = np.arange( n ) + 1
+    l1norm = np.sum( v )
+    summation = np.sum( (v / l1norm) * ((n - k + 0.5) / n) )
+    
+    return 1 - 2 * summation

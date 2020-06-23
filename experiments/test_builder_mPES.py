@@ -94,7 +94,10 @@ with nengo.Simulator( model, dt=timestep, optimize=optimize ) as sim:
 
 print( "Final weights average:" )
 print( np.average( sim.data[ weight_probe ][ -1, ... ] ) )
-print( "MSE (input vs. post):" )
+print( "Weights sparsity:" )
+print( sparsity_measure( sim.data[ weight_probe ][ 0 ] ), end=" -> " )
+print( sparsity_measure( sim.data[ weight_probe ][ -1 ] ) )
+print( "MSE (f(pre) vs. post):" )
 mse = mean_squared_error(
         function_to_learn( sim.data[ pre_probe ][ int( (learn_time / sim.dt) / (sample_every / timestep) ):, ... ] ),
         sim.data[ post_probe ][ int( (learn_time / sim.dt) / (sample_every / timestep) ):, ... ]
