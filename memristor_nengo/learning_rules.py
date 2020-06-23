@@ -115,6 +115,7 @@ class SimmPES( Operator ):
             g_min = 1.0 / r_max
             g_max = 1.0 / r_min
             error_threshold = 1e-5
+            noise_percentage = 1 / 1e2
             
             def resistance2conductance( R ):
                 g_curr = 1.0 / R
@@ -152,12 +153,19 @@ class SimmPES( Operator ):
                 # set update direction and magnitude (unused with powerlaw memristor equations)
                 V = np.sign( pes_delta ) * 1e-1
                 
-                # update the two memristor pairs separately
-                n_pos = ((pos_memristors[ V > 0 ] - r_min) / r_max)**(1 / a)
-                n_neg = ((neg_memristors[ V < 0 ] - r_min) / r_max)**(1 / a)
+                # generate random noise on the parameters
+                r_min_noise = np.random.normal( r_min, r_min * noise_percentage, V.shape )
+                r_max_noise = np.random.normal( r_max, r_max * noise_percentage, V.shape )
+                a_noise = np.random.normal( a, np.abs( a ) * noise_percentage, V.shape )
                 
-                pos_memristors[ V > 0 ] = r_min + r_max * (n_pos + 1)**a
-                neg_memristors[ V < 0 ] = r_min + r_max * (n_neg + 1)**a
+                # update the two memristor pairs separately
+                n_pos = ((pos_memristors[ V > 0 ] - r_min_noise[ V > 0 ]) /
+                         r_max_noise[ V > 0 ])**(1 / a_noise[ V > 0 ])
+                n_neg = ((neg_memristors[ V < 0 ] - r_min_noise[ V < 0 ]) /
+                         r_max_noise[ V < 0 ])**(1 / a_noise[ V < 0 ])
+                
+                pos_memristors[ V > 0 ] = r_min_noise[ V > 0 ] + r_max_noise[ V > 0 ] * (n_pos + 1)**a_noise[ V > 0 ]
+                neg_memristors[ V < 0 ] = r_min_noise[ V < 0 ] + r_max_noise[ V < 0 ] * (n_neg + 1)**a_noise[ V < 0 ]
                 
                 weights[ : ] = (resistance2conductance( pos_memristors[ : ] )
                                 - resistance2conductance( neg_memristors[ : ] ))
