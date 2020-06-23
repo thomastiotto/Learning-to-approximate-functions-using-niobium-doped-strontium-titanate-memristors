@@ -115,7 +115,8 @@ class SimmPES( Operator ):
             g_min = 1.0 / r_max
             g_max = 1.0 / r_min
             error_threshold = 1e-5
-            noise_percentage = 1 / 1e2
+            noise_percentage = 1.5 / 1e1
+            noise_percentage = 0
             
             def resistance2conductance( R ):
                 g_curr = 1.0 / R

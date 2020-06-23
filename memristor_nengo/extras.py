@@ -1,12 +1,16 @@
+import datetime
+import os
+
 import numpy as np
 from nengo.utils.matplotlib import rasterplot
 import matplotlib.pyplot as plt
 
 
 class Plotter():
-    def __init__( self, trange, rows, cols, dimensions, learning_time, plot_size=(12, 8), dt=0.001 ):
+    def __init__( self, trange, rows, cols, dimensions, learning_time, plot_size=(12, 8), dpi=80, dt=0.001 ):
         self.time_vector = trange
         self.plot_sizes = plot_size
+        self.dpi = dpi
         self.n_rows = rows
         self.n_cols = cols
         self.n_dims = dimensions
@@ -14,8 +18,8 @@ class Plotter():
         self.dt = dt
     
     def plot_results( self, input, pre, post, error, smooth=False, mse=None ):
-        plt.figure( figsize=self.plot_sizes )
         fig, axes = plt.subplots( 3, 1, sharex=True, sharey=True, squeeze=False )
+        fig.set_size_inches( self.plot_sizes )
         axes[ 0, 0 ].plot(
                 self.time_vector,
                 input,
@@ -90,8 +94,8 @@ class Plotter():
         return fig
     
     def plot_ensemble_spikes( self, name, spikes, decoded ):
-        plt.figure( figsize=self.plot_sizes )
         fig, ax1 = plt.subplots()
+        fig.set_size_inches( self.plot_sizes )
         ax1 = plt.subplot( 1, 1, 1 )
         rasterplot( self.time_vector, spikes, ax1 )
         ax1.axvline( x=self.learning_time, c="k" )
@@ -108,29 +112,29 @@ class Plotter():
         return fig
     
     def plot_values_over_time( self, pos_memr, neg_memr ):
-        plt.figure( figsize=self.plot_sizes )
         fig, axes = plt.subplots( self.n_rows, self.n_cols )
+        fig.set_size_inches( self.plot_sizes )
         for i in range( axes.shape[ 0 ] ):
             for j in range( axes.shape[ 1 ] ):
                 pos_cond = pos_memr[ ..., i, j ]
                 neg_cond = neg_memr[ ..., i, j ]
                 axes[ i, j ].plot( pos_cond, c="r" )
                 axes[ i, j ].plot( neg_cond, c="b" )
+                axes[ i, j ].set_title( f"{j}->{i}" )
                 axes[ i, j ].set_yticklabels( [ ] )
                 axes[ i, j ].set_xticklabels( [ ] )
-                axes[ i, j ].set_title( f"{j}->{i}" )
-                plt.subplots_adjust( hspace=0.7 )
+                # plt.subplots_adjust( hspace=0.7 )
         fig.get_axes()[ 0 ].annotate( "Conductances over time", (0.5, 0.94),
                                       xycoords='figure fraction', ha='center',
                                       fontsize=18
                                       )
-        plt.tight_layout()
+        # plt.tight_layout()
         
         return fig
     
     def plot_weights_over_time( self, pos_memr, neg_memr ):
-        plt.figure( figsize=self.plot_sizes )
         fig, axes = plt.subplots( self.n_rows, self.n_cols )
+        fig.set_size_inches( self.plot_sizes )
         for i in range( axes.shape[ 0 ] ):
             for j in range( axes.shape[ 1 ] ):
                 pos_cond = 1 / pos_memr[ ..., i, j ]
@@ -139,19 +143,19 @@ class Plotter():
                 axes[ i, j ].set_title( f"{j}->{i}" )
                 axes[ i, j ].set_yticklabels( [ ] )
                 axes[ i, j ].set_xticklabels( [ ] )
-                plt.subplots_adjust( hspace=0.7 )
+                # plt.subplots_adjust( hspace=0.7 )
         fig.get_axes()[ 0 ].annotate( "Weights over time", (0.5, 0.94),
                                       xycoords='figure fraction', ha='center',
                                       fontsize=18
                                       )
-        plt.tight_layout()
+        # plt.tight_layout()
         
         return fig
     
     def plot_weight_matrices_over_time( self, weights, n_cols=5, sample_every=0.001 ):
         n_rows = int( self.learning_time / n_cols )
-        plt.figure( figsize=self.plot_sizes )
         fig, axes = plt.subplots( n_rows, n_cols )
+        fig.set_size_inches( self.plot_sizes )
         t = 0
         for i in range( axes.shape[ 0 ] ):
             for j in range( axes.shape[ 1 ] ):
@@ -167,7 +171,7 @@ class Plotter():
                                       xycoords='figure fraction', ha='center',
                                       fontsize=18
                                       )
-        plt.tight_layout()
+        # plt.tight_layout()
         
         return fig
 
@@ -181,3 +185,20 @@ def generate_sines( dimensions ):
     s += ")"
     
     return eval( s )
+
+
+def make_timestamped_dir( root=None ):
+    if root is None:
+        root = "../data/"
+    
+    time_string = datetime.datetime.now().strftime( "%d-%m-%Y_%H-%M" )
+    dir_name = root + time_string + "/"
+    if os.path.isdir( dir_name ):
+        dir_name = dir_name[ :-1 ]
+        minutes = str( int( dir_name[ -1 ] ) + 1 )
+        dir_name = dir_name[ :-1 ] + minutes + "/"
+    dir_images = dir_name + "images/"
+    os.mkdir( dir_name )
+    os.mkdir( dir_images )
+    
+    return dir_name, dir_images
