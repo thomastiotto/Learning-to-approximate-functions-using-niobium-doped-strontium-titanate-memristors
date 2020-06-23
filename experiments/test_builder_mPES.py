@@ -9,12 +9,12 @@ from memristor_nengo.extras import *
 
 function_to_learn = lambda x: x
 timestep = 0.001
-n_neurons = 4
+n_neurons = 10
 dimensions = 1
 sim_time = 30
 learn_time = int( sim_time * 3 / 4 )
 seed = None
-optimisations = "memory"
+optimisations = "run"
 
 if optimisations == "build":
     optimize = False
@@ -105,7 +105,7 @@ plotter = Plotter( sim.trange( sample_every=sample_every ), post.n_neurons, pre.
                    plot_size=(30, 25) )
 
 plotter.plot_results( sim.data[ input_node_probe ], sim.data[ pre_probe ], sim.data[ post_probe ],
-                      sim.data[ post_probe ] - function_to_learn( sim.data[ pre_probe ] ),
+                      error=sim.data[ post_probe ] - function_to_learn( sim.data[ pre_probe ] ),
                       smooth=True,
                       mse=mse ).show()
 

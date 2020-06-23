@@ -94,6 +94,7 @@ class Plotter():
         fig, ax1 = plt.subplots()
         ax1 = plt.subplot( 1, 1, 1 )
         rasterplot( self.time_vector, spikes, ax1 )
+        ax1.axvline( x=self.learning_time, c="k" )
         ax2 = plt.twinx()
         ax2.plot( self.time_vector, decoded, c="k", alpha=0.3 )
         ax1.set_xlim( 0, max( self.time_vector ) )
