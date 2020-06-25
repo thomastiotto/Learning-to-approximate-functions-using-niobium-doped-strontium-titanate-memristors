@@ -116,7 +116,8 @@ class SimmPES( Operator ):
             g_max = 1.0 / r_min
             error_threshold = 1e-5
             noise_percentage = 1.5 / 1e1
-            noise_percentage = 0
+            
+            # noise_percentage = 0
             
             def resistance2conductance( R ):
                 g_curr = 1.0 / R
@@ -155,21 +156,21 @@ class SimmPES( Operator ):
                 V = np.sign( pes_delta ) * 1e-1
                 
                 # generate random noise on the parameters
-                r_min_noise = np.random.normal( r_min, r_min * noise_percentage, V.shape )
-                r_max_noise = np.random.normal( r_max, r_max * noise_percentage, V.shape )
-                a_noise = np.random.normal( a, np.abs( a ) * noise_percentage, V.shape )
+                r_min_noisy = np.random.normal( r_min, r_min * noise_percentage, V.shape )
+                r_max_noisy = np.random.normal( r_max, r_max * noise_percentage, V.shape )
+                a_noisy = np.random.normal( a, np.abs( a ) * noise_percentage, V.shape )
                 
                 # update the two memristor pairs separately
-                n_pos = ((pos_memristors[ V > 0 ] - r_min_noise[ V > 0 ]) /
-                         r_max_noise[ V > 0 ])**(1 / a_noise[ V > 0 ])
-                n_neg = ((neg_memristors[ V < 0 ] - r_min_noise[ V < 0 ]) /
-                         r_max_noise[ V < 0 ])**(1 / a_noise[ V < 0 ])
+                n_pos = ((pos_memristors[ V > 0 ] - r_min_noisy[ V > 0 ]) /
+                         r_max_noisy[ V > 0 ])**(1 / a_noisy[ V > 0 ])
+                n_neg = ((neg_memristors[ V < 0 ] - r_min_noisy[ V < 0 ]) /
+                         r_max_noisy[ V < 0 ])**(1 / a_noisy[ V < 0 ])
                 
-                pos_memristors[ V > 0 ] = r_min_noise[ V > 0 ] + r_max_noise[ V > 0 ] * (n_pos + 1)**a_noise[ V > 0 ]
-                neg_memristors[ V < 0 ] = r_min_noise[ V < 0 ] + r_max_noise[ V < 0 ] * (n_neg + 1)**a_noise[ V < 0 ]
+                pos_memristors[ V > 0 ] = r_min_noisy[ V > 0 ] + r_max_noisy[ V > 0 ] * (n_pos + 1)**a_noisy[ V > 0 ]
+                neg_memristors[ V < 0 ] = r_min_noisy[ V < 0 ] + r_max_noisy[ V < 0 ] * (n_neg + 1)**a_noisy[ V < 0 ]
                 
-                weights[ : ] = (resistance2conductance( pos_memristors[ : ] )
-                                - resistance2conductance( neg_memristors[ : ] ))
+                weights[ : ] = resistance2conductance( pos_memristors[ : ] ) \
+                               - resistance2conductance( neg_memristors[ : ] )
         
         return step_simmpes
 

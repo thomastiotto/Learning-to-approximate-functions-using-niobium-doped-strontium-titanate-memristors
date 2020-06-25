@@ -7,10 +7,10 @@ from nengo.learning_rules import PES
 from memristor_nengo.learning_rules import mPES
 from memristor_nengo.extras import *
 
-function_to_learn = lambda x: x**2
+function_to_learn = lambda x: x
 timestep = 0.001
-n_neurons = 4
-dimensions = 1
+n_neurons = 200
+dimensions = 20
 sim_time = 30
 learn_time = int( sim_time * 3 / 4 )
 seed = None
@@ -106,21 +106,22 @@ print( mse )
 
 plots = [ ]
 plotter = Plotter( sim.trange( sample_every=sample_every ), post.n_neurons, pre.n_neurons, dimensions, learn_time,
-                   plot_size=(7, 5),
-                   dpi=300 )
+                   plot_size=(13, 7),
+                   dpi=72 )
 
-plots.append( plotter.plot_results( sim.data[ input_node_probe ], sim.data[ pre_probe ], sim.data[ post_probe ],
-                                    error=sim.data[ post_probe ] - function_to_learn( sim.data[ pre_probe ] ),
-                                    smooth=True,
-                                    mse=mse )
-              )
+plots.append(
+        plotter.plot_results( sim.data[ input_node_probe ], sim.data[ pre_probe ], sim.data[ post_probe ],
+                              error=sim.data[ post_probe ] - function_to_learn( sim.data[ pre_probe ] ),
+                              smooth=True,
+                              mse=mse )
+        )
 plots.append(
         plotter.plot_ensemble_spikes( "Post", sim.data[ post_spikes_probe ], sim.data[ post_probe ] )
         )
 plots.append(
         plotter.plot_weight_matrices_over_time( sim.data[ weight_probe ], sample_every=sample_every )
         )
-if n_neurons < 5:
+if n_neurons <= 5:
     plots.append(
             plotter.plot_weights_over_time( sim.data[ pos_memr_probe ], sim.data[ neg_memr_probe ] )
             )
@@ -129,6 +130,7 @@ if n_neurons < 5:
             )
 
 dir_name, dir_images = make_timestamped_dir( root="../data/mPES/" )
+save_weights( dir_name, sim.data[ weight_probe ] )
 for i, fig in enumerate( plots ):
-    fig.savefig( dir_images + str( i ) )
+    fig.savefig( dir_images + str( i ) + ".eps", format="eps" )
     fig.show()

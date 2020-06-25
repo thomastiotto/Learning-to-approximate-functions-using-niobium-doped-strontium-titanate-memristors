@@ -29,7 +29,7 @@ class Plotter():
             axes[ 0, 0 ].legend(
                     [ f"Input dim {i}" for i in range( self.n_dims ) ],
                     loc='best' )
-        axes[ 0, 0 ].set_title( "Input signal" )
+        axes[ 0, 0 ].set_title( "Input signal", fontsize=16 )
         
         if smooth:
             from scipy.signal import savgol_filter
@@ -52,7 +52,7 @@ class Plotter():
                     [ f"Pre dim {i}" for i in range( self.n_dims ) ] +
                     [ f"Post dim {i}" for i in range( self.n_dims ) ],
                     loc='best' )
-        axes[ 1, 0 ].set_title( "Pre and post decoded" )
+        axes[ 1, 0 ].set_title( "Pre and post decoded", fontsize=16 )
         
         if smooth:
             from scipy.signal import savgol_filter
@@ -62,15 +62,6 @@ class Plotter():
                 self.time_vector,
                 error,
                 label='Error' )
-        # trendline
-        # z = np.polyfit( time_vector, error, 1 )
-        # p = np.poly1d( np.squeeze( z ) )
-        # axes[ 2, 0 ].plot(
-        #         time_vector,
-        #         p( time_vector ),
-        #         label='Error trend',
-        #         c="k",
-        #         linestyle=":" )
         if self.n_dims <= 3:
             axes[ 2, 0 ].legend(
                     [ f"Error dim {i}" for i in range( self.n_dims ) ],
@@ -80,14 +71,14 @@ class Plotter():
                                horizontalalignment='center',
                                verticalalignment='center',
                                transform=axes[ 2, 0 ].transAxes )
-        axes[ 2, 0 ].set_title( "Error" )
+        axes[ 2, 0 ].set_title( "Error", fontsize=16 )
         
         for ax in axes:
             ax[ 0 ].axvline( x=self.learning_time, c="k" )
         
         fig.get_axes()[ 0 ].annotate( f"{self.n_rows} neurons, {self.n_dims} dimensions", (0.5, 0.94),
                                       xycoords='figure fraction', ha='center',
-                                      fontsize=18
+                                      fontsize=20
                                       )
         plt.tight_layout()
         
@@ -106,7 +97,7 @@ class Plotter():
         ax1.set_xlabel( 'Time (s)' )
         fig.get_axes()[ 0 ].annotate( name + " neural activity", (0.5, 0.94),
                                       xycoords='figure fraction', ha='center',
-                                      fontsize=18
+                                      fontsize=20
                                       )
         
         return fig
@@ -126,7 +117,7 @@ class Plotter():
                 plt.subplots_adjust( hspace=0.7 )
         fig.get_axes()[ 0 ].annotate( "Conductances over time", (0.5, 0.94),
                                       xycoords='figure fraction', ha='center',
-                                      fontsize=18
+                                      fontsize=20
                                       )
         # plt.tight_layout()
         
@@ -146,7 +137,7 @@ class Plotter():
                 plt.subplots_adjust( hspace=0.7 )
         fig.get_axes()[ 0 ].annotate( "Weights over time", (0.5, 0.94),
                                       xycoords='figure fraction', ha='center',
-                                      fontsize=18
+                                      fontsize=20
                                       )
         # plt.tight_layout()
         
@@ -216,3 +207,7 @@ def sparsity_measure( vector ):  # Gini index
     summation = np.sum( (v / l1norm) * ((n - k + 0.5) / n) )
     
     return 1 - 2 * summation
+
+
+def save_weights( path, probe ):
+    np.save( path + "weights.npy", probe[ -1 ].T )
