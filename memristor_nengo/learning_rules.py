@@ -224,9 +224,13 @@ def build_mpes( model, mpes, rule ):
     in_size = acts.shape[ 0 ]
     
     pos_memristors = Signal( shape=(out_size, in_size), name="mPES:pos_memristors",
-                             initial_value=mpes.initial_resistances( 1e8, 1.1e8, (out_size, in_size) ) )
+                             initial_value=mpes.initial_resistances( 1e8 - 1e8 * mpes.noise_percentage,
+                                                                     1.1e8 + 1e8 * mpes.noise_percentage,
+                                                                     (out_size, in_size) ) )
     neg_memristors = Signal( shape=(out_size, in_size), name="mPES:neg_memristors",
-                             initial_value=mpes.initial_resistances( 1e8, 1.1e8, (out_size, in_size) ) )
+                             initial_value=mpes.initial_resistances( 1e8 - 1e8 * mpes.noise_percentage,
+                                                                     1.1e8 + 1e8 * mpes.noise_percentage,
+                                                                     (out_size, in_size) ) )
     
     model.sig[ conn ][ "pos_memristors" ] = pos_memristors
     model.sig[ conn ][ "neg_memristors" ] = neg_memristors

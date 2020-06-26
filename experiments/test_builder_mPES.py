@@ -9,8 +9,8 @@ from memristor_nengo.extras import *
 
 function_to_learn = lambda x: x
 timestep = 0.001
-n_neurons = 200
-dimensions = 20
+n_neurons = 10
+dimensions = 1
 sim_time = 30
 learn_time = int( sim_time * 3 / 4 )
 seed = None
@@ -133,4 +133,5 @@ dir_name, dir_images = make_timestamped_dir( root="../data/mPES/" )
 save_weights( dir_name, sim.data[ weight_probe ] )
 for i, fig in enumerate( plots ):
     fig.savefig( dir_images + str( i ) + ".eps", format="eps" )
+    fig.savefig( dir_images + str( i ) + ".png", format="png" )
     fig.show()
