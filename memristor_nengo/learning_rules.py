@@ -15,7 +15,8 @@ class mPES( LearningRuleType ):
     r_max = NumberParam( "r_max", readonly=True, default=2.5e8 )
     r_min = NumberParam( "r_min", readonly=True, default=1e2 )
     
-    def __init__( self, learning_rate=Default, pre_synapse=Default, r_max=Default, r_min=Default, seed=None ):
+    def __init__( self, learning_rate=Default, pre_synapse=Default, r_max=Default, r_min=Default, noisy=False,
+                  seed=None ):
         super().__init__( learning_rate, size_in="post_state" )
         if learning_rate is not Default and learning_rate >= 1.0:
             warnings.warn(
@@ -26,6 +27,7 @@ class mPES( LearningRuleType ):
         self.pre_synapse = pre_synapse
         self.r_max = r_max
         self.r_min = r_min
+        self.noise_percentage = 0 if not noisy else noisy
         
         np.random.seed( seed )
     
@@ -58,12 +60,14 @@ class SimmPES( Operator ):
             pos_memristors,
             neg_memristors,
             weights,
+            noise_percentage,
             states=None,
             tag=None
             ):
         super( SimmPES, self ).__init__( tag=tag )
         
         self.learning_rate = learning_rate
+        self.noise_percentage = noise_percentage
         
         self.sets = [ ] + ([ ] if states is None else [ states ])
         self.incs = [ ]
@@ -106,6 +110,7 @@ class SimmPES( Operator ):
         pos_memristors = signals[ self.pos_memristor ]
         neg_memristors = signals[ self.neg_memristor ]
         weights = signals[ self.weights ]
+        noise_percentage = self.noise_percentage
         
         def step_simmpes():
             # TODO pass parameters or equations/functions directly
@@ -115,9 +120,6 @@ class SimmPES( Operator ):
             g_min = 1.0 / r_max
             g_max = 1.0 / r_min
             error_threshold = 1e-5
-            noise_percentage = 1.5 / 1e1
-            
-            # noise_percentage = 0
             
             def resistance2conductance( R ):
                 g_curr = 1.0 / R
@@ -155,19 +157,31 @@ class SimmPES( Operator ):
                 # set update direction and magnitude (unused with powerlaw memristor equations)
                 V = np.sign( pes_delta ) * 1e-1
                 
-                # generate random noise on the parameters
-                r_min_noisy = np.random.normal( r_min, r_min * noise_percentage, V.shape )
-                r_max_noisy = np.random.normal( r_max, r_max * noise_percentage, V.shape )
-                a_noisy = np.random.normal( a, np.abs( a ) * noise_percentage, V.shape )
-                
-                # update the two memristor pairs separately
-                n_pos = ((pos_memristors[ V > 0 ] - r_min_noisy[ V > 0 ]) /
-                         r_max_noisy[ V > 0 ])**(1 / a_noisy[ V > 0 ])
-                n_neg = ((neg_memristors[ V < 0 ] - r_min_noisy[ V < 0 ]) /
-                         r_max_noisy[ V < 0 ])**(1 / a_noisy[ V < 0 ])
-                
-                pos_memristors[ V > 0 ] = r_min_noisy[ V > 0 ] + r_max_noisy[ V > 0 ] * (n_pos + 1)**a_noisy[ V > 0 ]
-                neg_memristors[ V < 0 ] = r_min_noisy[ V < 0 ] + r_max_noisy[ V < 0 ] * (n_neg + 1)**a_noisy[ V < 0 ]
+                if noise_percentage > 0:
+                    # generate random noise on the parameters
+                    r_min_noisy = np.random.normal( r_min, r_min * noise_percentage, V.shape )
+                    r_max_noisy = np.random.normal( r_max, r_max * noise_percentage, V.shape )
+                    a_noisy = np.random.normal( a, np.abs( a ) * noise_percentage, V.shape )
+                    
+                    # update the two memristor pairs separately
+                    n_pos = ((pos_memristors[ V > 0 ] - r_min_noisy[ V > 0 ]) /
+                             r_max_noisy[ V > 0 ])**(1 / a_noisy[ V > 0 ])
+                    n_neg = ((neg_memristors[ V < 0 ] - r_min_noisy[ V < 0 ]) /
+                             r_max_noisy[ V < 0 ])**(1 / a_noisy[ V < 0 ])
+                    
+                    pos_memristors[ V > 0 ] = r_min_noisy[ V > 0 ] + r_max_noisy[ V > 0 ] * (n_pos + 1)**a_noisy[
+                        V > 0 ]
+                    neg_memristors[ V < 0 ] = r_min_noisy[ V < 0 ] + r_max_noisy[ V < 0 ] * (n_neg + 1)**a_noisy[
+                        V < 0 ]
+                else:
+                    # update the two memristor pairs separately
+                    n_pos = ((pos_memristors[ V > 0 ] - r_min) /
+                             r_max)**(1 / a)
+                    n_neg = ((neg_memristors[ V < 0 ] - r_min) /
+                             r_max)**(1 / a)
+                    
+                    pos_memristors[ V > 0 ] = r_min + r_max * (n_pos + 1)**a
+                    neg_memristors[ V < 0 ] = r_min + r_max * (n_neg + 1)**a
                 
                 weights[ : ] = resistance2conductance( pos_memristors[ : ] ) \
                                - resistance2conductance( neg_memristors[ : ] )
@@ -225,7 +239,8 @@ def build_mpes( model, mpes, rule ):
                     encoders,
                     model.sig[ conn ][ "pos_memristors" ],
                     model.sig[ conn ][ "neg_memristors" ],
-                    model.sig[ conn ][ "weights" ]
+                    model.sig[ conn ][ "weights" ],
+                    mpes.noise_percentage
                     )
             )
     

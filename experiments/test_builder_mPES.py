@@ -30,8 +30,8 @@ model = nengo.Network( seed=seed )
 with model:
     # Create an input node
     input_node = nengo.Node(
-            # output=generate_sines( dimensions ),
-            output=WhiteSignal( 60, high=5, seed=seed ),
+            output=generate_sines( dimensions ),
+            # output=WhiteSignal( 60, high=5, seed=seed ),
             size_out=dimensions
             )
     
@@ -56,7 +56,7 @@ with model:
     # the matrix given to transform are the initial weights found in model.sig[conn]["weights"]
     
     # Apply the mPES learning rule to conn
-    conn.learning_rule_type = mPES( seed=seed )
+    conn.learning_rule_type = mPES( noisy=1.5 / 1e1, seed=seed )
     # conn.learning_rule_type = PES()
     print( "Simulating with", conn.learning_rule_type )
     
