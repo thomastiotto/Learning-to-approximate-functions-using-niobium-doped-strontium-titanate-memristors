@@ -1,6 +1,0 @@
-Parameter      Start    End    Number
------------  -------  -----  --------
-a            -0.0001     -1      1000
-
-Total time: 9:25:05.509828
-Time per iteration: 33.91 s
