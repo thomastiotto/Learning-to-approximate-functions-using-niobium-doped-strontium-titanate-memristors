@@ -164,10 +164,10 @@ class SimmPES( Operator ):
                     a_noisy = np.random.normal( a, np.abs( a ) * noise_percentage, V.shape )
                     
                     # update the two memristor pairs separately
-                    n_pos = ((pos_memristors[ V > 0 ] - r_min_noisy[ V > 0 ]) /
-                             r_max_noisy[ V > 0 ])**(1 / a_noisy[ V > 0 ])
-                    n_neg = ((neg_memristors[ V < 0 ] - r_min_noisy[ V < 0 ]) /
-                             r_max_noisy[ V < 0 ])**(1 / a_noisy[ V < 0 ])
+                    n_pos = ((pos_memristors[ V > 0 ] - r_min_noisy[ V > 0 ]) / r_max_noisy[ V > 0 ])**(
+                                1 / a_noisy[ V > 0 ])
+                    n_neg = ((neg_memristors[ V < 0 ] - r_min_noisy[ V < 0 ]) / r_max_noisy[ V < 0 ])**(
+                                1 / a_noisy[ V < 0 ])
                     
                     pos_memristors[ V > 0 ] = r_min_noisy[ V > 0 ] + r_max_noisy[ V > 0 ] * (n_pos + 1)**a_noisy[
                         V > 0 ]
