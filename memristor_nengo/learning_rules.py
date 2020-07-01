@@ -1,9 +1,12 @@
 import warnings
+import numpy as np
 
 from nengo.params import Default, NumberParam
 from nengo.synapses import Lowpass, SynapseParam
 from nengo.learning_rules import LearningRuleType
-from nengo.learning_rules import PES
+
+from nengo.builder.learning_rules import get_post_ens, build_or_passthrough
+from nengo.builder import Builder, Operator
 
 
 class mPES( LearningRuleType ):
@@ -37,17 +40,9 @@ class mPES( LearningRuleType ):
     @property
     def _argdefaults( self ):
         return (
-                ("learning_rate", PES.learning_rate.default),
-                ("pre_synapse", PES.pre_synapse.default),
+                ("learning_rate", mPES.learning_rate.default),
+                ("pre_synapse", mPES.pre_synapse.default),
                 )
-
-
-import numpy as np
-
-from nengo.builder import Builder, Operator, Signal
-from nengo.builder.operator import Reset
-from nengo.ensemble import Ensemble
-from nengo.node import Node
 
 
 class SimmPES( Operator ):
@@ -165,9 +160,9 @@ class SimmPES( Operator ):
                     
                     # update the two memristor pairs separately
                     n_pos = ((pos_memristors[ V > 0 ] - r_min_noisy[ V > 0 ]) / r_max_noisy[ V > 0 ])**(
-                                1 / a_noisy[ V > 0 ])
+                            1 / a_noisy[ V > 0 ])
                     n_neg = ((neg_memristors[ V < 0 ] - r_min_noisy[ V < 0 ]) / r_max_noisy[ V < 0 ])**(
-                                1 / a_noisy[ V < 0 ])
+                            1 / a_noisy[ V < 0 ])
                     
                     pos_memristors[ V > 0 ] = r_min_noisy[ V > 0 ] + r_max_noisy[ V > 0 ] * (n_pos + 1)**a_noisy[
                         V > 0 ]
@@ -187,20 +182,6 @@ class SimmPES( Operator ):
                                - resistance2conductance( neg_memristors[ : ] )
         
         return step_simmpes
-
-
-def get_post_ens( conn ):
-    """Get the output `.Ensemble` for connection."""
-    return (
-            conn.post_obj
-            if isinstance( conn.post_obj, (Ensemble, Node) )
-            else conn.post_obj.ensemble
-    )
-
-
-def build_or_passthrough( model, obj, signal ):
-    """Builds the obj on signal, or returns the signal if obj is None."""
-    return signal if obj is None else model.build( obj, signal )
 
 
 @Builder.register( mPES )
@@ -253,3 +234,118 @@ def build_mpes( model, mpes, rule ):
     model.sig[ rule ][ "activities" ] = acts
     model.sig[ rule ][ "pos_memristors" ] = pos_memristors
     model.sig[ rule ][ "neg_memristors" ] = neg_memristors
+
+
+################ NENGO DL #####################
+
+import tensorflow as tf
+from nengo.builder import Signal
+from nengo.builder.operator import Reset, DotInc, Copy
+
+from nengo_dl.builder import Builder, OpBuilder, NengoBuilder
+
+
+@NengoBuilder.register( mPES )
+def build_pes( model, pes, rule ):
+    """
+    Builds a `nengo.PES` object into a Nengo model.
+
+    Overrides the standard Nengo PES builder in order to avoid slicing on axes > 0
+    (not currently supported in NengoDL).
+
+    Parameters
+    ----------
+    model : Model
+        The model to build into.
+    pes : PES
+        Learning rule type to build.
+    rule : LearningRule
+        The learning rule object corresponding to the neuron type.
+
+    Notes
+    -----
+    Does not modify ``model.params[]`` and can therefore be called
+    more than once with the same `nengo.PES` instance.
+    """
+    
+    conn = rule.connection
+    
+    # Create input error signal
+    error = Signal( shape=(rule.size_in,), name="PES:error" )
+    model.add_op( Reset( error ) )
+    model.sig[ rule ][ "in" ] = error  # error connection will attach here
+    
+    acts = build_or_passthrough( model, pes.pre_synapse, model.sig[ conn.pre_obj ][ "out" ] )
+    
+    if not conn.is_decoded:
+        # multiply error by post encoders to get a per-neuron error
+        
+        post = get_post_ens( conn )
+        encoders = model.sig[ post ][ "encoders" ]
+        
+        if conn.post_obj is not conn.post:
+            # in order to avoid slicing encoders along an axis > 0, we pad
+            # `error` out to the full base dimensionality and then do the
+            # dotinc with the full encoder matrix
+            padded_error = Signal( shape=(encoders.shape[ 1 ],) )
+            model.add_op( Copy( error, padded_error, dst_slice=conn.post_slice ) )
+        else:
+            padded_error = error
+        
+        # error = dot(encoders, error)
+        local_error = Signal( shape=(post.n_neurons,) )
+        model.add_op( Reset( local_error ) )
+        model.add_op( DotInc( encoders, padded_error, local_error, tag="PES:encode" ) )
+    else:
+        local_error = error
+    
+    model.operators.append(
+            SimmPES( acts, local_error, model.sig[ rule ][ "delta" ], pes.learning_rate )
+            )
+    
+    # expose these for probes
+    model.sig[ rule ][ "error" ] = error
+    model.sig[ rule ][ "activities" ] = acts
+
+
+@Builder.register( SimmPES )
+class SimPESBuilder( OpBuilder ):
+    """Build a group of `~nengo.builder.learning_rules.SimPES` operators."""
+    
+    def __init__( self, ops, signals, config ):
+        super().__init__( ops, signals, config )
+        
+        self.error_data = signals.combine( [ op.error for op in ops ] )
+        self.error_data = self.error_data.reshape( (len( ops ), ops[ 0 ].error.shape[ 0 ], 1) )
+        
+        self.pre_data = signals.combine( [ op.pre_filtered for op in ops ] )
+        self.pre_data = self.pre_data.reshape(
+                (len( ops ), 1, ops[ 0 ].pre_filtered.shape[ 0 ])
+                )
+        
+        self.alpha = signals.op_constant(
+                ops, [ 1 for _ in ops ], "learning_rate", signals.dtype, shape=(1, -1, 1, 1)
+                ) * (-signals.dt_val / ops[ 0 ].pre_filtered.shape[ 0 ])
+        
+        assert all( op.encoders is None for op in ops )
+        
+        self.output_data = signals.combine( [ op.delta for op in ops ] )
+    
+    def build_step( self, signals ):
+        pre_filtered = signals.gather( self.pre_data )
+        error = signals.gather( self.error_data )
+        
+        error *= self.alpha
+        update = error * pre_filtered
+        
+        signals.scatter( self.output_data, update )
+    
+    @staticmethod
+    def mergeable( x, y ):
+        # pre inputs must have the same dimensionality so that we can broadcast
+        # them when computing the outer product.
+        # the error signals also have to have the same shape.
+        return (
+                x.pre_filtered.shape[ 0 ] == y.pre_filtered.shape[ 0 ]
+                and x.error.shape[ 0 ] == y.error.shape[ 0 ]
+        )
