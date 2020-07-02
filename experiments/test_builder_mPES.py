@@ -9,7 +9,7 @@ from memristor_nengo.extras import *
 
 function_to_learn = lambda x: x
 timestep = 0.001
-n_neurons = 10
+n_neurons = 4
 dimensions = 1
 sim_time = 30
 learn_time = int( sim_time * 3 / 4 )
