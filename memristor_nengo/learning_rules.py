@@ -323,9 +323,7 @@ class SimPESBuilder( OpBuilder ):
         self.error_data = self.error_data.reshape( (len( ops ), ops[ 0 ].error.shape[ 0 ], 1) )
         
         self.pre_data = signals.combine( [ op.pre_filtered for op in ops ] )
-        self.pre_data = self.pre_data.reshape(
-                (len( ops ), 1, ops[ 0 ].pre_filtered.shape[ 0 ])
-                )
+        self.pre_data = self.pre_data.reshape( (len( ops ), 1, ops[ 0 ].pre_filtered.shape[ 0 ]) )
         
         self.output_data = signals.combine( [ op.weights for op in ops ] )
     
@@ -334,25 +332,31 @@ class SimPESBuilder( OpBuilder ):
         local_error = signals.gather( self.error_data )
         
         def find_spikes( input_activities, output_size, invert=False ):
-            spiked_pre = tf.cast( tf.tile( tf.math.rint( input_activities ), [ 1, 1, output_size, 1 ] ), bool )
-            out = spiked_pre
+            spiked_pre = tf.cast( tf.tile( tf.math.rint( input_activities ), [ 1, 1, output_size, 1 ] ),
+                                  tf.bool )
             
-            return out if not invert else tf.math.logical_not( out )
+            out = spiked_pre
+            if invert:
+                out = tf.math.logical_not( out )
+            
+            return tf.cast( out, tf.float32 )
         
         pes_delta = -local_error * pre_filtered
         
         spiked_map = find_spikes( pre_filtered, self.output_size, invert=True )
-        # mask pes_delta with spiked_map
-        # V =
+        pes_delta = pes_delta * spiked_map
+        # pes_delta.set_shape( [ 1, 1, self.output_size, self.input_size ] )
+        V = tf.sign( pes_delta ) * 1e-1
         
         signals.scatter( self.output_data, pes_delta )
-    
-    @staticmethod
-    def mergeable( x, y ):
-        # pre inputs must have the same dimensionality so that we can broadcast
-        # them when computing the outer product.
-        # the error signals also have to have the same shape.
-        return (
-                x.pre_filtered.shape[ 0 ] == y.pre_filtered.shape[ 0 ]
-                and x.error.shape[ 0 ] == y.error.shape[ 0 ]
-        )
+
+
+@staticmethod
+def mergeable( x, y ):
+    # pre inputs must have the same dimensionality so that we can broadcast
+    # them when computing the outer product.
+    # the error signals also have to have the same shape.
+    return (
+            x.pre_filtered.shape[ 0 ] == y.pre_filtered.shape[ 0 ]
+            and x.error.shape[ 0 ] == y.error.shape[ 0 ]
+    )
