@@ -89,8 +89,8 @@ with model:
         neg_memr_probe = nengo.Probe( conn.learning_rule, "neg_memristors", synapse=None, sample_every=sample_every )
 
 # Create the simulator
-# with nengo.Simulator( model, seed=seed, dt=timestep, optimize=optimize ) as sim:
-with nengo_dl.Simulator( model, seed=seed, dt=timestep ) as sim:
+with nengo.Simulator( model, seed=seed, dt=timestep, optimize=optimize ) as sim:
+    # with nengo_dl.Simulator( model, seed=seed, dt=timestep ) as sim:
     sim.run( sim_time )
 
 print( "Final weights average:" )

@@ -51,7 +51,6 @@ class SimmPES( Operator ):
             pre_filtered,
             error,
             learning_rate,
-            encoders,
             pos_memristors,
             neg_memristors,
             weights,
@@ -66,7 +65,7 @@ class SimmPES( Operator ):
         
         self.sets = [ ] + ([ ] if states is None else [ states ])
         self.incs = [ ]
-        self.reads = [ pre_filtered, error, encoders ]
+        self.reads = [ pre_filtered, error ]
         self.updates = [ weights, pos_memristors, neg_memristors ]
     
     @property
@@ -78,19 +77,15 @@ class SimmPES( Operator ):
         return self.reads[ 1 ]
     
     @property
-    def encoders( self ):
-        return self.reads[ 2 ]
-    
-    @property
     def weights( self ):
         return self.updates[ 0 ]
     
     @property
-    def pos_memristor( self ):
+    def pos_memristors( self ):
         return self.updates[ 1 ]
     
     @property
-    def neg_memristor( self ):
+    def neg_memristors( self ):
         return self.updates[ 2 ]
     
     def _descstr( self ):
@@ -100,10 +95,9 @@ class SimmPES( Operator ):
         pre_filtered = signals[ self.pre_filtered ]
         n_neurons = pre_filtered.shape[ 0 ]
         error = signals[ self.error ]
-        encoders = signals[ self.encoders ]
         
-        pos_memristors = signals[ self.pos_memristor ]
-        neg_memristors = signals[ self.neg_memristor ]
+        pos_memristors = signals[ self.pos_memristors ]
+        neg_memristors = signals[ self.neg_memristors ]
         weights = signals[ self.weights ]
         gain = 1e6 / n_neurons
         noise_percentage = self.noise_percentage
@@ -143,7 +137,10 @@ class SimmPES( Operator ):
             # if error is small return zero delta
             if np.any( np.absolute( error ) > error_threshold ):
                 # calculate the magnitude of the update based on PES learning rule
-                local_error = -np.dot( encoders, error )
+                # local_error = -np.dot( encoders, error )
+                # I can use NengoDL build function like this, as dot(encoders, error) has been done there already
+                # i.e., error already contains the PES local error
+                local_error = -error
                 pes_delta = np.outer( local_error, pre_filtered )
                 
                 # some memristors are adjusted erroneously if we don't filter
@@ -185,58 +182,6 @@ class SimmPES( Operator ):
         return step_simmpes
 
 
-@Builder.register( mPES )
-def build_mpes( model, mpes, rule ):
-    conn = rule.connection
-    
-    # NB "mpes" is the "mPES()" frontend class
-    
-    # Create input error signal
-    error = Signal( shape=rule.size_in, name="mPES:error" )
-    model.add_op( Reset( error ) )
-    model.sig[ rule ][ "in" ] = error  # error connection will attach here
-    
-    # Filter pre-synaptic activities with pre_synapse
-    acts = build_or_passthrough( model, mpes.pre_synapse, model.sig[ conn.pre_obj ][ "out" ] )
-    
-    post = get_post_ens( conn )
-    encoders = model.sig[ post ][ "encoders" ][ :, conn.post_slice ]
-    
-    out_size = encoders.shape[ 0 ]
-    in_size = acts.shape[ 0 ]
-    
-    pos_memristors = Signal( shape=(out_size, in_size), name="mPES:pos_memristors",
-                             initial_value=mpes.initial_resistances( 1e8 - 1e8 * mpes.noise_percentage,
-                                                                     1.1e8 + 1e8 * mpes.noise_percentage,
-                                                                     (out_size, in_size) ) )
-    neg_memristors = Signal( shape=(out_size, in_size), name="mPES:neg_memristors",
-                             initial_value=mpes.initial_resistances( 1e8 - 1e8 * mpes.noise_percentage,
-                                                                     1.1e8 + 1e8 * mpes.noise_percentage,
-                                                                     (out_size, in_size) ) )
-    
-    model.sig[ conn ][ "pos_memristors" ] = pos_memristors
-    model.sig[ conn ][ "neg_memristors" ] = neg_memristors
-    
-    model.add_op(
-            SimmPES(
-                    acts,
-                    error,
-                    mpes.learning_rate,
-                    encoders,
-                    model.sig[ conn ][ "pos_memristors" ],
-                    model.sig[ conn ][ "neg_memristors" ],
-                    model.sig[ conn ][ "weights" ],
-                    mpes.noise_percentage
-                    )
-            )
-    
-    # expose these for probes
-    model.sig[ rule ][ "error" ] = error
-    model.sig[ rule ][ "activities" ] = acts
-    model.sig[ rule ][ "pos_memristors" ] = pos_memristors
-    model.sig[ rule ][ "neg_memristors" ] = neg_memristors
-
-
 ################ NENGO DL #####################
 
 import tensorflow as tf
@@ -244,10 +189,12 @@ from nengo.builder import Signal
 from nengo.builder.operator import Reset, DotInc, Copy
 
 from nengo_dl.builder import Builder, OpBuilder, NengoBuilder
+from nengo.builder import Builder as NengoCoreBuilder
 
 
 @NengoBuilder.register( mPES )
-def build_pes( model, mpes, rule ):
+@NengoCoreBuilder.register( mPES )
+def build_mpes( model, mpes, rule ):
     conn = rule.connection
     
     # Create input error signal
@@ -294,7 +241,6 @@ def build_pes( model, mpes, rule ):
                     acts,
                     local_error,
                     mpes.learning_rate,
-                    encoders,
                     model.sig[ conn ][ "pos_memristors" ],
                     model.sig[ conn ][ "neg_memristors" ],
                     model.sig[ conn ][ "weights" ],
@@ -310,8 +256,8 @@ def build_pes( model, mpes, rule ):
 
 
 @Builder.register( SimmPES )
-class SimPESBuilder( OpBuilder ):
-    """Build a group of `~nengo.builder.learning_rules.SimPES` operators."""
+class SimmPESBuilder( OpBuilder ):
+    """Build a group of `~nengo.builder.learning_rules.SimmPES` operators."""
     
     def __init__( self, ops, signals, config ):
         super().__init__( ops, signals, config )
@@ -325,6 +271,14 @@ class SimPESBuilder( OpBuilder ):
         self.pre_data = signals.combine( [ op.pre_filtered for op in ops ] )
         self.pre_data = self.pre_data.reshape( (len( ops ), 1, ops[ 0 ].pre_filtered.shape[ 0 ]) )
         
+        self.pos_memristors = signals.combine( [ op.pos_memristors for op in ops ] )
+        self.pos_memristors.reshape(
+                [ len( ops ), ops[ 0 ].pos_memristors.shape[ 0 ], ops[ 0 ].pos_memristors.shape[ 1 ] ] )
+        
+        self.neg_memristors = signals.combine( [ op.neg_memristors for op in ops ] )
+        self.neg_memristors.reshape(
+                [ len( ops ), ops[ 0 ].neg_memristors.shape[ 0 ], ops[ 0 ].neg_memristors.shape[ 1 ] ] )
+        
         self.output_data = signals.combine( [ op.weights for op in ops ] )
     
     def build_step( self, signals ):
@@ -332,14 +286,19 @@ class SimPESBuilder( OpBuilder ):
         local_error = signals.gather( self.error_data )
         
         def find_spikes( input_activities, output_size, invert=False ):
-            spiked_pre = tf.cast( tf.tile( tf.math.rint( input_activities ), [ 1, 1, output_size, 1 ] ),
-                                  tf.bool )
+            spiked_pre = tf.cast(
+                    tf.tile( tf.math.rint( input_activities ), [ 1, 1, output_size, 1 ] ),
+                    tf.bool )
             
             out = spiked_pre
             if invert:
                 out = tf.math.logical_not( out )
             
             return tf.cast( out, tf.float32 )
+        
+        # TODO use tf.cond for if statement
+        # TODO make error threshold into Tensor
+        # tf.cond( tf.reduce_any(tf.greater(tf.abs(local_error),error_threshold)),true_fn=)
         
         pes_delta = -local_error * pre_filtered
         
@@ -349,14 +308,3 @@ class SimPESBuilder( OpBuilder ):
         V = tf.sign( pes_delta ) * 1e-1
         
         signals.scatter( self.output_data, pes_delta )
-
-
-@staticmethod
-def mergeable( x, y ):
-    # pre inputs must have the same dimensionality so that we can broadcast
-    # them when computing the outer product.
-    # the error signals also have to have the same shape.
-    return (
-            x.pre_filtered.shape[ 0 ] == y.pre_filtered.shape[ 0 ]
-            and x.error.shape[ 0 ] == y.error.shape[ 0 ]
-    )
