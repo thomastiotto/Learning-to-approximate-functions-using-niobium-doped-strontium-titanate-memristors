@@ -168,10 +168,8 @@ class SimmPES( Operator ):
                         V < 0 ]
                 else:
                     # update the two memristor pairs separately
-                    n_pos = ((pos_memristors[ V > 0 ] - r_min) /
-                             r_max)**(1 / a)
-                    n_neg = ((neg_memristors[ V < 0 ] - r_min) /
-                             r_max)**(1 / a)
+                    n_pos = ((pos_memristors[ V > 0 ] - r_min) / r_max)**(1 / a)
+                    n_neg = ((neg_memristors[ V < 0 ] - r_min) / r_max)**(1 / a)
                     
                     pos_memristors[ V > 0 ] = r_min + r_max * (n_pos + 1)**a
                     neg_memristors[ V < 0 ] = r_min + r_max * (n_neg + 1)**a
@@ -226,6 +224,7 @@ def build_mpes( model, mpes, rule ):
         # in order to avoid slicing encoders along an axis > 0, we pad
         # `error` out to the full base dimensionality and then do the
         # dotinc with the full encoder matrix
+        # comes into effect when slicing post connection
         padded_error = Signal( shape=(encoders.shape[ 1 ],) )
         model.add_op( Copy( error, padded_error, dst_slice=conn.post_slice ) )
     else:
@@ -272,18 +271,32 @@ class SimmPESBuilder( OpBuilder ):
         self.pre_data = self.pre_data.reshape( (len( ops ), 1, ops[ 0 ].pre_filtered.shape[ 0 ]) )
         
         self.pos_memristors = signals.combine( [ op.pos_memristors for op in ops ] )
-        self.pos_memristors.reshape(
-                [ len( ops ), ops[ 0 ].pos_memristors.shape[ 0 ], ops[ 0 ].pos_memristors.shape[ 1 ] ] )
+        self.pos_memristors = self.pos_memristors.reshape(
+                (len( ops ), ops[ 0 ].pos_memristors.shape[ 0 ], ops[ 0 ].pos_memristors.shape[ 1 ])
+                )
         
         self.neg_memristors = signals.combine( [ op.neg_memristors for op in ops ] )
-        self.neg_memristors.reshape(
-                [ len( ops ), ops[ 0 ].neg_memristors.shape[ 0 ], ops[ 0 ].neg_memristors.shape[ 1 ] ] )
+        self.neg_memristors = self.neg_memristors.reshape(
+                (len( ops ), ops[ 0 ].neg_memristors.shape[ 0 ], ops[ 0 ].neg_memristors.shape[ 1 ])
+                )
         
         self.output_data = signals.combine( [ op.weights for op in ops ] )
+        
+        # self.initial_weights = tf.constant(
+        #         np.concatenate( [ op.initial_weights[ :, :, None ] for op in ops ], axis=1 ),
+        #         signals.dtype
+        #         )
+        
+        #
+        self.r_min = tf.constant( 1e2 )
+        self.r_max = tf.constant( 2.5e8 )
+        self.a = tf.constant( -0.1 )
     
     def build_step( self, signals ):
         pre_filtered = signals.gather( self.pre_data )
         local_error = signals.gather( self.error_data )
+        pos_memristors = signals.gather( self.pos_memristors )
+        neg_memristors = signals.gather( self.neg_memristors )
         
         def find_spikes( input_activities, output_size, invert=False ):
             spiked_pre = tf.cast(
@@ -306,5 +319,18 @@ class SimmPESBuilder( OpBuilder ):
         pes_delta = pes_delta * spiked_map
         # pes_delta.set_shape( [ 1, 1, self.output_size, self.input_size ] )
         V = tf.sign( pes_delta ) * 1e-1
+        
+        # TODO if noise_percentage
+        pos_mask = tf.greater( V, 0 )
+        pos_indexes = tf.where( pos_mask )
+        pos_n = ((tf.boolean_mask( pos_memristors, pos_mask ) - self.r_min) / self.r_max)**(1 / self.a)
+        pos_update = self.r_min + self.r_max * (pos_n + 1)**self.a
+        tf.tensor_scatter_nd_update( pos_memristors, pos_indexes, pos_update )
+        
+        neg_mask = tf.greater( V, 0 )
+        neg_indexes = tf.where( neg_mask )
+        neg_n = ((tf.boolean_mask( neg_memristors, neg_mask ) - self.r_min) / self.r_max)**(1 / self.a)
+        neg_update = self.r_min + self.r_max * (neg_n + 1)**self.a
+        tf.tensor_scatter_nd_update( neg_memristors, neg_indexes, neg_update )
         
         signals.scatter( self.output_data, pes_delta )

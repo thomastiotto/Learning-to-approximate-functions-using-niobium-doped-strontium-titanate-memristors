@@ -13,7 +13,7 @@ n_neurons = 4
 dimensions = 1
 sim_time = 30
 learn_time = int( sim_time * 3 / 4 )
-seed = None
+seed = 0
 optimisations = "run"
 
 if optimisations == "build":
@@ -56,7 +56,7 @@ with model:
     # the matrix given to transform are the initial weights found in model.sig[conn]["weights"]
     
     # Apply the mPES learning rule to conn
-    conn.learning_rule_type = mPES( noisy=1.5 / 1e1, seed=seed )
+    conn.learning_rule_type = mPES( noisy=0, seed=seed )
     # conn.learning_rule_type = PES()
     print( "Simulating with", conn.learning_rule_type )
     
