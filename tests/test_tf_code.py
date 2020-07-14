@@ -43,7 +43,7 @@ def np_calc( local_error, pre_filtered, pos_memristors, neg_memristors ):
     g_min = 1.0 / r_max
     g_max = 1.0 / r_min
     error_threshold = 1e-5
-    gain = 1e5
+    gain = 1e6 / 4
     
     def resistance2conductance( R ):
         g_curr = 1.0 / R
@@ -83,18 +83,26 @@ def np_calc( local_error, pre_filtered, pos_memristors, neg_memristors ):
         pos_memristors[ V > 0 ] = pos_update
         neg_memristors[ V < 0 ] = neg_update
     
-    return pos_memristors, neg_memristors
-    #
-    # return resistance2conductance( pos_memristors[ : ] ) \
-    #        - resistance2conductance( neg_memristors[ : ] )
+    return \
+        resistance2conductance( pos_memristors[ : ] ) - resistance2conductance( neg_memristors[ : ] ), \
+        pos_memristors, \
+        neg_memristors
 
 
-# @tf.function
 def tf_calc( local_error, pre_filtered, pos_memristors, neg_memristors ):
-    r_min = tf.constant( 1e2 )
-    r_max = tf.constant( 2.5e8 )
-    a = tf.constant( -0.1 )
-    error_threshold = tf.constant( 1e-5 )
+    a = -0.1
+    r_min = 1e2
+    r_max = 2.5e8
+    g_min = 1.0 / r_max
+    g_max = 1.0 / r_min
+    error_threshold = 1e-5
+    gain = 1e6 / 4
+    
+    def resistance2conductance( R ):
+        g_curr = 1.0 / R
+        g_norm = (g_curr - g_min) / (g_max - g_min)
+        
+        return g_norm * gain
     
     def find_spikes( input_activities, output_size, invert=False ):
         spiked_pre = tf.cast(
@@ -108,13 +116,14 @@ def tf_calc( local_error, pre_filtered, pos_memristors, neg_memristors ):
         return tf.cast( out, tf.float32 )
     
     def if_error_over_threshold( pos_memristors, neg_memristors ):
-        # if tf.reduce_any( tf.greater( tf.abs( local_error ), error_threshold ) ):
         pes_delta = -local_error * pre_filtered
         
         spiked_map = find_spikes( pre_filtered, output_size )
         pes_delta = pes_delta * spiked_map
         
         V = tf.sign( pes_delta ) * 1e-1
+        
+        # TODO implement noisy version
         
         pos_mask = tf.greater( V, 0 )
         pos_indices = tf.where( pos_mask )
@@ -130,35 +139,42 @@ def tf_calc( local_error, pre_filtered, pos_memristors, neg_memristors ):
         
         return pos_memristors, neg_memristors
     
-    cond_out = tf.cond( tf.reduce_any( tf.greater( tf.abs( local_error ), error_threshold ) ),
-                        true_fn=lambda: if_error_over_threshold( pos_memristors, neg_memristors ),
-                        false_fn=lambda: (tf.identity( pos_memristors ), tf.identity( neg_memristors )) )
+    pos_memristors, neg_memristors = tf.cond( tf.reduce_any( tf.greater( tf.abs( local_error ), error_threshold ) ),
+                                              true_fn=lambda: if_error_over_threshold( pos_memristors, neg_memristors ),
+                                              false_fn=lambda: (
+                                                      tf.identity( pos_memristors ), tf.identity( neg_memristors )) )
     
-    return cond_out
+    return \
+        resistance2conductance( pos_memristors ) - resistance2conductance( neg_memristors ), \
+        pos_memristors, \
+        neg_memristors
 
 
-iterations = 1
-for i in range( iterations ):
-    print( "Iteration", i )
-    
-    pos_mem_np, neg_mem_np = np_calc( local_error_np,
-                                      pre_filtered_np,
-                                      copy.deepcopy( pos_memristors_np ),
-                                      copy.deepcopy( neg_memristors_np ) )
-    pos_mem_tf, neg_mem_tf = tf_calc( local_error_tf,
-                                      pre_filtered_tf,
-                                      pos_memristors_tf,
-                                      neg_memristors_tf )
-    
-    print( "NumPy\n", pos_mem_np, "\n", neg_mem_np )
-    print( "TensorFlow\n", pos_mem_tf.numpy(), "\n", neg_mem_tf.numpy() )
-    print( "tf and np are equal?",
-           np.array_equal( pos_mem_np, pos_mem_tf.numpy().squeeze() )
-           and np.array_equal( neg_mem_np, neg_mem_tf.numpy().squeeze() )
-           )
-    print( "Before\n", pos_memristors_np, "\n", neg_memristors_np )
-    print( "After\n", pos_mem_np, "\n", neg_mem_np )
-    print( "before and after are equal?",
-           np.array_equal( pos_mem_np, pos_memristors_np )
-           and np.array_equal( neg_mem_np, neg_memristors_np )
-           )
+weights_np, pos_mem_np, neg_mem_np = np_calc( local_error_np,
+                                              pre_filtered_np,
+                                              copy.deepcopy( pos_memristors_np ),
+                                              copy.deepcopy( neg_memristors_np ) )
+weights_tf, pos_mem_tf, neg_mem_tf = tf_calc( local_error_tf,
+                                              pre_filtered_tf,
+                                              pos_memristors_tf,
+                                              neg_memristors_tf )
+
+print( "Memristors" )
+print( "NumPy\n", pos_mem_np, "\n", neg_mem_np )
+print( "TensorFlow\n", pos_mem_tf.numpy().squeeze(), "\n", neg_mem_tf.numpy().squeeze() )
+print( "tf and np are equal?",
+       np.array_equal( pos_mem_np, pos_mem_tf.numpy().squeeze() )
+       and np.array_equal( neg_mem_np, neg_mem_tf.numpy().squeeze() )
+       )
+print( "Before\n", pos_memristors_np, "\n", neg_memristors_np )
+print( "After\n", pos_mem_np, "\n", neg_mem_np )
+print( "before and after are equal?",
+       np.array_equal( pos_mem_np, pos_memristors_np )
+       and np.array_equal( neg_mem_np, neg_memristors_np )
+       )
+print( "Weights" )
+print( "NumPy\n", weights_np )
+print( "TensorFlow\n", weights_tf.numpy().squeeze() )
+print( "tf and np are equal?",
+       np.array_equal( weights_np, weights_tf.numpy().squeeze() )
+       )
