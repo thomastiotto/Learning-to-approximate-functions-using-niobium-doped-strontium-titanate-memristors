@@ -61,8 +61,11 @@ class SimmPES( Operator ):
             ):
         super( SimmPES, self ).__init__( tag=tag )
         
+        self.n_neurons = pre_filtered.shape[ 0 ]
         self.learning_rate = learning_rate
         self.noise_percentage = noise_percentage
+        self.gain = 1e6 / pre_filtered.shape[ 0 ]
+        self.error_threshold = 1e-5
         
         self.sets = [ ] + ([ ] if states is None else [ states ])
         self.incs = [ ]
@@ -94,14 +97,15 @@ class SimmPES( Operator ):
     
     def make_step( self, signals, dt, rng ):
         pre_filtered = signals[ self.pre_filtered ]
-        n_neurons = pre_filtered.shape[ 0 ]
         error = signals[ self.error ]
         
         pos_memristors = signals[ self.pos_memristors ]
         neg_memristors = signals[ self.neg_memristors ]
         weights = signals[ self.weights ]
-        gain = 1e6 / n_neurons
+        
+        gain = self.gain
         noise_percentage = self.noise_percentage
+        error_threshold = self.error_threshold
         
         def step_simmpes():
             # TODO pass parameters or equations/functions directly
@@ -110,7 +114,6 @@ class SimmPES( Operator ):
             r_max = 2.5e8
             g_min = 1.0 / r_max
             g_max = 1.0 / r_min
-            error_threshold = 1e-5
             
             def resistance2conductance( R ):
                 g_curr = 1.0 / R
@@ -172,8 +175,10 @@ class SimmPES( Operator ):
                     pos_n = ((pos_memristors[ V > 0 ] - r_min) / r_max)**(1 / a)
                     neg_n = ((neg_memristors[ V < 0 ] - r_min) / r_max)**(1 / a)
                     
-                    pos_memristors[ V > 0 ] = r_min + r_max * (pos_n + 1)**a
-                    neg_memristors[ V < 0 ] = r_min + r_max * (neg_n + 1)**a
+                    pos_update = r_min + r_max * (pos_n + 1)**a
+                    neg_update = r_min + r_max * (neg_n + 1)**a
+                    pos_memristors[ V > 0 ] = pos_update
+                    neg_memristors[ V < 0 ] = neg_update
                 
                 weights[ : ] = resistance2conductance( pos_memristors[ : ] ) \
                                - resistance2conductance( neg_memristors[ : ] )
@@ -283,21 +288,50 @@ class SimmPESBuilder( OpBuilder ):
         
         self.output_data = signals.combine( [ op.weights for op in ops ] )
         
+        self.gain = signals.op_constant( ops,
+                                         [ 1 for _ in ops ],
+                                         "gain",
+                                         signals.dtype,
+                                         shape=(1, -1, 1, 1) )
+        self.noise_percentage = signals.op_constant( ops,
+                                                     [ 1 for _ in ops ],
+                                                     "noise_percentage",
+                                                     signals.dtype,
+                                                     shape=(1, -1, 1, 1) )
+        self.error_threshold = signals.op_constant( ops,
+                                                    [ 1 for _ in ops ],
+                                                    "error_threshold",
+                                                    signals.dtype,
+                                                    shape=(1, -1, 1, 1) )
+        self.n_neurons = signals.op_constant( ops,
+                                              [ 1 for _ in ops ],
+                                              "n_neurons",
+                                              signals.dtype,
+                                              shape=(1, -1, 1, 1) )
+        
         # self.initial_weights = tf.constant(
         #         np.concatenate( [ op.initial_weights[ :, :, None ] for op in ops ], axis=1 ),
         #         signals.dtype
         #         )
         
-        #
-        self.r_min = tf.constant( 1e2 )
-        self.r_max = tf.constant( 2.5e8 )
-        self.a = tf.constant( -0.1 )
+        # TODO pass parameters or equations/functions directly to mPES frontend object
+        self.a = -0.1
+        self.r_min = 1e2
+        self.r_max = 2.5e8
+        self.g_min = 1.0 / self.r_max
+        self.g_max = 1.0 / self.r_min
     
     def build_step( self, signals ):
         pre_filtered = signals.gather( self.pre_data )
         local_error = signals.gather( self.error_data )
         pos_memristors = signals.gather( self.pos_memristors )
         neg_memristors = signals.gather( self.neg_memristors )
+        
+        def resistance2conductance( R ):
+            g_curr = 1.0 / R
+            g_norm = (g_curr - self.g_min) / (self.g_max - self.g_min)
+            
+            return g_norm * self.gain
         
         def find_spikes( input_activities, output_size, invert=False ):
             spiked_pre = tf.cast(
@@ -310,28 +344,87 @@ class SimmPESBuilder( OpBuilder ):
             
             return tf.cast( out, tf.float32 )
         
-        # TODO use tf.cond for if statement
-        # TODO make error threshold into Tensor
-        # tf.cond( tf.reduce_any(tf.greater(tf.abs(local_error),error_threshold)),true_fn=)
+        def if_noise_greater_than_zero( pos_memristors, neg_memristors ):
+            # generate noisy parameters
+            r_min_noisy = tf.random.normal( V.shape, self.r_min, self.r_min * self.noise_percentage )
+            r_max_noisy = tf.random.normal( V.shape, self.r_max, self.r_max * self.noise_percentage )
+            a_noisy = tf.random.normal( V.shape, self.a, np.abs( self.a ) * self.noise_percentage )
+            
+            # positive memristors update
+            pos_mask = tf.greater( V, 0 )
+            pos_indices = tf.where( pos_mask )
+            pos_n = (
+                            (tf.boolean_mask( pos_memristors, pos_mask ) - tf.boolean_mask( r_min_noisy, pos_mask ))
+                            / tf.boolean_mask( r_max_noisy, pos_mask )
+                    )**(1 / tf.boolean_mask( a_noisy, pos_mask ))
+            pos_update = tf.boolean_mask( r_min_noisy, pos_mask ) \
+                         + tf.boolean_mask( r_max_noisy, pos_mask ) \
+                         * (pos_n + 1)**tf.boolean_mask( a_noisy, pos_mask )
+            pos_memristors = tf.tensor_scatter_nd_update( pos_memristors, pos_indices, pos_update )
+            
+            # negative memristors update
+            neg_mask = tf.less( V, 0 )
+            neg_indices = tf.where( neg_mask )
+            neg_n = (
+                            (tf.boolean_mask( neg_memristors, neg_mask ) - tf.boolean_mask( r_min_noisy, neg_mask ))
+                            / tf.boolean_mask( r_max_noisy, neg_mask )
+                    )**(1 / tf.boolean_mask( a_noisy, neg_mask ))
+            neg_update = tf.boolean_mask( r_min_noisy, neg_mask ) \
+                         + tf.boolean_mask( r_max_noisy, neg_mask ) \
+                         * (neg_n + 1)**tf.boolean_mask( a_noisy, neg_mask )
+            neg_memristors = tf.tensor_scatter_nd_update( neg_memristors, neg_indices, neg_update )
+            
+            return pos_memristors, neg_memristors
+        
+        def if_noise_is_zero( pos_memristors, neg_memristors ):
+            # positive memristors update
+            pos_mask = tf.greater( V, 0 )
+            pos_indices = tf.where( pos_mask )
+            pos_n = ((tf.boolean_mask( pos_memristors, pos_mask ) - self.r_min) / self.r_max)**(1 / self.a)
+            pos_update = self.r_min + self.r_max * (pos_n + 1)**self.a
+            pos_memristors = tf.tensor_scatter_nd_update( pos_memristors, pos_indices, pos_update )
+            
+            # negative memristors update
+            neg_mask = tf.less( V, 0 )
+            neg_indices = tf.where( neg_mask )
+            neg_n = ((tf.boolean_mask( neg_memristors, neg_mask ) - self.r_min) / self.r_max)**(1 / self.a)
+            neg_update = self.r_min + self.r_max * (neg_n + 1)**self.a
+            neg_memristors = tf.tensor_scatter_nd_update( neg_memristors, neg_indices, neg_update )
+            
+            return pos_memristors, neg_memristors
         
         pes_delta = -local_error * pre_filtered
         
-        spiked_map = find_spikes( pre_filtered, self.output_size, invert=True )
+        spiked_map = find_spikes( pre_filtered, self.n_neurons )
         pes_delta = pes_delta * spiked_map
-        # pes_delta.set_shape( [ 1, 1, self.output_size, self.input_size ] )
+        
         V = tf.sign( pes_delta ) * 1e-1
         
-        # TODO if noise_percentage
-        pos_mask = tf.greater( V, 0 )
-        pos_indexes = tf.where( pos_mask )
-        pos_n = ((tf.boolean_mask( pos_memristors, pos_mask ) - self.r_min) / self.r_max)**(1 / self.a)
-        pos_update = self.r_min + self.r_max * (pos_n + 1)**self.a
-        tf.tensor_scatter_nd_update( pos_memristors, pos_indexes, pos_update )
+        # called when error is over threshold
+        # if added noise is zero then executes noiseless memristors branch
+        # if added noise is greater than zero then calls the noisy memristors branch
+        def if_error_over_threshold( pos_memristors, neg_memristors ):
+            pos_memristors, neg_memristors = tf.cond( tf.greater( self.noise_percentage, 0 ),
+                                                      true_fn=lambda: if_noise_greater_than_zero( pos_memristors,
+                                                                                                  neg_memristors ),
+                                                      false_fn=lambda: if_noise_is_zero( pos_memristors,
+                                                                                         neg_memristors )
+                                                      )
+            
+            return pos_memristors, neg_memristors
         
-        neg_mask = tf.greater( V, 0 )
-        neg_indexes = tf.where( neg_mask )
-        neg_n = ((tf.boolean_mask( neg_memristors, neg_mask ) - self.r_min) / self.r_max)**(1 / self.a)
-        neg_update = self.r_min + self.r_max * (neg_n + 1)**self.a
-        tf.tensor_scatter_nd_update( neg_memristors, neg_indexes, neg_update )
+        # check if the error is greater than the threshold
+        # if it is not then pass decision to next tf.cond()
+        # if it is then do nothing
+        pos_memristors, neg_memristors = tf.cond(
+                tf.reduce_any( tf.greater( tf.abs( local_error ), self.error_threshold ) ),
+                true_fn=lambda: if_error_over_threshold( pos_memristors,
+                                                         neg_memristors ),
+                false_fn=lambda: (
+                        tf.identity( pos_memristors ),
+                        tf.identity( neg_memristors ))
+                )
         
-        signals.scatter( self.output_data, pes_delta )
+        new_weights = resistance2conductance( pos_memristors ) - resistance2conductance( neg_memristors )
+        
+        signals.scatter( self.output_data, new_weights )

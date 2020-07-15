@@ -56,7 +56,7 @@ with model:
     # the matrix given to transform are the initial weights found in model.sig[conn]["weights"]
     
     # Apply the mPES learning rule to conn
-    conn.learning_rule_type = mPES( noisy=1.5 / 1e1, seed=seed )
+    conn.learning_rule_type = mPES( noisy=0, seed=seed )
     # conn.learning_rule_type = PES()
     print( "Simulating with", conn.learning_rule_type )
     
@@ -89,8 +89,8 @@ with model:
         neg_memr_probe = nengo.Probe( conn.learning_rule, "neg_memristors", synapse=None, sample_every=sample_every )
 
 # Create the simulator
-with nengo.Simulator( model, seed=seed, dt=timestep, optimize=optimize ) as sim:
-    # with nengo_dl.Simulator( model, seed=seed, dt=timestep ) as sim:
+# with nengo.Simulator( model, seed=seed, dt=timestep, optimize=optimize ) as sim:
+with nengo_dl.Simulator( model, seed=seed, dt=timestep ) as sim:
     sim.run( sim_time )
 
 print( "Final weights average:" )
