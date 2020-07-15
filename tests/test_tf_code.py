@@ -87,9 +87,8 @@ def tf_calc( local_error, pre_filtered, pos_memristors, neg_memristors ):
     error_threshold = 1e-5
     gain = 1e6 / 4
     noise_percentage = 1.5 / 1e1
+    # noise_percentage = 0
     tf.random.set_seed( 0 )
-    
-    noise_percentage = 0
     
     def resistance2conductance( R ):
         g_curr = 1.0 / R
@@ -110,16 +109,9 @@ def tf_calc( local_error, pre_filtered, pos_memristors, neg_memristors ):
     
     def if_noise_greater_than_zero( pos_memristors, neg_memristors ):
         # generate noisy parameters
-        # r_min_noisy = tf.random.normal( V.shape, r_min, r_min * noise_percentage )
-        # r_max_noisy = tf.random.normal( V.shape, r_max, r_max * noise_percentage )
-        # a_noisy = tf.random.normal( V.shape, a, np.abs( a ) * noise_percentage )
-        
-        # ........................
-        np.random.seed( 0 )
-        r_min_noisy = tf.convert_to_tensor( np.random.normal( r_min, r_min * noise_percentage, V.shape ) )
-        r_max_noisy = tf.convert_to_tensor( np.random.normal( r_max, r_max * noise_percentage, V.shape ) )
-        a_noisy = tf.convert_to_tensor( np.random.normal( a, np.abs( a ) * noise_percentage, V.shape ) )
-        # ........................
+        r_min_noisy = tf.random.normal( V.shape, r_min, r_min * noise_percentage, dtype=tf.float64 )
+        r_max_noisy = tf.random.normal( V.shape, r_max, r_max * noise_percentage, dtype=tf.float64 )
+        a_noisy = tf.random.normal( V.shape, a, np.abs( a ) * noise_percentage, dtype=tf.float64 )
         
         # positive memristors update
         pos_mask = tf.greater( V, 0 )

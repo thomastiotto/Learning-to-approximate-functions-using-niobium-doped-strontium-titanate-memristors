@@ -33,6 +33,7 @@ class mPES( LearningRuleType ):
         self.noise_percentage = 0 if not noisy else noisy
         
         np.random.seed( seed )
+        tf.random.set_seed( seed )
     
     def initial_resistances( self, low, high, shape ):
         return np.random.uniform( low, high, shape )
