@@ -97,7 +97,7 @@ class SimmPES( Operator ):
     
     def make_step( self, signals, dt, rng ):
         pre_filtered = signals[ self.pre_filtered ]
-        error = signals[ self.error ]
+        local_error = signals[ self.error ]
         
         pos_memristors = signals[ self.pos_memristors ]
         neg_memristors = signals[ self.neg_memristors ]
@@ -139,13 +139,12 @@ class SimmPES( Operator ):
             
             # set update to zero if error is small or adjustments go on for ever
             # if error is small return zero delta
-            if np.any( np.absolute( error ) > error_threshold ):
+            if np.any( np.absolute( local_error ) > error_threshold ):
                 # calculate the magnitude of the update based on PES learning rule
                 # local_error = -np.dot( encoders, error )
                 # I can use NengoDL build function like this, as dot(encoders, error) has been done there already
                 # i.e., error already contains the PES local error
-                local_error = -error
-                pes_delta = np.outer( local_error, pre_filtered )
+                pes_delta = np.outer( -local_error, pre_filtered )
                 
                 # some memristors are adjusted erroneously if we don't filter
                 spiked_map = find_spikes( pre_filtered, weights.shape, invert=True )
@@ -156,28 +155,28 @@ class SimmPES( Operator ):
                 
                 if noise_percentage > 0:
                     # generate random noise on the parameters
+                    a_noisy = np.random.normal( a, np.abs( a ) * noise_percentage, V.shape )
                     r_min_noisy = np.random.normal( r_min, r_min * noise_percentage, V.shape )
                     r_max_noisy = np.random.normal( r_max, r_max * noise_percentage, V.shape )
-                    a_noisy = np.random.normal( a, np.abs( a ) * noise_percentage, V.shape )
                     
                     # update the two memristor pairs separately
                     pos_n = ((pos_memristors[ V > 0 ] - r_min_noisy[ V > 0 ]) / r_max_noisy[ V > 0 ])**(
                             1 / a_noisy[ V > 0 ])
-                    neg_n = ((neg_memristors[ V < 0 ] - r_min_noisy[ V < 0 ]) / r_max_noisy[ V < 0 ])**(
-                            1 / a_noisy[ V < 0 ])
-                    
                     pos_memristors[ V > 0 ] = r_min_noisy[ V > 0 ] + r_max_noisy[ V > 0 ] * (pos_n + 1)**a_noisy[
                         V > 0 ]
+                    
+                    neg_n = ((neg_memristors[ V < 0 ] - r_min_noisy[ V < 0 ]) / r_max_noisy[ V < 0 ])**(
+                            1 / a_noisy[ V < 0 ])
                     neg_memristors[ V < 0 ] = r_min_noisy[ V < 0 ] + r_max_noisy[ V < 0 ] * (neg_n + 1)**a_noisy[
                         V < 0 ]
                 else:
-                    # update the two memristor pairs separately
+                    # updating the two memristor pairs separately
                     pos_n = ((pos_memristors[ V > 0 ] - r_min) / r_max)**(1 / a)
-                    neg_n = ((neg_memristors[ V < 0 ] - r_min) / r_max)**(1 / a)
-                    
                     pos_update = r_min + r_max * (pos_n + 1)**a
-                    neg_update = r_min + r_max * (neg_n + 1)**a
                     pos_memristors[ V > 0 ] = pos_update
+                    
+                    neg_n = ((neg_memristors[ V < 0 ] - r_min) / r_max)**(1 / a)
+                    neg_update = r_min + r_max * (neg_n + 1)**a
                     neg_memristors[ V < 0 ] = neg_update
                 
                 weights[ : ] = resistance2conductance( pos_memristors[ : ] ) \
@@ -309,11 +308,6 @@ class SimmPESBuilder( OpBuilder ):
                                               signals.dtype,
                                               shape=(1, -1, 1, 1) )
         
-        # self.initial_weights = tf.constant(
-        #         np.concatenate( [ op.initial_weights[ :, :, None ] for op in ops ], axis=1 ),
-        #         signals.dtype
-        #         )
-        
         # TODO pass parameters or equations/functions directly to mPES frontend object
         self.a = -0.1
         self.r_min = 1e2
@@ -346,9 +340,9 @@ class SimmPESBuilder( OpBuilder ):
         
         def if_noise_greater_than_zero( pos_memristors, neg_memristors ):
             # generate noisy parameters
+            a_noisy = tf.random.normal( V.shape, self.a, np.abs( self.a ) * self.noise_percentage )
             r_min_noisy = tf.random.normal( V.shape, self.r_min, self.r_min * self.noise_percentage )
             r_max_noisy = tf.random.normal( V.shape, self.r_max, self.r_max * self.noise_percentage )
-            a_noisy = tf.random.normal( V.shape, self.a, np.abs( self.a ) * self.noise_percentage )
             
             # positive memristors update
             pos_mask = tf.greater( V, 0 )
@@ -400,7 +394,7 @@ class SimmPESBuilder( OpBuilder ):
         
         V = tf.sign( pes_delta ) * 1e-1
         
-        # called when error is over threshold
+        # SECOND thing, called when error is over threshold
         # if added noise is zero then executes noiseless memristors branch
         # if added noise is greater than zero then calls the noisy memristors branch
         def if_error_over_threshold( pos_memristors, neg_memristors ):
@@ -413,9 +407,9 @@ class SimmPESBuilder( OpBuilder ):
             
             return pos_memristors, neg_memristors
         
-        # check if the error is greater than the threshold
-        # if it is not then pass decision to next tf.cond()
-        # if it is then do nothing
+        # FIRST thing, check if the error is greater than the threshold
+        # if any errors is above threshold then pass decision to next tf.cond()
+        # if all errors are below threshold then do nothing
         pos_memristors, neg_memristors = tf.cond(
                 tf.reduce_any( tf.greater( tf.abs( local_error ), self.error_threshold ) ),
                 true_fn=lambda: if_error_over_threshold( pos_memristors,
@@ -424,6 +418,10 @@ class SimmPESBuilder( OpBuilder ):
                         tf.identity( pos_memristors ),
                         tf.identity( neg_memristors ))
                 )
+        
+        # update the memristor values
+        signals.scatter( self.pos_memristors, pos_memristors )
+        signals.scatter( self.neg_memristors, neg_memristors )
         
         new_weights = resistance2conductance( pos_memristors ) - resistance2conductance( neg_memristors )
         
