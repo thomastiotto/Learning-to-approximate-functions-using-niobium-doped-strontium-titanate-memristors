@@ -157,22 +157,22 @@ class SimmPES( Operator ):
                     a_noisy = np.random.normal( a, np.abs( a ) * noise_percentage, V.shape )
                     
                     # update the two memristor pairs separately
-                    n_pos = ((pos_memristors[ V > 0 ] - r_min_noisy[ V > 0 ]) / r_max_noisy[ V > 0 ])**(
+                    pos_n = ((pos_memristors[ V > 0 ] - r_min_noisy[ V > 0 ]) / r_max_noisy[ V > 0 ])**(
                             1 / a_noisy[ V > 0 ])
-                    n_neg = ((neg_memristors[ V < 0 ] - r_min_noisy[ V < 0 ]) / r_max_noisy[ V < 0 ])**(
+                    neg_n = ((neg_memristors[ V < 0 ] - r_min_noisy[ V < 0 ]) / r_max_noisy[ V < 0 ])**(
                             1 / a_noisy[ V < 0 ])
                     
-                    pos_memristors[ V > 0 ] = r_min_noisy[ V > 0 ] + r_max_noisy[ V > 0 ] * (n_pos + 1)**a_noisy[
+                    pos_memristors[ V > 0 ] = r_min_noisy[ V > 0 ] + r_max_noisy[ V > 0 ] * (pos_n + 1)**a_noisy[
                         V > 0 ]
-                    neg_memristors[ V < 0 ] = r_min_noisy[ V < 0 ] + r_max_noisy[ V < 0 ] * (n_neg + 1)**a_noisy[
+                    neg_memristors[ V < 0 ] = r_min_noisy[ V < 0 ] + r_max_noisy[ V < 0 ] * (neg_n + 1)**a_noisy[
                         V < 0 ]
                 else:
                     # update the two memristor pairs separately
-                    n_pos = ((pos_memristors[ V > 0 ] - r_min) / r_max)**(1 / a)
-                    n_neg = ((neg_memristors[ V < 0 ] - r_min) / r_max)**(1 / a)
+                    pos_n = ((pos_memristors[ V > 0 ] - r_min) / r_max)**(1 / a)
+                    neg_n = ((neg_memristors[ V < 0 ] - r_min) / r_max)**(1 / a)
                     
-                    pos_memristors[ V > 0 ] = r_min + r_max * (n_pos + 1)**a
-                    neg_memristors[ V < 0 ] = r_min + r_max * (n_neg + 1)**a
+                    pos_memristors[ V > 0 ] = r_min + r_max * (pos_n + 1)**a
+                    neg_memristors[ V < 0 ] = r_min + r_max * (neg_n + 1)**a
                 
                 weights[ : ] = resistance2conductance( pos_memristors[ : ] ) \
                                - resistance2conductance( neg_memristors[ : ] )
