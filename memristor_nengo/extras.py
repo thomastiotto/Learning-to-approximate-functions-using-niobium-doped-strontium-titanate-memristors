@@ -6,6 +6,15 @@ from nengo.utils.matplotlib import rasterplot
 import matplotlib.pyplot as plt
 
 
+def print_resource_usage( t ):
+    import os
+    import psutil
+    pid = os.getpid()
+    py = psutil.Process( pid )
+    memoryUse = py.memory_info()[ 0 ] / 2.**30
+    print( 'Memory usage:', memoryUse )
+
+
 class Plotter():
     def __init__( self, trange, rows, cols, dimensions, learning_time, plot_size=(12, 8), dpi=80, dt=0.001 ):
         self.time_vector = trange

@@ -9,25 +9,30 @@ from memristor_nengo.extras import *
 
 function_to_learn = lambda x: x
 timestep = 0.001
-n_neurons = 4
+n_neurons = 1000
 dimensions = 1
 sim_time = 30
 learn_time = int( sim_time * 3 / 4 )
-seed = 0
-optimisations = "run"
-
-if optimisations == "build":
-    optimize = False
-    sample_every = timestep
-elif optimisations == "run":
-    optimize = True
-    sample_every = timestep
-elif optimisations == "memory":
-    optimize = False
-    sample_every = timestep * 1e2
+# seed = 0
+seed = None
+backend = "nengo_dl"
+optimisations = "memory"
 
 model = nengo.Network( seed=seed )
 with model:
+    if optimisations == "build":
+        optimize = False
+        sample_every = timestep
+        simulation_discretisation = 1
+    elif optimisations == "run":
+        optimize = True
+        sample_every = timestep
+        simulation_discretisation = 1
+    elif optimisations == "memory":
+        optimize = False
+        sample_every = timestep * 1e2
+        simulation_discretisation = int( n_neurons / 10 )
+    
     # Create an input node
     input_node = nengo.Node(
             output=generate_sines( dimensions ),
@@ -57,10 +62,10 @@ with model:
     
     # Apply the mPES learning rule to conn
     conn.learning_rule_type = mPES(
-            # noisy=0.15,
-            noisy=0,
+            noisy=0.15,
+            # noisy=0,
             seed=seed )
-    # conn.learning_rule_type = PES()
+    conn.learning_rule_type = PES()
     print( "Simulating with", conn.learning_rule_type )
     
     # Provide an error signal to the learning rule
@@ -92,9 +97,14 @@ with model:
         neg_memr_probe = nengo.Probe( conn.learning_rule, "neg_memristors", synapse=None, sample_every=sample_every )
 
 # Create the simulator
-# with nengo.Simulator( model, seed=seed, dt=timestep, optimize=optimize ) as sim:
-with nengo_dl.Simulator( model, seed=seed, dt=timestep ) as sim:
-    sim.run( sim_time )
+if backend == "nengo":
+    with nengo.Simulator( model, seed=seed, dt=timestep, optimize=optimize ) as sim:
+        sim.run( sim_time )
+if backend == "nengo_dl":
+    with nengo_dl.Simulator( model, seed=seed, dt=timestep ) as sim:
+        for i in range( simulation_discretisation ):
+            print( f"Running simulation {i + 1} of {simulation_discretisation}" )
+            sim.run( sim_time / simulation_discretisation )
 
 print( "Final weights average:" )
 print( np.average( sim.data[ weight_probe ][ -1, ... ] ) )
