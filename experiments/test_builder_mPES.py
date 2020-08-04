@@ -9,14 +9,14 @@ from memristor_nengo.extras import *
 
 function_to_learn = lambda x: x
 timestep = 0.001
-n_neurons = 1000
+n_neurons = 10
 dimensions = 1
 sim_time = 30
 learn_time = int( sim_time * 3 / 4 )
-# seed = 0
 seed = None
+learning_rule = "mPES"
 backend = "nengo_dl"
-optimisations = "memory"
+optimisations = "run"
 
 model = nengo.Network( seed=seed )
 with model:
@@ -31,7 +31,7 @@ with model:
     elif optimisations == "memory":
         optimize = False
         sample_every = timestep * 1e2
-        simulation_discretisation = int( n_neurons / 10 )
+        simulation_discretisation = int( n_neurons / 10 ) if n_neurons >= 10 else 1
     
     # Create an input node
     input_node = nengo.Node(
@@ -44,10 +44,10 @@ with model:
     stop_learning = nengo.Node( output=lambda t: t >= learn_time )
     
     # Create the ensemble to represent the input, the learned output, and the error
-    pre = nengo.Ensemble( n_neurons, dimensions=dimensions, seed=seed,
+    pre = nengo.Ensemble( 4, dimensions=dimensions, seed=seed,
                           # encoders=[ [ 1. ], [ -1. ], [ -1. ], [ -1. ] ]
                           )
-    post = nengo.Ensemble( n_neurons, dimensions=dimensions, seed=seed,
+    post = nengo.Ensemble( 2, dimensions=dimensions, seed=seed,
                            # encoders=[ [ 1. ], [ -1. ], [ -1. ], [ -1. ] ]
                            )
     error = nengo.Ensemble( n_neurons, dimensions=dimensions, radius=2, seed=seed )
@@ -61,11 +61,13 @@ with model:
     # the matrix given to transform are the initial weights found in model.sig[conn]["weights"]
     
     # Apply the mPES learning rule to conn
-    conn.learning_rule_type = mPES(
-            noisy=0.15,
-            # noisy=0,
-            seed=seed )
-    conn.learning_rule_type = PES()
+    if learning_rule == "mPES":
+        conn.learning_rule_type = mPES(
+                noisy=0.15,
+                # noisy=0,
+                seed=seed )
+    if learning_rule == "PES":
+        conn.learning_rule_type = PES()
     print( "Simulating with", conn.learning_rule_type )
     
     # Provide an error signal to the learning rule
@@ -103,14 +105,14 @@ if backend == "nengo":
 if backend == "nengo_dl":
     with nengo_dl.Simulator( model, seed=seed, dt=timestep ) as sim:
         for i in range( simulation_discretisation ):
-            print( f"Running simulation {i + 1} of {simulation_discretisation}" )
+            print( f"Running discretised step {i + 1} of {simulation_discretisation}" )
             sim.run( sim_time / simulation_discretisation )
 
 print( "Final weights average:" )
 print( np.average( sim.data[ weight_probe ][ -1, ... ] ) )
 print( "Weights sparsity:" )
-print( sparsity_measure( sim.data[ weight_probe ][ 0 ] ), end=" -> " )
-print( sparsity_measure( sim.data[ weight_probe ][ -1 ] ) )
+print( gini( sim.data[ weight_probe ][ 0 ] ), end=" -> " )
+print( gini( sim.data[ weight_probe ][ -1 ] ) )
 print( "MSE (f(pre) vs. post):" )
 mse = mean_squared_error(
         function_to_learn( sim.data[ pre_probe ][ int( (learn_time / sim.dt) / (sample_every / timestep) ):, ... ] ),
