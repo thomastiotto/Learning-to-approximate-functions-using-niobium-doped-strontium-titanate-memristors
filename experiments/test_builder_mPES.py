@@ -9,14 +9,18 @@ from memristor_nengo.extras import *
 
 function_to_learn = lambda x: x
 timestep = 0.001
-n_neurons = 10
+sim_time = 5
+pre_n_neurons = 100
+post_n_neurons = 100
+error_n_neurons = 100
 dimensions = 1
-sim_time = 30
-learn_time = int( sim_time * 3 / 4 )
-seed = None
 learning_rule = "mPES"
 backend = "nengo_dl"
 optimisations = "run"
+seed = None
+
+learn_time = int( sim_time * 3 / 4 )
+n_neurons = np.amax( [ pre_n_neurons, post_n_neurons ] )
 
 model = nengo.Network( seed=seed )
 with model:
@@ -32,6 +36,7 @@ with model:
         optimize = False
         sample_every = timestep * 1e2
         simulation_discretisation = int( n_neurons / 10 ) if n_neurons >= 10 else 1
+    print( f"Using {optimisations} optimisation" )
     
     # Create an input node
     input_node = nengo.Node(
@@ -44,13 +49,13 @@ with model:
     stop_learning = nengo.Node( output=lambda t: t >= learn_time )
     
     # Create the ensemble to represent the input, the learned output, and the error
-    pre = nengo.Ensemble( 4, dimensions=dimensions, seed=seed,
+    pre = nengo.Ensemble( pre_n_neurons, dimensions=dimensions, seed=seed,
                           # encoders=[ [ 1. ], [ -1. ], [ -1. ], [ -1. ] ]
                           )
-    post = nengo.Ensemble( 2, dimensions=dimensions, seed=seed,
+    post = nengo.Ensemble( post_n_neurons, dimensions=dimensions, seed=seed,
                            # encoders=[ [ 1. ], [ -1. ], [ -1. ], [ -1. ] ]
                            )
-    error = nengo.Ensemble( n_neurons, dimensions=dimensions, radius=2, seed=seed )
+    error = nengo.Ensemble( error_n_neurons, dimensions=dimensions, radius=2, seed=seed )
     
     # Connect pre and post with a communication channel
     conn = nengo.Connection(
@@ -123,7 +128,7 @@ print( mse )
 plots = [ ]
 plotter = Plotter( sim.trange( sample_every=sample_every ), post.n_neurons, pre.n_neurons, dimensions, learn_time,
                    plot_size=(13, 7),
-                   dpi=72 )
+                   dpi=300 )
 
 plots.append(
         plotter.plot_results( sim.data[ input_node_probe ], sim.data[ pre_probe ], sim.data[ post_probe ],
@@ -137,7 +142,7 @@ plots.append(
 plots.append(
         plotter.plot_weight_matrices_over_time( sim.data[ weight_probe ], sample_every=sample_every )
         )
-if n_neurons <= 5:
+if n_neurons <= 10:
     plots.append(
             plotter.plot_weights_over_time( sim.data[ pos_memr_probe ], sim.data[ neg_memr_probe ] )
             )
@@ -148,6 +153,6 @@ if n_neurons <= 5:
 dir_name, dir_images = make_timestamped_dir( root="../data/mPES/" )
 save_weights( dir_name, sim.data[ weight_probe ] )
 for i, fig in enumerate( plots ):
-    fig.savefig( dir_images + str( i ) + ".eps", format="eps" )
-    fig.savefig( dir_images + str( i ) + ".png", format="png" )
+    fig.savefig( dir_images + str( i ) + ".pdf" )
+    fig.savefig( dir_images + str( i ) + ".png" )
     fig.show()
