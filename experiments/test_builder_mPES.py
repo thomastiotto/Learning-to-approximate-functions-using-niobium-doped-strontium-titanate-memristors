@@ -9,10 +9,10 @@ from memristor_nengo.extras import *
 
 function_to_learn = lambda x: x
 timestep = 0.001
-sim_time = 5
-pre_n_neurons = 100
-post_n_neurons = 100
-error_n_neurons = 100
+sim_time = 9
+pre_n_neurons = 10
+post_n_neurons = 10
+error_n_neurons = 10
 dimensions = 1
 learning_rule = "mPES"
 backend = "nengo_dl"
@@ -113,12 +113,12 @@ if backend == "nengo_dl":
             print( f"Running discretised step {i + 1} of {simulation_discretisation}" )
             sim.run( sim_time / simulation_discretisation )
 
-print( "Final weights average:" )
+print( "Weights average after learning:" )
 print( np.average( sim.data[ weight_probe ][ -1, ... ] ) )
-print( "Weights sparsity:" )
+print( "Weights sparsity at t=0 and after learning:" )
 print( gini( sim.data[ weight_probe ][ 0 ] ), end=" -> " )
 print( gini( sim.data[ weight_probe ][ -1 ] ) )
-print( "MSE (f(pre) vs. post):" )
+print( "MSE after learning [f(pre) vs. post]:" )
 mse = mean_squared_error(
         function_to_learn( sim.data[ pre_probe ][ int( (learn_time / sim.dt) / (sample_every / timestep) ):, ... ] ),
         sim.data[ post_probe ][ int( (learn_time / sim.dt) / (sample_every / timestep) ):, ... ]
@@ -126,7 +126,7 @@ mse = mean_squared_error(
 print( mse )
 
 plots = [ ]
-plotter = Plotter( sim.trange( sample_every=sample_every ), post.n_neurons, pre.n_neurons, dimensions, learn_time,
+plotter = Plotter( sim.trange( sample_every=sample_every ), post_n_neurons, pre_n_neurons, dimensions, learn_time,
                    plot_size=(13, 7),
                    dpi=300 )
 

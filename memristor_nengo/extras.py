@@ -153,20 +153,20 @@ class Plotter():
         return fig
     
     def plot_weight_matrices_over_time( self, weights, n_cols=5, sample_every=0.001 ):
-        n_rows = int( self.learning_time / n_cols )
+        n_rows = int( self.learning_time / n_cols ) + 1
         fig, axes = plt.subplots( n_rows, n_cols )
         fig.set_size_inches( self.plot_sizes )
-        t = 0
-        for i in range( axes.shape[ 0 ] ):
-            for j in range( axes.shape[ 1 ] ):
-                axes[ i, j ].matshow( weights[ int( (t / self.dt) / (sample_every / self.dt) ), ... ],
-                                      cmap=plt.cm.Blues )
-                axes[ i, j ].set_title( f"{t}" )
-                axes[ i, j ].set_yticklabels( [ ] )
-                axes[ i, j ].set_xticklabels( [ ] )
+        
+        for t, ax in enumerate( axes.flatten() ):
+            if t <= self.learning_time:
+                ax.matshow( weights[ int( (t / self.dt) / (sample_every / self.dt) ), ... ],
+                            cmap=plt.cm.Blues )
+                ax.set_title( f"{t}" )
+                ax.set_yticklabels( [ ] )
+                ax.set_xticklabels( [ ] )
                 plt.subplots_adjust( hspace=0.7 )
-                
-                t += 1
+            else:
+                ax.set_axis_off()
         fig.get_axes()[ 0 ].annotate( "Weights over time", (0.5, 0.94),
                                       xycoords='figure fraction', ha='center',
                                       fontsize=18
