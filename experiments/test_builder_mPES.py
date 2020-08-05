@@ -1,6 +1,7 @@
 import nengo
 import nengo_dl
 from sklearn.metrics import mean_squared_error
+import time
 
 from nengo.processes import WhiteSignal
 from nengo.learning_rules import PES
@@ -9,15 +10,19 @@ from memristor_nengo.extras import *
 
 function_to_learn = lambda x: x
 timestep = 0.001
-sim_time = 9
+sim_time = 30
 pre_n_neurons = 10
 post_n_neurons = 10
 error_n_neurons = 10
 dimensions = 1
+noise_percent = 0.15
 learning_rule = "mPES"
 backend = "nengo_dl"
-optimisations = "run"
+optimisations = "memory"
 seed = None
+generate_plots = False
+show_plots = True
+save_plots = False
 
 learn_time = int( sim_time * 3 / 4 )
 n_neurons = np.amax( [ pre_n_neurons, post_n_neurons ] )
@@ -34,7 +39,7 @@ with model:
         simulation_discretisation = 1
     elif optimisations == "memory":
         optimize = False
-        sample_every = timestep * 1e2
+        sample_every = timestep * 100
         simulation_discretisation = int( n_neurons / 10 ) if n_neurons >= 10 else 1
     print( f"Using {optimisations} optimisation" )
     
@@ -57,7 +62,7 @@ with model:
                            )
     error = nengo.Ensemble( error_n_neurons, dimensions=dimensions, radius=2, seed=seed )
     
-    # Connect pre and post with a communication channel
+    # Connect pre and post with exponent communication channel
     conn = nengo.Connection(
             pre.neurons,
             post.neurons,
@@ -68,8 +73,7 @@ with model:
     # Apply the mPES learning rule to conn
     if learning_rule == "mPES":
         conn.learning_rule_type = mPES(
-                noisy=0.15,
-                # noisy=0,
+                noisy=noise_percent,
                 seed=seed )
     if learning_rule == "PES":
         conn.learning_rule_type = PES()
@@ -105,13 +109,15 @@ with model:
 
 # Create the simulator
 if backend == "nengo":
-    with nengo.Simulator( model, seed=seed, dt=timestep, optimize=optimize ) as sim:
-        sim.run( sim_time )
+    cm = nengo.Simulator( model, seed=seed, dt=timestep, optimize=optimize )
 if backend == "nengo_dl":
-    with nengo_dl.Simulator( model, seed=seed, dt=timestep ) as sim:
-        for i in range( simulation_discretisation ):
-            print( f"Running discretised step {i + 1} of {simulation_discretisation}" )
-            sim.run( sim_time / simulation_discretisation )
+    cm = nengo_dl.Simulator( model, seed=seed, dt=timestep )
+start_time = time.time()
+with cm as sim:
+    for i in range( simulation_discretisation ):
+        print( f"\nRunning discretised step {i + 1} of {simulation_discretisation}" )
+        sim.run( sim_time / simulation_discretisation )
+print( f"\nTotal time for simulation: {time.time() - start_time} s" )
 
 print( "Weights average after learning:" )
 print( np.average( sim.data[ weight_probe ][ -1, ... ] ) )
@@ -125,34 +131,42 @@ mse = mean_squared_error(
         )
 print( mse )
 
-plots = [ ]
-plotter = Plotter( sim.trange( sample_every=sample_every ), post_n_neurons, pre_n_neurons, dimensions, learn_time,
-                   plot_size=(13, 7),
-                   dpi=300 )
-
-plots.append(
-        plotter.plot_results( sim.data[ input_node_probe ], sim.data[ pre_probe ], sim.data[ post_probe ],
-                              error=sim.data[ post_probe ] - function_to_learn( sim.data[ pre_probe ] ),
-                              smooth=True,
-                              mse=mse )
-        )
-plots.append(
-        plotter.plot_ensemble_spikes( "Post", sim.data[ post_spikes_probe ], sim.data[ post_probe ] )
-        )
-plots.append(
-        plotter.plot_weight_matrices_over_time( sim.data[ weight_probe ], sample_every=sample_every )
-        )
-if n_neurons <= 10:
+if generate_plots:
+    plots = [ ]
+    plotter = Plotter( sim.trange( sample_every=sample_every ), post_n_neurons, pre_n_neurons, dimensions, learn_time,
+                       plot_size=(13, 7),
+                       dpi=300 )
+    
     plots.append(
-            plotter.plot_weights_over_time( sim.data[ pos_memr_probe ], sim.data[ neg_memr_probe ] )
+            plotter.plot_results( sim.data[ input_node_probe ], sim.data[ pre_probe ], sim.data[ post_probe ],
+                                  error=sim.data[ post_probe ] - function_to_learn( sim.data[ pre_probe ] ),
+                                  smooth=True,
+                                  mse=mse )
             )
     plots.append(
-            plotter.plot_values_over_time( 1 / sim.data[ pos_memr_probe ], 1 / sim.data[ neg_memr_probe ] )
+            plotter.plot_ensemble_spikes( "Post", sim.data[ post_spikes_probe ], sim.data[ post_probe ] )
             )
+    plots.append(
+            plotter.plot_weight_matrices_over_time( sim.data[ weight_probe ], sample_every=sample_every )
+            )
+    if n_neurons <= 10:
+        plots.append(
+                plotter.plot_weights_over_time( sim.data[ pos_memr_probe ], sim.data[ neg_memr_probe ] )
+                )
+        plots.append(
+                plotter.plot_values_over_time( 1 / sim.data[ pos_memr_probe ], 1 / sim.data[ neg_memr_probe ] )
+                )
 
-dir_name, dir_images = make_timestamped_dir( root="../data/mPES/" )
-save_weights( dir_name, sim.data[ weight_probe ] )
-for i, fig in enumerate( plots ):
-    fig.savefig( dir_images + str( i ) + ".pdf" )
-    fig.savefig( dir_images + str( i ) + ".png" )
-    fig.show()
+if save_plots:
+    assert generate_plots
+    
+    dir_name, dir_images = make_timestamped_dir( root="../data/mPES/" )
+    save_weights( dir_name, sim.data[ weight_probe ] )
+    for i, fig in enumerate( plots ):
+        fig.savefig( dir_images + str( i ) + ".pdf" )
+        fig.savefig( dir_images + str( i ) + ".png" )
+if show_plots:
+    assert generate_plots
+    
+    for i, fig in enumerate( plots ):
+        fig.show()

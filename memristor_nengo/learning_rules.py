@@ -6,7 +6,7 @@ from nengo.synapses import Lowpass, SynapseParam
 from nengo.learning_rules import LearningRuleType
 
 from nengo.builder.learning_rules import get_post_ens, build_or_passthrough
-from nengo.builder import Builder, Operator
+from nengo.builder import Operator
 
 
 class mPES( LearningRuleType ):
@@ -17,8 +17,15 @@ class mPES( LearningRuleType ):
     pre_synapse = SynapseParam( "pre_synapse", default=Lowpass( tau=0.005 ), readonly=True )
     r_max = NumberParam( "r_max", readonly=True, default=2.5e8 )
     r_min = NumberParam( "r_min", readonly=True, default=1e2 )
+    exponent = NumberParam( "exponent", readonly=True, default=-0.1 )
     
-    def __init__( self, learning_rate=Default, pre_synapse=Default, r_max=Default, r_min=Default, noisy=False,
+    def __init__( self,
+                  learning_rate=Default,
+                  pre_synapse=Default,
+                  r_max=Default,
+                  r_min=Default,
+                  exponent=Default,
+                  noisy=False,
                   seed=None ):
         super().__init__( learning_rate, size_in="post_state" )
         if learning_rate is not Default and learning_rate >= 1.0:
@@ -30,6 +37,7 @@ class mPES( LearningRuleType ):
         self.pre_synapse = pre_synapse
         self.r_max = r_max
         self.r_min = r_min
+        self.exponent = exponent
         self.noise_percentage = 0 if not noisy else noisy
         
         np.random.seed( seed )
@@ -43,6 +51,9 @@ class mPES( LearningRuleType ):
         return (
                 ("learning_rate", mPES.learning_rate.default),
                 ("pre_synapse", mPES.pre_synapse.default),
+                ("r_max", mPES.r_max.default),
+                ("r_min", mPES.r_min.default),
+                ("exponent", mPES.exponent.default),
                 )
 
 
@@ -56,6 +67,9 @@ class SimmPES( Operator ):
             neg_memristors,
             weights,
             noise_percentage,
+            r_max,
+            r_min,
+            exponent,
             states=None,
             tag=None
             ):
@@ -67,6 +81,9 @@ class SimmPES( Operator ):
         self.noise_percentage = noise_percentage
         self.gain = 1e6 / self.pre_n_neurons
         self.error_threshold = 1e-5
+        self.r_max = r_max
+        self.r_min = r_min
+        self.exponent = exponent
         
         self.sets = [ ] + ([ ] if states is None else [ states ])
         self.incs = [ ]
@@ -107,14 +124,13 @@ class SimmPES( Operator ):
         gain = self.gain
         noise_percentage = self.noise_percentage
         error_threshold = self.error_threshold
+        r_min = self.r_min
+        r_max = self.r_max
+        exponent = self.exponent
+        g_min = 1.0 / r_max
+        g_max = 1.0 / r_min
         
         def step_simmpes():
-            # TODO pass parameters or equations/functions directly
-            a = -0.1
-            r_min = 1e2
-            r_max = 2.5e8
-            g_min = 1.0 / r_max
-            g_max = 1.0 / r_min
             
             def resistance2conductance( R ):
                 g_curr = 1.0 / R
@@ -156,28 +172,28 @@ class SimmPES( Operator ):
                 
                 if noise_percentage > 0:
                     # generate random noise on the parameters
-                    a_noisy = np.random.normal( a, np.abs( a ) * noise_percentage, V.shape )
+                    exponent_noisy = np.random.normal( exponent, np.abs( exponent ) * noise_percentage, V.shape )
                     r_min_noisy = np.random.normal( r_min, r_min * noise_percentage, V.shape )
                     r_max_noisy = np.random.normal( r_max, r_max * noise_percentage, V.shape )
                     
                     # update the two memristor pairs separately
                     pos_n = ((pos_memristors[ V > 0 ] - r_min_noisy[ V > 0 ]) / r_max_noisy[ V > 0 ])**(
-                            1 / a_noisy[ V > 0 ])
-                    pos_memristors[ V > 0 ] = r_min_noisy[ V > 0 ] + r_max_noisy[ V > 0 ] * (pos_n + 1)**a_noisy[
+                            1 / exponent_noisy[ V > 0 ])
+                    pos_memristors[ V > 0 ] = r_min_noisy[ V > 0 ] + r_max_noisy[ V > 0 ] * (pos_n + 1)**exponent_noisy[
                         V > 0 ]
                     
                     neg_n = ((neg_memristors[ V < 0 ] - r_min_noisy[ V < 0 ]) / r_max_noisy[ V < 0 ])**(
-                            1 / a_noisy[ V < 0 ])
-                    neg_memristors[ V < 0 ] = r_min_noisy[ V < 0 ] + r_max_noisy[ V < 0 ] * (neg_n + 1)**a_noisy[
+                            1 / exponent_noisy[ V < 0 ])
+                    neg_memristors[ V < 0 ] = r_min_noisy[ V < 0 ] + r_max_noisy[ V < 0 ] * (neg_n + 1)**exponent_noisy[
                         V < 0 ]
                 else:
                     # updating the two memristor pairs separately
-                    pos_n = ((pos_memristors[ V > 0 ] - r_min) / r_max)**(1 / a)
-                    pos_update = r_min + r_max * (pos_n + 1)**a
+                    pos_n = ((pos_memristors[ V > 0 ] - r_min) / r_max)**(1 / exponent)
+                    pos_update = r_min + r_max * (pos_n + 1)**exponent
                     pos_memristors[ V > 0 ] = pos_update
                     
-                    neg_n = ((neg_memristors[ V < 0 ] - r_min) / r_max)**(1 / a)
-                    neg_update = r_min + r_max * (neg_n + 1)**a
+                    neg_n = ((neg_memristors[ V < 0 ] - r_min) / r_max)**(1 / exponent)
+                    neg_update = r_min + r_max * (neg_n + 1)**exponent
                     neg_memristors[ V < 0 ] = neg_update
                 
                 weights[ : ] = resistance2conductance( pos_memristors[ : ] ) \
@@ -242,15 +258,16 @@ def build_mpes( model, mpes, rule ):
     model.add_op( DotInc( encoders, padded_error, local_error, tag="PES:encode" ) )
     
     model.operators.append(
-            SimmPES(
-                    acts,
-                    local_error,
-                    mpes.learning_rate,
-                    model.sig[ conn ][ "pos_memristors" ],
-                    model.sig[ conn ][ "neg_memristors" ],
-                    model.sig[ conn ][ "weights" ],
-                    mpes.noise_percentage
-                    )
+            SimmPES( acts,
+                     local_error,
+                     mpes.learning_rate,
+                     model.sig[ conn ][ "pos_memristors" ],
+                     model.sig[ conn ][ "neg_memristors" ],
+                     model.sig[ conn ][ "weights" ],
+                     mpes.noise_percentage,
+                     mpes.r_max,
+                     mpes.r_min,
+                     mpes.exponent )
             )
     
     # expose these for probes
@@ -262,7 +279,7 @@ def build_mpes( model, mpes, rule ):
 
 @Builder.register( SimmPES )
 class SimmPESBuilder( OpBuilder ):
-    """Build a group of `~nengo.builder.learning_rules.SimmPES` operators."""
+    """Build exponent group of `~nengo.builder.learning_rules.SimmPES` operators."""
     
     def __init__( self, ops, signals, config ):
         super().__init__( ops, signals, config )
@@ -298,6 +315,21 @@ class SimmPESBuilder( OpBuilder ):
                                                      "noise_percentage",
                                                      signals.dtype,
                                                      shape=(1, -1, 1, 1) )
+        self.r_max = signals.op_constant( ops,
+                                          [ 1 for _ in ops ],
+                                          "r_max",
+                                          signals.dtype,
+                                          shape=(1, -1, 1, 1) )
+        self.r_min = signals.op_constant( ops,
+                                          [ 1 for _ in ops ],
+                                          "r_min",
+                                          signals.dtype,
+                                          shape=(1, -1, 1, 1) )
+        self.exponent = signals.op_constant( ops,
+                                             [ 1 for _ in ops ],
+                                             "exponent",
+                                             signals.dtype,
+                                             shape=(1, -1, 1, 1) )
         self.error_threshold = signals.op_constant( ops,
                                                     [ 1 for _ in ops ],
                                                     "error_threshold",
@@ -308,11 +340,6 @@ class SimmPESBuilder( OpBuilder ):
                                                    "post_n_neurons",
                                                    signals.dtype,
                                                    shape=(1, -1, 1, 1) )
-        
-        # TODO pass parameters or equations/functions directly to mPES frontend object
-        self.a = -0.1
-        self.r_min = 1e2
-        self.r_max = 2.5e8
         self.g_min = 1.0 / self.r_max
         self.g_max = 1.0 / self.r_min
     
@@ -341,7 +368,7 @@ class SimmPESBuilder( OpBuilder ):
         
         def if_noise_greater_than_zero( pos_memristors, neg_memristors ):
             # generate noisy parameters
-            a_noisy = tf.random.normal( V.shape, self.a, np.abs( self.a ) * self.noise_percentage )
+            exponent_noisy = tf.random.normal( V.shape, self.exponent, tf.abs( self.exponent ) * self.noise_percentage )
             r_min_noisy = tf.random.normal( V.shape, self.r_min, self.r_min * self.noise_percentage )
             r_max_noisy = tf.random.normal( V.shape, self.r_max, self.r_max * self.noise_percentage )
             
@@ -351,10 +378,10 @@ class SimmPESBuilder( OpBuilder ):
             pos_n = (
                             (tf.boolean_mask( pos_memristors, pos_mask ) - tf.boolean_mask( r_min_noisy, pos_mask ))
                             / tf.boolean_mask( r_max_noisy, pos_mask )
-                    )**(1 / tf.boolean_mask( a_noisy, pos_mask ))
+                    )**(1 / tf.boolean_mask( exponent_noisy, pos_mask ))
             pos_update = tf.boolean_mask( r_min_noisy, pos_mask ) \
                          + tf.boolean_mask( r_max_noisy, pos_mask ) \
-                         * (pos_n + 1)**tf.boolean_mask( a_noisy, pos_mask )
+                         * (pos_n + 1)**tf.boolean_mask( exponent_noisy, pos_mask )
             pos_memristors = tf.tensor_scatter_nd_update( pos_memristors, pos_indices, pos_update )
             
             # negative memristors update
@@ -363,10 +390,10 @@ class SimmPESBuilder( OpBuilder ):
             neg_n = (
                             (tf.boolean_mask( neg_memristors, neg_mask ) - tf.boolean_mask( r_min_noisy, neg_mask ))
                             / tf.boolean_mask( r_max_noisy, neg_mask )
-                    )**(1 / tf.boolean_mask( a_noisy, neg_mask ))
+                    )**(1 / tf.boolean_mask( exponent_noisy, neg_mask ))
             neg_update = tf.boolean_mask( r_min_noisy, neg_mask ) \
                          + tf.boolean_mask( r_max_noisy, neg_mask ) \
-                         * (neg_n + 1)**tf.boolean_mask( a_noisy, neg_mask )
+                         * (neg_n + 1)**tf.boolean_mask( exponent_noisy, neg_mask )
             neg_memristors = tf.tensor_scatter_nd_update( neg_memristors, neg_indices, neg_update )
             
             return pos_memristors, neg_memristors
@@ -375,15 +402,15 @@ class SimmPESBuilder( OpBuilder ):
             # positive memristors update
             pos_mask = tf.greater( V, 0 )
             pos_indices = tf.where( pos_mask )
-            pos_n = ((tf.boolean_mask( pos_memristors, pos_mask ) - self.r_min) / self.r_max)**(1 / self.a)
-            pos_update = self.r_min + self.r_max * (pos_n + 1)**self.a
+            pos_n = ((tf.boolean_mask( pos_memristors, pos_mask ) - self.r_min) / self.r_max)**(1 / self.exponent)
+            pos_update = self.r_min + self.r_max * (pos_n + 1)**self.exponent
             pos_memristors = tf.tensor_scatter_nd_update( pos_memristors, pos_indices, pos_update )
             
             # negative memristors update
             neg_mask = tf.less( V, 0 )
             neg_indices = tf.where( neg_mask )
-            neg_n = ((tf.boolean_mask( neg_memristors, neg_mask ) - self.r_min) / self.r_max)**(1 / self.a)
-            neg_update = self.r_min + self.r_max * (neg_n + 1)**self.a
+            neg_n = ((tf.boolean_mask( neg_memristors, neg_mask ) - self.r_min) / self.r_max)**(1 / self.exponent)
+            neg_update = self.r_min + self.r_max * (neg_n + 1)**self.exponent
             neg_memristors = tf.tensor_scatter_nd_update( neg_memristors, neg_indices, neg_update )
             
             return pos_memristors, neg_memristors
