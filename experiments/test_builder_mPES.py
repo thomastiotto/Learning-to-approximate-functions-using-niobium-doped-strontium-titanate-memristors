@@ -11,9 +11,9 @@ from memristor_nengo.extras import *
 function_to_learn = lambda x: x
 timestep = 0.001
 sim_time = 30
-pre_n_neurons = 10
-post_n_neurons = 10
-error_n_neurons = 10
+pre_n_neurons = 1000
+post_n_neurons = 1000
+error_n_neurons = 1000
 dimensions = 1
 noise_percent = 0.15
 learning_rule = "mPES"
@@ -40,7 +40,7 @@ with model:
     elif optimisations == "memory":
         optimize = False
         sample_every = timestep * 100
-        simulation_discretisation = int( n_neurons / 10 ) if n_neurons >= 10 else 1
+        simulation_discretisation = n_neurons
     print( f"Using {optimisations} optimisation" )
     
     # Create an input node
@@ -108,6 +108,7 @@ with model:
         neg_memr_probe = nengo.Probe( conn.learning_rule, "neg_memristors", synapse=None, sample_every=sample_every )
 
 # Create the simulator
+print( f"Backend is {backend}" )
 if backend == "nengo":
     cm = nengo.Simulator( model, seed=seed, dt=timestep, optimize=optimize )
 if backend == "nengo_dl":
