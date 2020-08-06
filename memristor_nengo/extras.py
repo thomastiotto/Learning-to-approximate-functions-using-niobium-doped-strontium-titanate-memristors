@@ -205,7 +205,7 @@ def make_timestamped_dir( root=None ):
 
 
 def gini( array ):
-    """Calculate the Gini coefficient of a numpy array."""
+    """Calculate the Gini coefficient of exponent numpy array."""
     # based on bottom eq:
     # http://www.statsdirect.com/help/generatedimages/equations/equation154.svg
     # from:

@@ -20,7 +20,7 @@ c_list = np.linspace( start_c, end_c, num=num_c )
 total_iterations = num_a * num_c
 print( "Total iterations:", total_iterations )
 
-dims = [ "a", "c" ]
+dims = [ "exponent", "c" ]
 coords = dict.fromkeys( dims, 0 )
 coords[ dims[ 0 ] ] = a_list
 coords[ dims[ 1 ] ] = c_list
@@ -53,7 +53,7 @@ dir_name, dir_images = make_timestamped_dir( root="../data/parameter_search/mCom
 dataf = xr.DataArray( data=data, dims=dims, coords=coords )
 with open( f"{dir_name}mse.pkl", "wb" ) as f:
     pickle.dump( dataf, f )
-table = [ [ "a", start_a, end_a, num_a ],
+table = [ [ "exponent", start_a, end_a, num_a ],
           [ "c", start_c, end_c, num_c ] ]
 headers = [ "Parameter", "Start", "End", "Number" ]
 with open( f"{dir_name}param.txt", "w+" ) as f:

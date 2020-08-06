@@ -2,7 +2,7 @@ from functools import partial
 from memristor_learning.Networks import *
 
 params = {
-        "a"           : -0.128,
+        "exponent"    : -0.128,
         "b"           : 0,
         "c"           : -0.001,
         "d"           : 0,
@@ -11,7 +11,7 @@ params = {
 
 net = SupervisedLearning( memristor_controller=MemristorArray,
                           memristor_model=partial( MemristorAnoukBidirectional,
-                                                   a=params[ "a" ],
+                                                   a=params[ "exponent" ],
                                                    b=params[ "b" ],
                                                    c=params[ "c" ],
                                                    d=params[ "d" ] ),

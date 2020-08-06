@@ -25,7 +25,7 @@ total_iterations = num_a
 assert (end_r_0 < start_r_1)
 print( "Total iterations:", total_iterations )
 
-dims = [ "a" ]
+dims = [ "exponent" ]
 coords = dict.fromkeys( dims, 0 )
 coords[ dims[ 0 ] ] = a_list
 
@@ -59,7 +59,7 @@ dir_name, dir_images = make_timestamped_dir( root="../data/parameter_search/mPlu
 dataf = xr.DataArray( data=data, dims=dims, coords=coords, name="MSE" )
 with open( f"{dir_name}mse.pkl", "wb" ) as f:
     pickle.dump( dataf, f )
-table = [ [ "a", start_a, end_a, num_a ],
+table = [ [ "exponent", start_a, end_a, num_a ],
           ]
 headers = [ "Parameter", "Start", "End", "Number" ]
 with open( f"{dir_name}param.txt", "w+" ) as f:

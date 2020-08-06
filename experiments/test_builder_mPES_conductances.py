@@ -40,7 +40,7 @@ with model:
     initial_conductances_neg = 1 / initial_resistances( 1e8, 1.1e8, (post.n_neurons, pre.n_neurons) )
     initial_weights = (initial_conductances_pos - initial_conductances_neg) * 1e5
     
-    # Connect pre and post with a communication channel
+    # Connect pre and post with exponent communication channel
     conn = nengo.Connection(
             pre.neurons,
             post.neurons,

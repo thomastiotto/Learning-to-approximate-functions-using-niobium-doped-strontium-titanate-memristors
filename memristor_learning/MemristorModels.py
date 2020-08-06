@@ -41,7 +41,7 @@ class MemristorPlusMinus( MemristorPair ):
     def __init__( self, model, seed=None, voltage_converter=None, base_voltage=1e-1, gain=1e5 ):
         super().__init__( model, seed, voltage_converter, base_voltage, gain )
     
-    # on positive feedback the excitatory memristor gets a pulse
+    # on positive feedback the excitatory memristor gets exponent pulse
     def pulse( self, signal ):
         if signal > 0:
             self.mem_one.pulse( signal )
@@ -86,7 +86,7 @@ class Memristor:
         
         self.r_curr = random.uniform( 1e8, 1.1e8 )
     
-    # pulse the memristor with a tension
+    # pulse the memristor with exponent tension
     def pulse( self, signal ):
         V = np.sign( signal ) * self.base_voltage
         # if signal is zero we needn't make any adjustments

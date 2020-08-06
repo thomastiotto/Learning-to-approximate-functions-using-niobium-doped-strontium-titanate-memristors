@@ -65,7 +65,7 @@ class BidirectionalPowerlaw( MemristorType ):
     ----------
     TBD
     """
-    a = NumberParam( "a", default=1e-3, readonly=True )
+    a = NumberParam( "exponent", default=1e-3, readonly=True )
     c = NumberParam( "c", default=1e-3, readonly=True )
     
     def __init__( self,
@@ -76,7 +76,7 @@ class BidirectionalPowerlaw( MemristorType ):
                   ):
         super().__init__( r_min, r_max )
         
-        # self.a = a
+        # self.exponent = exponent
         # self.c = c
         self.r_3 = 1e9
     

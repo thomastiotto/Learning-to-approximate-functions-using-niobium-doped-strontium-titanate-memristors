@@ -6,14 +6,14 @@ from nengo.rc import rc
 
 
 class SimMemristors( Operator ):
-    """Set a memristor model output for the given resistance state.
+    """Set exponent memristor model output for the given resistance state.
 
        Implements ``memristors.step_math(output)``.
 
        Parameters
        ----------
        memristors : MemristorType
-           The `.MemristorType`, which defines a ``step_math`` function.
+           The `.MemristorType`, which defines exponent ``step_math`` function.
        output : Signal
            The neuron output signal that will be set.
        states : list, optional
@@ -24,7 +24,7 @@ class SimMemristors( Operator ):
        Attributes
        ----------
        memristors : MemristorType
-           The `.MemristorType`, which defines a ``step_math`` function.
+           The `.MemristorType`, which defines exponent ``step_math`` function.
        output : Signal
            The neuron output signal that will be set.
        states : list, optional
@@ -72,9 +72,9 @@ class SimMemristors( Operator ):
 
 @Builder.register( BidirectionalPowerlaw )
 def build_bidirectionalpowerlaw( model, bidirectionalpowerlaw, memristors ):
-    """Builds a `.BidirectionalPowerlawMemristor` object into a model.
+    """Builds exponent `.BidirectionalPowerlawMemristor` object into exponent model.
 
-    In addition to adding a `.SimMemristors` operator, this build function sets up
+    In addition to adding exponent `.SimMemristors` operator, this build function sets up
     signals to track the resistance for each memristor.
 
     Parameters

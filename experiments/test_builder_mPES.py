@@ -8,19 +8,19 @@ from nengo.learning_rules import PES
 from memristor_nengo.learning_rules import mPES
 from memristor_nengo.extras import *
 
-function_to_learn = lambda x: x
+function_to_learn = lambda x: x**2
 timestep = 0.001
 sim_time = 30
 pre_n_neurons = 1000
 post_n_neurons = 1000
 error_n_neurons = 1000
-dimensions = 1
+dimensions = 3
 noise_percent = 0.15
 learning_rule = "mPES"
 backend = "nengo_dl"
-optimisations = "memory"
+optimisations = "run"
 seed = None
-generate_plots = False
+generate_plots = True
 show_plots = True
 save_plots = False
 
@@ -118,7 +118,7 @@ with cm as sim:
     for i in range( simulation_discretisation ):
         print( f"\nRunning discretised step {i + 1} of {simulation_discretisation}" )
         sim.run( sim_time / simulation_discretisation )
-print( f"\nTotal time for simulation: {time.time() - start_time} s" )
+print( f"\nTotal time for simulation: {time.strftime( '%H:%M:%S', time.gmtime( time.time() - start_time ) )} s" )
 
 print( "Weights average after learning:" )
 print( np.average( sim.data[ weight_probe ][ -1, ... ] ) )
@@ -132,42 +132,56 @@ mse = mean_squared_error(
         )
 print( mse )
 
+plots = [ ]
 if generate_plots:
-    plots = [ ]
-    plotter = Plotter( sim.trange( sample_every=sample_every ), post_n_neurons, pre_n_neurons, dimensions, learn_time,
-                       plot_size=(13, 7),
-                       dpi=300 )
+    def generate_plots():
+        plotter = Plotter( sim.trange( sample_every=sample_every ), post_n_neurons, pre_n_neurons, dimensions,
+                           learn_time,
+                           plot_size=(13, 7),
+                           dpi=300 )
+        
+        plots.append(
+                plotter.plot_results( sim.data[ input_node_probe ], sim.data[ pre_probe ], sim.data[ post_probe ],
+                                      error=sim.data[ post_probe ] - function_to_learn( sim.data[ pre_probe ] ),
+                                      smooth=True,
+                                      mse=mse )
+                )
+        plots.append(
+                plotter.plot_ensemble_spikes( "Post", sim.data[ post_spikes_probe ], sim.data[ post_probe ] )
+                )
+        plots.append(
+                plotter.plot_weight_matrices_over_time( sim.data[ weight_probe ], sample_every=sample_every )
+                )
+        if n_neurons <= 10:
+            plots.append(
+                    plotter.plot_weights_over_time( sim.data[ pos_memr_probe ], sim.data[ neg_memr_probe ] )
+                    )
+            plots.append(
+                    plotter.plot_values_over_time( 1 / sim.data[ pos_memr_probe ], 1 / sim.data[ neg_memr_probe ] )
+                    )
     
-    plots.append(
-            plotter.plot_results( sim.data[ input_node_probe ], sim.data[ pre_probe ], sim.data[ post_probe ],
-                                  error=sim.data[ post_probe ] - function_to_learn( sim.data[ pre_probe ] ),
-                                  smooth=True,
-                                  mse=mse )
-            )
-    plots.append(
-            plotter.plot_ensemble_spikes( "Post", sim.data[ post_spikes_probe ], sim.data[ post_probe ] )
-            )
-    plots.append(
-            plotter.plot_weight_matrices_over_time( sim.data[ weight_probe ], sample_every=sample_every )
-            )
-    if n_neurons <= 10:
-        plots.append(
-                plotter.plot_weights_over_time( sim.data[ pos_memr_probe ], sim.data[ neg_memr_probe ] )
-                )
-        plots.append(
-                plotter.plot_values_over_time( 1 / sim.data[ pos_memr_probe ], 1 / sim.data[ neg_memr_probe ] )
-                )
+    
+    generate_plots()
 
 if save_plots:
-    assert generate_plots
+    def save_plots():
+        assert generate_plots
+        
+        dir_name, dir_images = make_timestamped_dir( root="../data/mPES/" )
+        save_weights( dir_name, sim.data[ weight_probe ] )
+        for i, fig in enumerate( plots ):
+            fig.savefig( dir_images + str( i ) + ".pdf" )
+            fig.savefig( dir_images + str( i ) + ".png" )
     
-    dir_name, dir_images = make_timestamped_dir( root="../data/mPES/" )
-    save_weights( dir_name, sim.data[ weight_probe ] )
-    for i, fig in enumerate( plots ):
-        fig.savefig( dir_images + str( i ) + ".pdf" )
-        fig.savefig( dir_images + str( i ) + ".png" )
+    
+    save_plots()
+
 if show_plots:
-    assert generate_plots
+    def show_plots():
+        assert generate_plots
+        
+        for i, fig in enumerate( plots ):
+            fig.show()
     
-    for i, fig in enumerate( plots ):
-        fig.show()
+    
+    show_plots()

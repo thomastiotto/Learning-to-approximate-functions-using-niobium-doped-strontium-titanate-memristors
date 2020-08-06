@@ -84,7 +84,7 @@ class SimmPES( Operator ):
         def step_simmpes():
             # TODO pass everything into conductances
             # TODO pass parameters or equations/functions directly
-            # TODO keep track of pulse numbers in a Signal
+            # TODO keep track of pulse numbers in exponent Signal
             a = -0.128
             # TODO learning works but reverse bias has basically no effect
             c = -1e-3

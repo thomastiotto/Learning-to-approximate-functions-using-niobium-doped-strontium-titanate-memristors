@@ -90,7 +90,8 @@ plt.show()
 rows = zip( r, n, g, g_test_exp )
 with open( "../data/conductance_fit.csv", "w" ) as f:
     writer = csv.writer( f )
-    writer.writerow( [ "Resistance (R)", "Pulse (x)", "Ground truth (y)", "Exponents fit (y_hat=R_0+R_1*x**a)" ] )
+    writer.writerow(
+            [ "Resistance (R)", "Pulse (x)", "Ground truth (y)", "Exponents fit (y_hat=R_0+R_1*x**exponent)" ] )
     for row in rows:
         writer.writerow( row )
 

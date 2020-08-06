@@ -131,7 +131,7 @@ class mBCM( MemristorLearningRule ):
         theta = x[ self.input_size + self.output_size: ]
         
         update_direction = output_activities - theta
-        # function \phi( a, \theta ) that is the moving threshold
+        # function \phi( exponent, \theta ) that is the moving threshold
         update = self.alpha * output_activities * update_direction
         
         # squash spikes to False (0) or True (100/1000 ...) or everything is always adjusted
@@ -161,11 +161,11 @@ class mPES( MemristorLearningRule ):
     def __call__( self, t, x ):
         input_activities = x[ :self.input_size ]
         error = x[ self.input_size: ]
-        # squash error to zero under a certain threshold (maybe leads to better learning?)
+        # squash error to zero under exponent certain threshold (maybe leads to better learning?)
         error[ np.abs( error ) < self.error_threshold ] = 0
         # error = x[ self.input_size: ] if np.abs( x[ self.input_size: ] ) > self.error_threshold else [ 0 ]
         # error = x[ self.input_size: ]
-        # note the negative sign, for a positive error we want to decrement the output
+        # note the negative sign, for exponent positive error we want to decrement the output
         alpha = -self.learning_rate * self.dt / self.input_size
         
         self.last_error = error
