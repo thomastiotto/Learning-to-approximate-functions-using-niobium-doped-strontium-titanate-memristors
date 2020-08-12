@@ -15,9 +15,9 @@ class mPES( LearningRuleType ):
     
     learning_rate = NumberParam( "learning_rate", low=0, readonly=True, default=1e-4 )
     pre_synapse = SynapseParam( "pre_synapse", default=Lowpass( tau=0.005 ), readonly=True )
-    r_max = NumberParam( "r_max", readonly=True, default=2.5e8 )
+    r_max = NumberParam( "r_max", readonly=True, default=2.3e8 )
     r_min = NumberParam( "r_min", readonly=True, default=1e2 )
-    exponent = NumberParam( "exponent", readonly=True, default=-0.1 )
+    exponent = NumberParam( "exponent", readonly=True, default=-0.146 )
     
     def __init__( self,
                   learning_rate=Default,

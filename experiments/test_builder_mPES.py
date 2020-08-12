@@ -8,12 +8,12 @@ from nengo.learning_rules import PES
 from memristor_nengo.learning_rules import mPES
 from memristor_nengo.extras import *
 
-function_to_learn = lambda x: x**2
+function_to_learn = lambda x: x
 timestep = 0.001
 sim_time = 30
-pre_n_neurons = 1000
-post_n_neurons = 1000
-error_n_neurons = 1000
+pre_n_neurons = 100
+post_n_neurons = 100
+error_n_neurons = 100
 dimensions = 3
 noise_percent = 0.15
 learning_rule = "mPES"
