@@ -2,50 +2,76 @@ import nengo
 import nengo_dl
 from sklearn.metrics import mean_squared_error
 import time
+import argparse
 
 from nengo.processes import WhiteSignal
 from nengo.learning_rules import PES
 from memristor_nengo.learning_rules import mPES
 from memristor_nengo.extras import *
 
-function_to_learn = lambda x: x
-timestep = 0.001
-sim_time = 30
-pre_n_neurons = 100
-post_n_neurons = 100
-error_n_neurons = 100
-dimensions = 3
-noise_percent = 0.15
-learning_rule = "mPES"
-backend = "nengo_dl"
-optimisations = "run"
-seed = None
-generate_plots = True
-show_plots = True
-save_plots = False
+parser = argparse.ArgumentParser()
+parser.add_argument( "-f", "--function", default="lambda x: x" )
+parser.add_argument( "-O", "--output", default="generate_sines( dimensions )" )
+parser.add_argument( "-t", "--timestep", default=0.001, type=int )
+parser.add_argument( "-S", "--simulation_time", default=30, type=int )
+parser.add_argument( "-N", "--neurons", nargs="*", default=[ 10, 10, 10 ], type=int )
+parser.add_argument( "-d", "--dimensions", default=3, type=int )
+parser.add_argument( "-n", "--noise", default=0.15, type=float )
+parser.add_argument( "-l", "--learning_rule", default="mPES", choices=[ "mPES", "PES" ] )
+parser.add_argument( "-b", "--backend", default="nengo_dl", choices=[ "nengo_dl", "nengo_core" ] )
+parser.add_argument( "-o", "--optimisations", default="run", choices=[ "run", "build", "memory" ] )
+parser.add_argument( "-s", "--seed", default=None, type=int )
+parser.add_argument( "-p", "--plot", action="count", default=0 )
+parser.add_argument( "-v", "--verbosity", action="count", default=0 )
+parser.add_argument( "-pd", "--plots_directory", default="../data/" )
+
+args = parser.parse_args()
+if args.neurons is not None and len( args.neurons ) not in (0, 3):
+    parser.error( 'Either give no values for action, or three, not {}.'.format( len( args.neurons ) ) )
+
+# TODO read parameters from conf file https://docs.python.org/3/library/configparser.html
+function_to_learn = eval( args.function )
+timestep = args.timestep
+sim_time = args.simulation_time
+pre_n_neurons = args.neurons[ 0 ]
+post_n_neurons = args.neurons[ 1 ]
+error_n_neurons = args.neurons[ 2 ]
+dimensions = args.dimensions
+noise_percent = args.noise
+learning_rule = args.learning_rule
+backend = args.backend
+optimisations = args.optimisations
+seed = args.seed
+generate_plots = show_plots = save_plots = False
+if args.plot >= 1:
+    generate_plots = True
+    show_plots = True
+    if args.plot == 2:
+        save_plots = True
+verboseprint = print if args.verbosity >= 1 else lambda *a, **k: None
+plots_directory = args.plots_directory
 
 learn_time = int( sim_time * 3 / 4 )
 n_neurons = np.amax( [ pre_n_neurons, post_n_neurons ] )
+if optimisations == "build":
+    optimize = False
+    sample_every = timestep
+    simulation_discretisation = 1
+elif optimisations == "run":
+    optimize = True
+    sample_every = timestep
+    simulation_discretisation = 1
+elif optimisations == "memory":
+    optimize = False
+    sample_every = timestep * 100
+    simulation_discretisation = n_neurons
+verboseprint( f"Using {optimisations} optimisation" )
 
 model = nengo.Network( seed=seed )
 with model:
-    if optimisations == "build":
-        optimize = False
-        sample_every = timestep
-        simulation_discretisation = 1
-    elif optimisations == "run":
-        optimize = True
-        sample_every = timestep
-        simulation_discretisation = 1
-    elif optimisations == "memory":
-        optimize = False
-        sample_every = timestep * 100
-        simulation_discretisation = n_neurons
-    print( f"Using {optimisations} optimisation" )
-    
     # Create an input node
     input_node = nengo.Node(
-            output=generate_sines( dimensions ),
+            output=eval( args.output ),
             # output=WhiteSignal( 60, high=5, seed=seed ),
             size_out=dimensions
             )
@@ -62,22 +88,22 @@ with model:
                            )
     error = nengo.Ensemble( error_n_neurons, dimensions=dimensions, radius=2, seed=seed )
     
-    # Connect pre and post with exponent communication channel
+    # Connect pre and post with a communication channel
+    # the matrix given to transform are the initial weights found in model.sig[conn]["weights"]
     conn = nengo.Connection(
             pre.neurons,
             post.neurons,
             transform=np.zeros( (post.n_neurons, pre.n_neurons) )
             )
-    # the matrix given to transform are the initial weights found in model.sig[conn]["weights"]
     
-    # Apply the mPES learning rule to conn
+    # Apply the learning rule to conn
     if learning_rule == "mPES":
         conn.learning_rule_type = mPES(
                 noisy=noise_percent,
                 seed=seed )
     if learning_rule == "PES":
         conn.learning_rule_type = PES()
-    print( "Simulating with", conn.learning_rule_type )
+    verboseprint( "Simulating with", conn.learning_rule_type )
     
     # Provide an error signal to the learning rule
     nengo.Connection( error, conn.learning_rule )
@@ -108,29 +134,29 @@ with model:
         neg_memr_probe = nengo.Probe( conn.learning_rule, "neg_memristors", synapse=None, sample_every=sample_every )
 
 # Create the simulator
-print( f"Backend is {backend}" )
-if backend == "nengo":
+verboseprint( f"Backend is {backend}" )
+if backend == "nengo_core":
     cm = nengo.Simulator( model, seed=seed, dt=timestep, optimize=optimize )
 if backend == "nengo_dl":
     cm = nengo_dl.Simulator( model, seed=seed, dt=timestep )
 start_time = time.time()
 with cm as sim:
     for i in range( simulation_discretisation ):
-        print( f"\nRunning discretised step {i + 1} of {simulation_discretisation}" )
+        verboseprint( f"\nRunning discretised step {i + 1} of {simulation_discretisation}" )
         sim.run( sim_time / simulation_discretisation )
-print( f"\nTotal time for simulation: {time.strftime( '%H:%M:%S', time.gmtime( time.time() - start_time ) )} s" )
+verboseprint( f"\nTotal time for simulation: {time.strftime( '%H:%M:%S', time.gmtime( time.time() - start_time ) )} s" )
 
-print( "Weights average after learning:" )
-print( np.average( sim.data[ weight_probe ][ -1, ... ] ) )
-print( "Weights sparsity at t=0 and after learning:" )
-print( gini( sim.data[ weight_probe ][ 0 ] ), end=" -> " )
-print( gini( sim.data[ weight_probe ][ -1 ] ) )
-print( "MSE after learning [f(pre) vs. post]:" )
+verboseprint( "Weights average after learning:" )
+verboseprint( np.average( sim.data[ weight_probe ][ -1, ... ] ) )
+verboseprint( "Weights sparsity at t=0 and after learning:" )
+verboseprint( gini( sim.data[ weight_probe ][ 0 ] ), end=" -> " )
+verboseprint( gini( sim.data[ weight_probe ][ -1 ] ) )
+verboseprint( "MSE after learning [f(pre) vs. post]:" )
 mse = mean_squared_error(
         function_to_learn( sim.data[ pre_probe ][ int( (learn_time / sim.dt) / (sample_every / timestep) ):, ... ] ),
         sim.data[ post_probe ][ int( (learn_time / sim.dt) / (sample_every / timestep) ):, ... ]
         )
-print( mse )
+verboseprint( mse )
 
 plots = [ ]
 if generate_plots:
@@ -167,7 +193,7 @@ if save_plots:
     def save_plots():
         assert generate_plots
         
-        dir_name, dir_images = make_timestamped_dir( root="../data/mPES/" )
+        dir_name, dir_images = make_timestamped_dir( root=plots_directory + learning_rule + "/" )
         save_weights( dir_name, sim.data[ weight_probe ] )
         for i, fig in enumerate( plots ):
             fig.savefig( dir_images + str( i ) + ".pdf" )
