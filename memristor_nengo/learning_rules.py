@@ -16,7 +16,7 @@ class mPES( LearningRuleType ):
     learning_rate = NumberParam( "learning_rate", low=0, readonly=True, default=1e-4 )
     pre_synapse = SynapseParam( "pre_synapse", default=Lowpass( tau=0.005 ), readonly=True )
     r_max = NumberParam( "r_max", readonly=True, default=2.3e8 )
-    r_min = NumberParam( "r_min", readonly=True, default=1e2 )
+    r_min = NumberParam( "r_min", readonly=True, default=200 )
     exponent = NumberParam( "exponent", readonly=True, default=-0.146 )
     
     def __init__( self,
@@ -281,62 +281,62 @@ def build_mpes( model, mpes, rule ):
 class SimmPESBuilder( OpBuilder ):
     """Build exponent group of `~nengo.builder.learning_rules.SimmPES` operators."""
     
-    def __init__( self, ops, signals, config ):
-        super().__init__( ops, signals, config )
+    def build_pre( self, signals, config ):
+        super().build_pre( signals, config )
         
-        self.output_size = ops[ 0 ].weights.shape[ 0 ]
-        self.input_size = ops[ 0 ].weights.shape[ 1 ]
+        self.output_size = self.ops[ 0 ].weights.shape[ 0 ]
+        self.input_size = self.ops[ 0 ].weights.shape[ 1 ]
         
-        self.error_data = signals.combine( [ op.error for op in ops ] )
-        self.error_data = self.error_data.reshape( (len( ops ), ops[ 0 ].error.shape[ 0 ], 1) )
+        self.error_data = signals.combine( [ op.error for op in self.ops ] )
+        self.error_data = self.error_data.reshape( (len( self.ops ), self.ops[ 0 ].error.shape[ 0 ], 1) )
         
-        self.pre_data = signals.combine( [ op.pre_filtered for op in ops ] )
-        self.pre_data = self.pre_data.reshape( (len( ops ), 1, ops[ 0 ].pre_filtered.shape[ 0 ]) )
+        self.pre_data = signals.combine( [ op.pre_filtered for op in self.ops ] )
+        self.pre_data = self.pre_data.reshape( (len( self.ops ), 1, self.ops[ 0 ].pre_filtered.shape[ 0 ]) )
         
-        self.pos_memristors = signals.combine( [ op.pos_memristors for op in ops ] )
+        self.pos_memristors = signals.combine( [ op.pos_memristors for op in self.ops ] )
         self.pos_memristors = self.pos_memristors.reshape(
-                (len( ops ), ops[ 0 ].pos_memristors.shape[ 0 ], ops[ 0 ].pos_memristors.shape[ 1 ])
+                (len( self.ops ), self.ops[ 0 ].pos_memristors.shape[ 0 ], self.ops[ 0 ].pos_memristors.shape[ 1 ])
                 )
         
-        self.neg_memristors = signals.combine( [ op.neg_memristors for op in ops ] )
+        self.neg_memristors = signals.combine( [ op.neg_memristors for op in self.ops ] )
         self.neg_memristors = self.neg_memristors.reshape(
-                (len( ops ), ops[ 0 ].neg_memristors.shape[ 0 ], ops[ 0 ].neg_memristors.shape[ 1 ])
+                (len( self.ops ), self.ops[ 0 ].neg_memristors.shape[ 0 ], self.ops[ 0 ].neg_memristors.shape[ 1 ])
                 )
         
-        self.output_data = signals.combine( [ op.weights for op in ops ] )
+        self.output_data = signals.combine( [ op.weights for op in self.ops ] )
         
-        self.gain = signals.op_constant( ops,
-                                         [ 1 for _ in ops ],
+        self.gain = signals.op_constant( self.ops,
+                                         [ 1 for _ in self.ops ],
                                          "gain",
                                          signals.dtype,
                                          shape=(1, -1, 1, 1) )
-        self.noise_percentage = signals.op_constant( ops,
-                                                     [ 1 for _ in ops ],
+        self.noise_percentage = signals.op_constant( self.ops,
+                                                     [ 1 for _ in self.ops ],
                                                      "noise_percentage",
                                                      signals.dtype,
                                                      shape=(1, -1, 1, 1) )
-        self.r_max = signals.op_constant( ops,
-                                          [ 1 for _ in ops ],
+        self.r_max = signals.op_constant( self.ops,
+                                          [ 1 for _ in self.ops ],
                                           "r_max",
                                           signals.dtype,
                                           shape=(1, -1, 1, 1) )
-        self.r_min = signals.op_constant( ops,
-                                          [ 1 for _ in ops ],
+        self.r_min = signals.op_constant( self.ops,
+                                          [ 1 for _ in self.ops ],
                                           "r_min",
                                           signals.dtype,
                                           shape=(1, -1, 1, 1) )
-        self.exponent = signals.op_constant( ops,
-                                             [ 1 for _ in ops ],
+        self.exponent = signals.op_constant( self.ops,
+                                             [ 1 for _ in self.ops ],
                                              "exponent",
                                              signals.dtype,
                                              shape=(1, -1, 1, 1) )
-        self.error_threshold = signals.op_constant( ops,
-                                                    [ 1 for _ in ops ],
+        self.error_threshold = signals.op_constant( self.ops,
+                                                    [ 1 for _ in self.ops ],
                                                     "error_threshold",
                                                     signals.dtype,
                                                     shape=(1, -1, 1, 1) )
-        self.post_n_neurons = signals.op_constant( ops,
-                                                   [ 1 for _ in ops ],
+        self.post_n_neurons = signals.op_constant( self.ops,
+                                                   [ 1 for _ in self.ops ],
                                                    "post_n_neurons",
                                                    signals.dtype,
                                                    shape=(1, -1, 1, 1) )
@@ -458,3 +458,13 @@ class SimmPESBuilder( OpBuilder ):
         new_weights = resistance2conductance( pos_memristors ) - resistance2conductance( neg_memristors )
         
         signals.scatter( self.output_data, new_weights )
+    
+    @staticmethod
+    def mergeable( x, y ):
+        # pre inputs must have the same dimensionality so that we can broadcast
+        # them when computing the outer product.
+        # the error signals also have to have the same shape.
+        return (
+                x.pre_filtered.shape[ 0 ] == y.pre_filtered.shape[ 0 ]
+                and x.error.shape[ 0 ] == y.error.shape[ 0 ]
+        )
