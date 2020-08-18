@@ -193,17 +193,21 @@ if save_plots:
     def save_plots():
         assert generate_plots
         
-        dir_name, dir_images = make_timestamped_dir( root=plots_directory + learning_rule + "/" )
-        save_weights( dir_name, sim.data[ weight_probe ] )
-        save_results_to_csv( dir_name, sim.data[ input_node_probe ], sim.data[ pre_probe ], sim.data[ post_probe ],
+        dir_name, dir_images, dir_data = make_timestamped_dir( root=plots_directory + learning_rule + "/" )
+        
+        save_weights( dir_data, sim.data[ weight_probe ] )
+        print( f"Saved NumPy weights in {dir_data}" )
+        
+        save_results_to_csv( dir_data, sim.data[ input_node_probe ], sim.data[ pre_probe ], sim.data[ post_probe ],
                              sim.data[ post_probe ] - function_to_learn( sim.data[ pre_probe ] ) )
-        save_memristors_to_csv( dir_name, sim.data[ pos_memr_probe ], sim.data[ neg_memr_probe ] )
+        save_memristors_to_csv( dir_data, sim.data[ pos_memr_probe ], sim.data[ neg_memr_probe ] )
+        print( f"Saved data in {dir_data}" )
         
         for i, fig in enumerate( plots ):
             fig.savefig( dir_images + str( i ) + ".pdf" )
             fig.savefig( dir_images + str( i ) + ".png" )
         
-        print( f"Saved plots in {dir_name}" )
+        print( f"Saved plots in {dir_images}" )
     
     
     save_plots()

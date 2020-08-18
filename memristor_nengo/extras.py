@@ -189,10 +189,12 @@ def make_timestamped_dir( root=None ):
         minutes = str( int( dir_name[ -1 ] ) + 1 )
         dir_name = dir_name[ :-1 ] + minutes + "/"
     dir_images = dir_name + "images/"
+    dir_data = dir_name + "data/"
     os.mkdir( dir_name )
     os.mkdir( dir_images )
+    os.mkdir( dir_data )
     
-    return dir_name, dir_images
+    return dir_name, dir_images, dir_data
 
 
 def gini( array ):
