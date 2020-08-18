@@ -466,5 +466,5 @@ class SimmPESBuilder( OpBuilder ):
         # the error signals also have to have the same shape.
         return (
                 x.pre_filtered.shape[ 0 ] == y.pre_filtered.shape[ 0 ]
-                and x.error.shape[ 0 ] == y.error.shape[ 0 ]
+                and x.local_error.shape[ 0 ] == y.local_error.shape[ 0 ]
         )

@@ -46,8 +46,10 @@ generate_plots = show_plots = save_plots = False
 if args.plot >= 1:
     generate_plots = True
     show_plots = True
-    if args.plot == 2:
+    if args.plot >= 2:
         save_plots = True
+        if args.plot >= 3:
+            save_data = True
 verboseprint = print if args.verbosity >= 1 else lambda *a, **k: None
 plots_directory = args.plots_directory
 
@@ -160,57 +162,53 @@ verboseprint( mse )
 
 plots = [ ]
 if generate_plots:
-    def generate_plots():
-        plotter = Plotter( sim.trange( sample_every=sample_every ), post_n_neurons, pre_n_neurons, dimensions,
-                           learn_time,
-                           plot_size=(13, 7),
-                           dpi=300 )
-        
-        plots.append(
-                plotter.plot_results( sim.data[ input_node_probe ], sim.data[ pre_probe ], sim.data[ post_probe ],
-                                      error=sim.data[ post_probe ] - function_to_learn( sim.data[ pre_probe ] ),
-                                      smooth=True,
-                                      mse=mse )
-                )
-        plots.append(
-                plotter.plot_ensemble_spikes( "Post", sim.data[ post_spikes_probe ], sim.data[ post_probe ] )
-                )
-        plots.append(
-                plotter.plot_weight_matrices_over_time( sim.data[ weight_probe ], sample_every=sample_every )
-                )
-        if n_neurons <= 10:
-            plots.append(
-                    plotter.plot_weights_over_time( sim.data[ pos_memr_probe ], sim.data[ neg_memr_probe ] )
-                    )
-            plots.append(
-                    plotter.plot_values_over_time( 1 / sim.data[ pos_memr_probe ], 1 / sim.data[ neg_memr_probe ] )
-                    )
+    plotter = Plotter( sim.trange( sample_every=sample_every ), post_n_neurons, pre_n_neurons, dimensions,
+                       learn_time,
+                       plot_size=(13, 7),
+                       dpi=300 )
     
-    
-    generate_plots()
+    plots.append(
+            plotter.plot_results( sim.data[ input_node_probe ], sim.data[ pre_probe ], sim.data[ post_probe ],
+                                  error=sim.data[ post_probe ] - function_to_learn( sim.data[ pre_probe ] ),
+                                  smooth=True,
+                                  mse=mse )
+            )
+    plots.append(
+            plotter.plot_ensemble_spikes( "Post", sim.data[ post_spikes_probe ], sim.data[ post_probe ] )
+            )
+    plots.append(
+            plotter.plot_weight_matrices_over_time( sim.data[ weight_probe ], sample_every=sample_every )
+            )
+    if n_neurons <= 10:
+        plots.append(
+                plotter.plot_weights_over_time( sim.data[ pos_memr_probe ], sim.data[ neg_memr_probe ] )
+                )
+        plots.append(
+                plotter.plot_values_over_time( 1 / sim.data[ pos_memr_probe ], 1 / sim.data[ neg_memr_probe ] )
+                )
+
+if save_plots or save_data:
+    dir_name, dir_images, dir_data = make_timestamped_dir( root=plots_directory + learning_rule + "/" )
 
 if save_plots:
-    def save_plots():
-        assert generate_plots
-        
-        dir_name, dir_images, dir_data = make_timestamped_dir( root=plots_directory + learning_rule + "/" )
-        
-        save_weights( dir_data, sim.data[ weight_probe ] )
-        print( f"Saved NumPy weights in {dir_data}" )
-        
-        save_results_to_csv( dir_data, sim.data[ input_node_probe ], sim.data[ pre_probe ], sim.data[ post_probe ],
-                             sim.data[ post_probe ] - function_to_learn( sim.data[ pre_probe ] ) )
-        save_memristors_to_csv( dir_data, sim.data[ pos_memr_probe ], sim.data[ neg_memr_probe ] )
-        print( f"Saved data in {dir_data}" )
-        
-        for i, fig in enumerate( plots ):
-            fig.savefig( dir_images + str( i ) + ".pdf" )
-            fig.savefig( dir_images + str( i ) + ".png" )
-        
-        print( f"Saved plots in {dir_images}" )
+    assert generate_plots
     
+    for i, fig in enumerate( plots ):
+        fig.savefig( dir_images + str( i ) + ".pdf" )
+        fig.savefig( dir_images + str( i ) + ".png" )
     
-    save_plots()
+    print( f"Saved plots in {dir_images}" )
+
+if save_data:
+    save_weights( dir_data, sim.data[ weight_probe ] )
+    print( f"Saved NumPy weights in {dir_data}" )
+    
+    save_results_to_csv( dir_data, sim.data[ input_node_probe ], sim.data[ pre_probe ], sim.data[ post_probe ],
+                         sim.data[ post_probe ] - function_to_learn( sim.data[ pre_probe ] ) )
+    save_memristors_to_csv( dir_data, sim.data[ pos_memr_probe ], sim.data[ neg_memr_probe ] )
+    print( f"Saved data in {dir_data}" )
+
+#     TODO save output txt with metrics
 
 if show_plots:
     def show_plots():
