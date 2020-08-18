@@ -235,3 +235,15 @@ def save_memristors_to_csv( dir, pos_memr, neg_memr ):
     np.savetxt( dir + "pos_resistances.csv", pos_memr, delimiter=",", header=header, comments="" )
     np.savetxt( dir + "neg_resistances.csv", neg_memr, delimiter=",", header=header, comments="" )
     np.savetxt( dir + "weights.csv", 1 / pos_memr - 1 / neg_memr, delimiter=",", header=header, comments="" )
+
+
+def save_results_to_csv( dir, input, pre, post, error ):
+    header = [ ]
+    header.append( ",".join( [ "input" + str( i ) for i in range( input.shape[ 1 ] ) ] ) )
+    header.append( ",".join( [ "pre" + str( i ) for i in range( pre.shape[ 1 ] ) ] ) )
+    header.append( ",".join( [ "post" + str( i ) for i in range( post.shape[ 1 ] ) ] ) )
+    header.append( ",".join( [ "error" + str( i ) for i in range( error.shape[ 1 ] ) ] ) )
+    header = ",".join( header )
+    
+    with open( dir + "results.csv", "w" ) as f:
+        np.savetxt( f, np.hstack( (input, pre, post, error) ), delimiter=",", header=header, comments="" )
