@@ -6,15 +6,6 @@ from nengo.utils.matplotlib import rasterplot
 import matplotlib.pyplot as plt
 
 
-def print_resource_usage( t ):
-    import os
-    import psutil
-    pid = os.getpid()
-    py = psutil.Process( pid )
-    memoryUse = py.memory_info()[ 0 ] / 2.**30
-    print( 'Memory usage:', memoryUse )
-
-
 class Plotter():
     def __init__( self, trange, rows, cols, dimensions, learning_time, plot_size=(12, 8), dpi=80, dt=0.001 ):
         self.time_vector = trange
@@ -229,3 +220,18 @@ def gini( array ):
 
 def save_weights( path, probe ):
     np.save( path + "weights.npy", probe[ -1 ].T )
+
+
+def save_memristors_to_csv( dir, pos_memr, neg_memr ):
+    pos_memr = pos_memr.reshape( (pos_memr.shape[ 0 ], -1) )
+    neg_memr = neg_memr.reshape( (neg_memr.shape[ 0 ], -1) )
+    
+    header = [ ]
+    for i in range( pos_memr.shape[ 1 ] ):
+        for j in range( pos_memr.shape[ 1 ] ):
+            header.append( f"{j}->{i}" )
+    header = ','.join( header )
+    
+    np.savetxt( dir + "pos_resistances.csv", pos_memr, delimiter=",", header=header, comments="" )
+    np.savetxt( dir + "neg_resistances.csv", neg_memr, delimiter=",", header=header, comments="" )
+    np.savetxt( dir + "weights.csv", 1 / pos_memr - 1 / neg_memr, delimiter=",", header=header, comments="" )

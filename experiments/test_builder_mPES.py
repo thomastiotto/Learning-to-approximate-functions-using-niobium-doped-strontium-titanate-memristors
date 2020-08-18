@@ -195,9 +195,14 @@ if save_plots:
         
         dir_name, dir_images = make_timestamped_dir( root=plots_directory + learning_rule + "/" )
         save_weights( dir_name, sim.data[ weight_probe ] )
+        save_memristors_to_csv( dir_name, sim.data[ pos_memr_probe ], sim.data[ neg_memr_probe ] )
         for i, fig in enumerate( plots ):
             fig.savefig( dir_images + str( i ) + ".pdf" )
             fig.savefig( dir_images + str( i ) + ".png" )
+        
+        save_memristors_to_csv( dir_name, sim.data[ pos_memr_probe ], sim.data[ neg_memr_probe ] )
+        
+        print( f"Saved plots in {dir_name}" )
     
     
     save_plots()
