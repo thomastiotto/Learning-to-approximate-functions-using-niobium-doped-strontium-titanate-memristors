@@ -249,3 +249,12 @@ def save_results_to_csv( dir, input, pre, post, error ):
     
     with open( dir + "results.csv", "w" ) as f:
         np.savetxt( f, np.hstack( (input, pre, post, error) ), delimiter=",", header=header, comments="" )
+
+
+def nested_dict( n, type ):
+    from collections import defaultdict
+    
+    if n == 1:
+        return defaultdict( type )
+    else:
+        return defaultdict( lambda: nested_dict( n - 1, type ) )

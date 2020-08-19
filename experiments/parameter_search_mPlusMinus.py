@@ -23,7 +23,7 @@ r_1_list = np.logspace( start_r_1, end_r_1, num=num_r_1 )
 a_list = np.linspace( start_a, end_a, num=num_a )
 total_iterations = num_a
 assert (end_r_0 < start_r_1)
-print( "Total iterations:", total_iterations )
+print( "Total averaging:", total_iterations )
 
 dims = [ "exponent" ]
 coords = dict.fromkeys( dims, 0 )

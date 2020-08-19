@@ -18,6 +18,7 @@ parser.add_argument( "-N", "--neurons", nargs="*", default=[ 10, 10, 10 ], type=
 parser.add_argument( "-d", "--dimensions", default=3, type=int )
 parser.add_argument( "-n", "--noise", default=0.15, type=float )
 parser.add_argument( "-l", "--learning_rule", default="mPES", choices=[ "mPES", "PES" ] )
+parser.add_argument( "-P", "--parameters", default=-0.146, type=float )
 parser.add_argument( "-b", "--backend", default="nengo_dl", choices=[ "nengo_dl", "nengo_core" ] )
 parser.add_argument( "-o", "--optimisations", default="run", choices=[ "run", "build", "memory" ] )
 parser.add_argument( "-s", "--seed", default=None, type=int )
@@ -30,6 +31,7 @@ if args.neurons is not None and len( args.neurons ) not in (0, 3):
     parser.error( 'Either give no values for action, or three, not {}.'.format( len( args.neurons ) ) )
 
 # TODO read parameters from conf file https://docs.python.org/3/library/configparser.html
+# TODO default/empty parameters for learning rule
 function_to_learn = eval( args.function )
 timestep = args.timestep
 sim_time = args.simulation_time
@@ -38,6 +40,7 @@ post_n_neurons = args.neurons[ 1 ]
 error_n_neurons = args.neurons[ 2 ]
 dimensions = args.dimensions
 noise_percent = args.noise
+exponent = args.parameters
 learning_rule = args.learning_rule
 backend = args.backend
 optimisations = args.optimisations
@@ -46,11 +49,17 @@ generate_plots = show_plots = save_plots = save_data = False
 if args.plot >= 1:
     generate_plots = True
     show_plots = True
-    if args.plot >= 2:
-        save_plots = True
-        if args.plot >= 3:
-            save_data = True
-verboseprint = print if args.verbosity >= 1 else lambda *a, **k: None
+elif args.plot >= 2:
+    save_plots = True
+elif args.plot >= 3:
+    save_data = True
+progress_bar = False
+printlv1 = printlv2 = lambda *a, **k: None
+if args.verbosity >= 1:
+    printlv1 = print
+elif args.verbosity >= 2:
+    printlv2 = print
+    progress_bar = True
 plots_directory = args.plots_directory
 
 learn_time = int( sim_time * 3 / 4 )
@@ -67,7 +76,7 @@ elif optimisations == "memory":
     optimize = False
     sample_every = timestep * 100
     simulation_discretisation = n_neurons
-verboseprint( f"Using {optimisations} optimisation" )
+printlv2( f"Using {optimisations} optimisation" )
 
 model = nengo.Network( seed=seed )
 with model:
@@ -102,10 +111,11 @@ with model:
     if learning_rule == "mPES":
         conn.learning_rule_type = mPES(
                 noisy=noise_percent,
-                seed=seed )
+                seed=seed,
+                exponent=exponent )
     if learning_rule == "PES":
         conn.learning_rule_type = PES()
-    verboseprint( "Simulating with", conn.learning_rule_type )
+    printlv2( "Simulating with", conn.learning_rule_type )
     
     # Provide an error signal to the learning rule
     nengo.Connection( error, conn.learning_rule )
@@ -136,29 +146,29 @@ with model:
         neg_memr_probe = nengo.Probe( conn.learning_rule, "neg_memristors", synapse=None, sample_every=sample_every )
 
 # Create the simulator
-verboseprint( f"Backend is {backend}" )
+printlv2( f"Backend is {backend}" )
 if backend == "nengo_core":
-    cm = nengo.Simulator( model, seed=seed, dt=timestep, optimize=optimize )
+    cm = nengo.Simulator( model, seed=seed, dt=timestep, optimize=optimize, progress_bar=progress_bar )
 if backend == "nengo_dl":
-    cm = nengo_dl.Simulator( model, seed=seed, dt=timestep )
+    cm = nengo_dl.Simulator( model, seed=seed, dt=timestep, progress_bar=progress_bar )
 start_time = time.time()
 with cm as sim:
     for i in range( simulation_discretisation ):
-        verboseprint( f"\nRunning discretised step {i + 1} of {simulation_discretisation}" )
+        printlv2( f"\nRunning discretised step {i + 1} of {simulation_discretisation}" )
         sim.run( sim_time / simulation_discretisation )
-verboseprint( f"\nTotal time for simulation: {time.strftime( '%H:%M:%S', time.gmtime( time.time() - start_time ) )} s" )
+printlv2( f"\nTotal time for simulation: {time.strftime( '%H:%M:%S', time.gmtime( time.time() - start_time ) )} s" )
 
-verboseprint( "Weights average after learning:" )
-verboseprint( np.average( sim.data[ weight_probe ][ -1, ... ] ) )
-verboseprint( "Weights sparsity at t=0 and after learning:" )
-verboseprint( gini( sim.data[ weight_probe ][ 0 ] ), end=" -> " )
-verboseprint( gini( sim.data[ weight_probe ][ -1 ] ) )
-verboseprint( "MSE after learning [f(pre) vs. post]:" )
+printlv2( "Weights average after learning:" )
+printlv1( np.average( sim.data[ weight_probe ][ -1, ... ] ) )
+printlv2( "Weights sparsity at t=0 and after learning:" )
+printlv1( gini( sim.data[ weight_probe ][ 0 ] ), end=" -> " )
+printlv1( gini( sim.data[ weight_probe ][ -1 ] ) )
+printlv2( "MSE after learning [f(pre) vs. post]:" )
 mse = mean_squared_error(
         function_to_learn( sim.data[ pre_probe ][ int( (learn_time / sim.dt) / (sample_every / timestep) ):, ... ] ),
         sim.data[ post_probe ][ int( (learn_time / sim.dt) / (sample_every / timestep) ):, ... ]
         )
-verboseprint( mse )
+printlv1( mse )
 
 plots = [ ]
 if generate_plots:

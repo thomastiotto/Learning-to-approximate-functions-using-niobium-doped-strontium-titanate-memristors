@@ -15,7 +15,7 @@ num_c = 100
 a_list = np.linspace( start_a, end_a, num=num_a )
 c_list = np.linspace( start_c, end_c, num=num_c )
 total_iterations = num_a * num_c
-print( "Total iterations:", total_iterations )
+print( "Total averaging:", total_iterations )
 
 dims = [ "exponent", "c" ]
 coords = dict.fromkeys( dims, 0 )
