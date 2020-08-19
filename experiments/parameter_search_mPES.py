@@ -8,8 +8,8 @@ from memristor_nengo.extras import *
 # parameters to search
 start_c = -0.0001
 end_c = -1
-num_c = 5
-num_averaging = 1
+num_c = 100
+num_averaging = 5
 
 c_list = np.linspace( start_c, end_c, num=num_c )
 num_parameters = len( c_list )
@@ -23,9 +23,13 @@ for k, c in enumerate( c_list ):
     it_res = [ ]
     for avg in range( num_averaging ):
         print( f"Averaging #{avg}" )
-        result = run( [ "python", "mPES.py", "-v", "-P", str( c ) ], capture_output=True, universal_newlines=True )
+        result = run( [ "python", "mPES.py", "-v", "-d", "1", "-P", str( c ) ],
+                      capture_output=True,
+                      universal_newlines=True )
         # save MSE
-        it_res.append( float( result.stdout.split()[ 4 ] ) )
+        mse = float( result.stdout.split()[ 4 ] )
+        print( mse )
+        it_res.append( mse )
     exponents.append( it_res )
     # print( "Ret", result.returncode )
     # print( "Out", result.stdout )

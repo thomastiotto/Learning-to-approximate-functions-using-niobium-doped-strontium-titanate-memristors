@@ -49,15 +49,15 @@ generate_plots = show_plots = save_plots = save_data = False
 if args.plot >= 1:
     generate_plots = True
     show_plots = True
-elif args.plot >= 2:
+if args.plot >= 2:
     save_plots = True
-elif args.plot >= 3:
+if args.plot >= 3:
     save_data = True
 progress_bar = False
 printlv1 = printlv2 = lambda *a, **k: None
 if args.verbosity >= 1:
     printlv1 = print
-elif args.verbosity >= 2:
+if args.verbosity >= 2:
     printlv2 = print
     progress_bar = True
 plots_directory = args.plots_directory
@@ -91,12 +91,8 @@ with model:
     stop_learning = nengo.Node( output=lambda t: t >= learn_time )
     
     # Create the ensemble to represent the input, the learned output, and the error
-    pre = nengo.Ensemble( pre_n_neurons, dimensions=dimensions, seed=seed,
-                          # encoders=[ [ 1. ], [ -1. ], [ -1. ], [ -1. ] ]
-                          )
-    post = nengo.Ensemble( post_n_neurons, dimensions=dimensions, seed=seed,
-                           # encoders=[ [ 1. ], [ -1. ], [ -1. ], [ -1. ] ]
-                           )
+    pre = nengo.Ensemble( pre_n_neurons, dimensions=dimensions, seed=seed )
+    post = nengo.Ensemble( post_n_neurons, dimensions=dimensions, seed=seed )
     error = nengo.Ensemble( error_n_neurons, dimensions=dimensions, radius=2, seed=seed )
     
     # Connect pre and post with a communication channel
