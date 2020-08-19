@@ -42,7 +42,7 @@ learning_rule = args.learning_rule
 backend = args.backend
 optimisations = args.optimisations
 seed = args.seed
-generate_plots = show_plots = save_plots = False
+generate_plots = show_plots = save_plots = save_data = False
 if args.plot >= 1:
     generate_plots = True
     show_plots = True
