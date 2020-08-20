@@ -8,6 +8,12 @@ from nengo.processes import WhiteSignal
 from nengo.learning_rules import PES
 from memristor_nengo.learning_rules import mPES
 from memristor_nengo.extras import *
+from nengo.params import Default
+
+import tensorflow as tf
+
+tf.compat.v1.disable_eager_execution()
+tf.compat.v1.disable_control_flow_v2()
 
 parser = argparse.ArgumentParser()
 parser.add_argument( "-f", "--function", default="lambda x: x" )
@@ -18,7 +24,7 @@ parser.add_argument( "-N", "--neurons", nargs="*", default=[ 10, 10, 10 ], type=
 parser.add_argument( "-d", "--dimensions", default=3, type=int )
 parser.add_argument( "-n", "--noise", default=0.15, type=float )
 parser.add_argument( "-l", "--learning_rule", default="mPES", choices=[ "mPES", "PES" ] )
-parser.add_argument( "-P", "--parameters", default=-0.146, type=float )
+parser.add_argument( "-P", "--parameters", default=Default, type=float )
 parser.add_argument( "-b", "--backend", default="nengo_dl", choices=[ "nengo_dl", "nengo_core" ] )
 parser.add_argument( "-o", "--optimisations", default="run", choices=[ "run", "build", "memory" ] )
 parser.add_argument( "-s", "--seed", default=None, type=int )
