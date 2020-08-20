@@ -9,8 +9,8 @@ from memristor_nengo.extras import *
 # parameters to search
 start_c = -0.0001
 end_c = -1
-num_c = 4
-num_averaging = 1
+num_c = 2
+num_averaging = 2
 
 c_list = np.linspace( start_c, end_c, num=num_c )
 num_parameters = len( c_list )

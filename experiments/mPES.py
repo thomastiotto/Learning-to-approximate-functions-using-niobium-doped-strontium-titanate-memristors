@@ -31,6 +31,7 @@ parser.add_argument( "-s", "--seed", default=None, type=int )
 parser.add_argument( "-p", "--plot", action="count", default=0 )
 parser.add_argument( "-v", "--verbosity", action="count", default=0 )
 parser.add_argument( "-pd", "--plots_directory", default="../data/" )
+parser.add_argument( "-D", "--device", default="/cpu:0" )
 
 args = parser.parse_args()
 if args.neurons is not None and len( args.neurons ) not in (0, 3):
@@ -67,6 +68,7 @@ if args.verbosity >= 2:
     printlv2 = print
     progress_bar = True
 plots_directory = args.plots_directory
+device = args.device
 
 learn_time = int( sim_time * 3 / 4 )
 n_neurons = np.amax( [ pre_n_neurons, post_n_neurons ] )
@@ -152,7 +154,7 @@ printlv2( f"Backend is {backend}" )
 if backend == "nengo_core":
     cm = nengo.Simulator( model, seed=seed, dt=timestep, optimize=optimize, progress_bar=progress_bar )
 if backend == "nengo_dl":
-    cm = nengo_dl.Simulator( model, seed=seed, dt=timestep, progress_bar=progress_bar )
+    cm = nengo_dl.Simulator( model, seed=seed, dt=timestep, progress_bar=progress_bar, device=device )
 start_time = time.time()
 with cm as sim:
     for i in range( simulation_discretisation ):
