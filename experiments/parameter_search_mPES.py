@@ -57,8 +57,8 @@ dir_name, dir_images, dir_data = make_timestamped_dir( root=directory + "paramet
 
 mse_means = np.mean( mse_list, axis=1 )
 plt.plot( res_list, mse_means, label="MSE" )
-exp_means_smooth = np.convolve( mse_means, np.ones( (mse_means.size,) ) / mse_means.size, mode="same" )
-plt.plot( res_list, exp_means_smooth, label="MSE average" )
+mse_means_smooth = np.convolve( mse_means, np.ones( (mse_means.size,) ) / mse_means.size, mode="same" )
+plt.plot( res_list, mse_means_smooth, label="MSE average" )
 
 plt.legend()
 plt.savefig( dir_images + "result" + ".pdf" )
@@ -67,3 +67,6 @@ plt.show()
 
 pickle.dump( res_list, open( dir_data + str( parameter ) + ".pkl", "wb" ) )
 pickle.dump( mse_list, open( dir_data + "mse" + ".pkl", "wb" ) )
+np.savetxt( dir_data + "results.csv",
+            np.stack( (res_list, mse_means, mse_means_smooth), axis=1 ),
+            delimiter=",", header=parameter + ",MSE,MSE smooth", comments="" )
