@@ -24,7 +24,7 @@ directory = args.directory
 
 res_list = np.linspace( start_par, end_par, num=num_par )
 num_parameters = len( res_list )
-print( "Evaluation for ", parameter )
+print( "Evaluation for", parameter )
 print( f"Search limits of parameters: [{start_par},{end_par}]" )
 print( "Number of parameters:", num_parameters )
 print( "Averaging per parameter", num_averaging )
@@ -53,7 +53,7 @@ for k, c in enumerate( res_list ):
         it_res.append( mse )
     mse_list.append( it_res )
 
-dir_name, dir_images, dir_data = make_timestamped_dir( root=directory + "parameter_search/" )
+dir_name, dir_images, dir_data = make_timestamped_dir( root=directory + "parameter_search/" + str( parameter ) + "/" )
 
 mse_means = np.mean( mse_list, axis=1 )
 plt.plot( res_list, mse_means, label="MSE" )
@@ -65,5 +65,5 @@ plt.savefig( dir_images + "result" + ".pdf" )
 plt.savefig( dir_images + "result" + ".png" )
 plt.show()
 
-pickle.dump( res_list, open( dir_data + "exponents" + ".pkl", "wb" ) )
+pickle.dump( res_list, open( dir_data + str( parameter ) + ".pkl", "wb" ) )
 pickle.dump( mse_list, open( dir_data + "mse" + ".pkl", "wb" ) )
