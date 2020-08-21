@@ -225,12 +225,15 @@ def save_weights( path, probe ):
 
 
 def save_memristors_to_csv( dir, pos_memr, neg_memr ):
+    num_post = pos_memr.shape[ 0 ]
+    num_pre = pos_memr.shape[ 1 ]
+    
     pos_memr = pos_memr.reshape( (pos_memr.shape[ 0 ], -1) )
     neg_memr = neg_memr.reshape( (neg_memr.shape[ 0 ], -1) )
     
     header = [ ]
-    for i in range( pos_memr.shape[ 1 ] ):
-        for j in range( pos_memr.shape[ 1 ] ):
+    for i in range( num_post ):
+        for j in range( num_pre ):
             header.append( f"{j}->{i}" )
     header = ','.join( header )
     
