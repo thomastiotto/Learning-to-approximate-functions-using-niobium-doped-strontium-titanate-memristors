@@ -8,7 +8,7 @@ import argparse
 from memristor_nengo.extras import *
 
 parser = argparse.ArgumentParser()
-parser.add_argument( "-p", "--parameter", choices=[ "exponent", "noise" ], required=True )
+parser.add_argument( "-p", "--parameter", choices=[ "exponent", "noise", "neurons" ], required=True )
 parser.add_argument( "-l", "--limits", nargs=2, type=float, required=True )
 parser.add_argument( "-n", "--number", type=int, required=True )
 parser.add_argument( "-a", "--averaging", type=int, required=True )
@@ -31,17 +31,21 @@ print( "Averaging per parameter", num_averaging )
 print( "Total iterations", num_parameters * num_averaging )
 
 mse_list = [ ]
-for k, c in enumerate( res_list ):
-    print( f"Parameter #{k} ({c})" )
+for k, par in enumerate( res_list ):
+    print( f"Parameter #{k} ({par})" )
     it_res = [ ]
     for avg in range( num_averaging ):
         print( f"Averaging #{avg}" )
         if parameter == "exponent":
-            result = run( [ "python", "mPES.py", "-v", "-d", "1", "-P", str( c ) ],
+            result = run( [ "python", "mPES.py", "-v", "-d", "1", "-P", str( par ) ],
                           capture_output=True,
                           universal_newlines=True )
         if parameter == "noise":
-            result = run( [ "python", "mPES.py", "-v", "-d", "1", "-n", str( c ) ],
+            result = run( [ "python", "mPES.py", "-v", "-d", "1", "-n", str( par ) ],
+                          capture_output=True,
+                          universal_newlines=True )
+        if parameter == "neurons":
+            result = run( [ "python", "mPES.py", "-v", "-d", "1", "-N", str( par ) ],
                           capture_output=True,
                           universal_newlines=True )
         # print( "Ret", result.returncode )
@@ -63,10 +67,10 @@ plt.plot( res_list, mse_means_smooth, label="MSE average" )
 plt.legend()
 plt.savefig( dir_images + "result" + ".pdf" )
 plt.savefig( dir_images + "result" + ".png" )
-plt.show()
+# plt.show()
 
-pickle.dump( res_list, open( dir_data + str( parameter ) + ".pkl", "wb" ) )
-pickle.dump( mse_list, open( dir_data + "mse" + ".pkl", "wb" ) )
+# pickle.dump( res_list, open( dir_data + str( parameter ) + ".pkl", "wb" ) )
+# pickle.dump( mse_list, open( dir_data + "mse" + ".pkl", "wb" ) )
 np.savetxt( dir_data + "results.csv",
             np.stack( (res_list, mse_means, mse_means_smooth), axis=1 ),
             delimiter=",", header=parameter + ",MSE,MSE smooth", comments="" )
