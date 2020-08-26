@@ -45,7 +45,9 @@ for k, par in enumerate( res_list ):
                           capture_output=True,
                           universal_newlines=True )
         if parameter == "neurons":
-            result = run( [ "python", "mPES.py", "-v", "-d", "1", "-N", str( par ) ],
+            rounded_neurons = str( np.rint( par ).astype( int ) )
+            result = run( [ "python", "mPES.py", "-v", "-d", "100",
+                            "-N", rounded_neurons, rounded_neurons, rounded_neurons ],
                           capture_output=True,
                           universal_newlines=True )
         # print( "Ret", result.returncode )
