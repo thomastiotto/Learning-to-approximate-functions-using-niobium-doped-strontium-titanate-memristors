@@ -20,7 +20,7 @@ parser.add_argument( "-f", "--function", default="lambda x: x" )
 parser.add_argument( "-O", "--output", default="generate_sines( dimensions )" )
 parser.add_argument( "-t", "--timestep", default=0.001, type=int )
 parser.add_argument( "-S", "--simulation_time", default=30, type=int )
-parser.add_argument( "-N", "--neurons", nargs="*", default=[ 10, 10, 10 ], type=int )
+parser.add_argument( "-N", "--neurons", nargs="*", action="store", type=int )
 parser.add_argument( "-d", "--dimensions", default=3, type=int )
 parser.add_argument( "-n", "--noise", default=0.15, type=float )
 parser.add_argument( "-l", "--learning_rule", default="mPES", choices=[ "mPES", "PES" ] )
@@ -34,17 +34,18 @@ parser.add_argument( "-pd", "--plots_directory", default="../data/" )
 parser.add_argument( "-D", "--device", default="/cpu:0" )
 
 args = parser.parse_args()
-if args.neurons is not None and len( args.neurons ) not in (0, 3):
-    parser.error( 'Either give no values for action, or three, not {}.'.format( len( args.neurons ) ) )
-
 # TODO read parameters from conf file https://docs.python.org/3/library/configparser.html
-# TODO default/empty parameters for learning rule
 function_to_learn = eval( args.function )
 timestep = args.timestep
 sim_time = args.simulation_time
-pre_n_neurons = args.neurons[ 0 ]
-post_n_neurons = args.neurons[ 1 ]
-error_n_neurons = args.neurons[ 2 ]
+if args.neurons is not None and len( args.neurons ) not in (1, 3):
+    parser.error( 'Either give no values for action, or three, not {}.'.format( len( args.neurons ) ) )
+if len( args.neurons ) == 1:
+    pre_n_neurons = post_n_neurons = error_n_neurons = args.neurons[ 0 ]
+if len( args.neurons ) == 3:
+    pre_n_neurons = args.neurons[ 0 ]
+    post_n_neurons = args.neurons[ 1 ]
+    error_n_neurons = args.neurons[ 2 ]
 dimensions = args.dimensions
 noise_percent = args.noise
 exponent = args.parameters
