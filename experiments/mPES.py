@@ -39,9 +39,11 @@ timestep = args.timestep
 sim_time = args.simulation_time
 if args.neurons is not None and len( args.neurons ) not in (1, 3):
     parser.error( 'Either give no values for action, or three, not {}.'.format( len( args.neurons ) ) )
-if len( args.neurons ) == 1:
+if args.neurons is None:
+    pre_n_neurons = post_n_neurons = error_n_neurons = 10
+elif len( args.neurons ) == 1:
     pre_n_neurons = post_n_neurons = error_n_neurons = args.neurons[ 0 ]
-if len( args.neurons ) == 3:
+elif len( args.neurons ) == 3:
     pre_n_neurons = args.neurons[ 0 ]
     post_n_neurons = args.neurons[ 1 ]
     error_n_neurons = args.neurons[ 2 ]
