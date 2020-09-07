@@ -15,7 +15,7 @@ tf.compat.v1.disable_eager_execution()
 tf.compat.v1.disable_control_flow_v2()
 
 parser = argparse.ArgumentParser()
-parser.add_argument( "-f", "--function", default="lambda x: x" )
+parser.add_argument( "-f", "--function", default="x" )
 parser.add_argument( "-O", "--output", default="generate_sines( dimensions )" )
 parser.add_argument( "-t", "--timestep", default=0.001, type=int )
 parser.add_argument( "-S", "--simulation_time", default=30, type=int )
@@ -34,7 +34,8 @@ parser.add_argument( "-D", "--device", default="/cpu:0" )
 
 args = parser.parse_args()
 # TODO read parameters from conf file https://docs.python.org/3/library/configparser.html
-function_to_learn = eval( args.function )
+function_string = "lambda x: " + args.function
+function_to_learn = eval( function_string )
 timestep = args.timestep
 sim_time = args.simulation_time
 if args.neurons is not None and len( args.neurons ) not in (1, 3):

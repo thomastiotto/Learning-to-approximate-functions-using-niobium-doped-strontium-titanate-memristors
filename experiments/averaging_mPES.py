@@ -5,13 +5,15 @@ from memristor_nengo.extras import *
 
 parser = argparse.ArgumentParser()
 parser.add_argument( "-a", "--averaging", type=int, required=True )
-parser.add_argument( "-N", "--neurons", type=int, required=True )
-parser.add_argument( "-D", "--dimensions", type=int, required=True )
+parser.add_argument( "-f", "--function", default="x" )
+parser.add_argument( "-N", "--neurons", type=int, default=10 )
+parser.add_argument( "-D", "--dimensions", type=int, default=3 )
 parser.add_argument( "-l", "--learning_rule", choices=[ "mPES", "PES" ], required=True )
 parser.add_argument( "-d", "--directory", default="../data/" )
 args = parser.parse_args()
 
 learning_rule = args.learning_rule
+function = args.function
 neurons = args.neurons
 dimensions = args.dimensions
 num_averaging = args.averaging
@@ -25,7 +27,8 @@ mse_res = [ ]
 for avg in range( num_averaging ):
     print( f"Averaging #{avg}" )
     result = run(
-            [ "python", "mPES.py", "-v", "-d", str( dimensions ), "-l", str( learning_rule ), "-N", str( neurons ) ],
+            [ "python", "mPES.py", "-v", "-d", str( dimensions ), "-l", str( learning_rule ), "-N", str( neurons ),
+              "-f", str( function ) ],
             capture_output=True,
             universal_newlines=True )
     # print( "Ret", result.returncode )
@@ -46,7 +49,7 @@ plt.annotate( str( mse_means ), xy=(0, mse_means) )
 plt.legend()
 plt.savefig( dir_images + "result" + ".pdf" )
 plt.savefig( dir_images + "result" + ".png" )
-plt.show()
+# plt.show()
 
 # pickle.dump( res_list, open( dir_data + str( parameter ) + ".pkl", "wb" ) )
 # pickle.dump( mse_list, open( dir_data + "mse" + ".pkl", "wb" ) )
