@@ -1,13 +1,13 @@
 import datetime
 import os
 
+import matplotlib.pyplot as plt
 import numpy as np
 from nengo.utils.matplotlib import rasterplot
-import matplotlib.pyplot as plt
 
 
 class Plotter():
-    def __init__( self, trange, rows, cols, dimensions, learning_time, plot_size=(12, 8), dpi=80, dt=0.001 ):
+    def __init__( self, trange, rows, cols, dimensions, learning_time, sampling, plot_size=(12, 8), dpi=80, dt=0.001 ):
         self.time_vector = trange
         self.plot_sizes = plot_size
         self.dpi = dpi
@@ -15,7 +15,50 @@ class Plotter():
         self.n_cols = cols
         self.n_dims = dimensions
         self.learning_time = learning_time
+        self.sampling = sampling
         self.dt = dt
+    
+    def plot_testing( self, pre, post, smooth=False, mse=None ):
+        fig, axes = plt.subplots( 1, 1, sharex=True, sharey=True, squeeze=False )
+        fig.set_size_inches( self.plot_sizes )
+        
+        learning_time = int( (self.learning_time / self.dt) / (self.sampling / self.dt) )
+        time = self.time_vector[ learning_time:, ... ]
+        pre = pre[ learning_time:, ... ]
+        post = post[ learning_time:, ... ]
+        
+        if smooth:
+            from scipy.signal import savgol_filter
+            
+            pre = np.apply_along_axis( savgol_filter, 0, pre, window_length=51, polyorder=3 )
+            post = np.apply_along_axis( savgol_filter, 0, post, window_length=51, polyorder=3 )
+        
+        axes[ 0, 0 ].plot(
+                time,
+                pre,
+                linestyle=":",
+                label='Pre' )
+        axes[ 0, 0 ].set_prop_cycle( None )
+        axes[ 0, 0 ].plot(
+                time,
+                post,
+                label='Post' )
+        if self.n_dims <= 3:
+            axes[ 0, 0 ].legend(
+                    [ f"Pre dim {i}" for i in range( self.n_dims ) ] +
+                    [ f"Post dim {i}" for i in range( self.n_dims ) ],
+                    loc='best' )
+        axes[ 0, 0 ].set_title( "Pre and post decoded", fontsize=16 )
+        
+        if mse is not None:
+            axes[ 0, 0 ].text( 0.85, 0.2, f"MSE: {np.round( mse, 5 )}",
+                               horizontalalignment='center',
+                               verticalalignment='center',
+                               transform=axes[ 0, 0 ].transAxes )
+        
+        plt.tight_layout()
+        
+        return fig
     
     def plot_results( self, input, pre, post, error, smooth=False, mse=None ):
         fig, axes = plt.subplots( 3, 1, sharex=True, sharey=True, squeeze=False )

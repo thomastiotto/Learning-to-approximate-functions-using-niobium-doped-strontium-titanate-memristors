@@ -1,16 +1,15 @@
+import argparse
+import time
+
 import nengo
 import nengo_dl
-from sklearn.metrics import mean_squared_error
-import time
-import argparse
-
-from nengo.processes import WhiteSignal
-from nengo.learning_rules import PES
-from memristor_nengo.learning_rules import mPES
-from memristor_nengo.extras import *
-from nengo.params import Default
-
 import tensorflow as tf
+from nengo.learning_rules import PES
+from nengo.params import Default
+from sklearn.metrics import mean_squared_error
+
+from memristor_nengo.extras import *
+from memristor_nengo.learning_rules import mPES
 
 tf.compat.v1.disable_eager_execution()
 tf.compat.v1.disable_control_flow_v2()
@@ -170,8 +169,8 @@ printlv1( gini( sim.data[ weight_probe ][ 0 ] ), end=" -> " )
 printlv1( gini( sim.data[ weight_probe ][ -1 ] ) )
 printlv2( "MSE after learning [f(pre) vs. post]:" )
 mse = mean_squared_error(
-        function_to_learn( sim.data[ pre_probe ][ int( (learn_time / sim.dt) / (sample_every / timestep) ):, ... ] ),
-        sim.data[ post_probe ][ int( (learn_time / sim.dt) / (sample_every / timestep) ):, ... ]
+        function_to_learn( sim.data[ pre_probe ][ int( (learn_time / timestep) / (sample_every / timestep) ):, ... ] ),
+        sim.data[ post_probe ][ int( (learn_time / timestep) / (sample_every / timestep) ):, ... ]
         )
 printlv1( mse )
 
@@ -179,6 +178,7 @@ plots = [ ]
 if generate_plots:
     plotter = Plotter( sim.trange( sample_every=sample_every ), post_n_neurons, pre_n_neurons, dimensions,
                        learn_time,
+                       sample_every,
                        plot_size=(13, 7),
                        dpi=300 )
     
@@ -189,10 +189,24 @@ if generate_plots:
                                   mse=mse )
             )
     plots.append(
+            plotter.plot_results( sim.data[ input_node_probe ], sim.data[ pre_probe ], sim.data[ post_probe ],
+                                  error=sim.data[ post_probe ] - function_to_learn( sim.data[ pre_probe ] ),
+                                  smooth=False,
+                                  mse=mse )
+            )
+    plots.append(
             plotter.plot_ensemble_spikes( "Post", sim.data[ post_spikes_probe ], sim.data[ post_probe ] )
             )
     plots.append(
             plotter.plot_weight_matrices_over_time( sim.data[ weight_probe ], sample_every=sample_every )
+            )
+    plots.append(
+            plotter.plot_testing( sim.data[ pre_probe ], sim.data[ post_probe ],
+                                  smooth=True )
+            )
+    plots.append(
+            plotter.plot_testing( sim.data[ pre_probe ], sim.data[ post_probe ],
+                                  smooth=False )
             )
     if n_neurons <= 10:
         plots.append(
