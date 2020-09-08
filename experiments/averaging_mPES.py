@@ -20,8 +20,7 @@ num_averaging = args.averaging
 directory = args.directory
 
 print( "Evaluation for", learning_rule )
-print( "Averaging per rule", num_averaging )
-print( "Total iterations", num_averaging )
+print( "Averaging runs", num_averaging )
 
 mse_res = [ ]
 for avg in range( num_averaging ):
@@ -39,7 +38,9 @@ for avg in range( num_averaging ):
     print( mse )
     mse_res.append( mse )
 
-dir_name, dir_images, dir_data = make_timestamped_dir( root=directory + "averaging/" + str( learning_rule ) + "/" )
+os.makedirs( os.path.dirname( directory + "averaging/" + function + "/" + str( learning_rule ) + "/" ), exist_ok=True )
+dir_name, dir_images, dir_data = make_timestamped_dir(
+        root=directory + "averaging/" + function + "/" + str( learning_rule ) + "/" )
 
 mse_means = np.mean( mse_res )
 plt.plot( range( num_averaging ), mse_res, label="MSE" )
@@ -51,14 +52,14 @@ plt.savefig( dir_images + "result" + ".pdf" )
 plt.savefig( dir_images + "result" + ".png" )
 # plt.show()
 
-# pickle.dump( res_list, open( dir_data + str( parameter ) + ".pkl", "wb" ) )
-# pickle.dump( mse_list, open( dir_data + "mse" + ".pkl", "wb" ) )
+os.makedirs( os.path.dirname( dir_data + "results.csv" ), exist_ok=True )
+os.makedirs( os.path.dirname( dir_data + "parameters.txt" ), exist_ok=True )
 np.savetxt( dir_data + "results.csv",
             mse_res,
-            delimiter=",", header="sMSE", comments="" )
+            delimiter=",", header="MSE", comments="" )
 with open( dir_data + "parameters.txt", "w" ) as f:
-    f.write( f"Learning rule:{learning_rule}\n" )
-    f.write( f"Function:{function}\n" )
-    f.write( f"Neurons:{neurons}\n" )
-    f.write( f"Dimensions:{dimensions}\n" )
-    f.write( f"Number of runs for averaging:{num_averaging}\n" )
+    f.write( f"Learning rule: {learning_rule}\n" )
+    f.write( f"Function: {function}\n" )
+    f.write( f"Neurons: {neurons}\n" )
+    f.write( f"Dimensions: {dimensions}\n" )
+    f.write( f"Number of runs for averaging: {num_averaging}\n" )
