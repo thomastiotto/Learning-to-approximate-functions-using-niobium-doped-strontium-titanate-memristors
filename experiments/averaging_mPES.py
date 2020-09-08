@@ -55,4 +55,10 @@ plt.savefig( dir_images + "result" + ".png" )
 # pickle.dump( mse_list, open( dir_data + "mse" + ".pkl", "wb" ) )
 np.savetxt( dir_data + "results.csv",
             mse_res,
-            delimiter=",", header="MSE", comments="" )
+            delimiter=",", header="sMSE", comments="" )
+with open( dir_data + "parameters.txt", "w" ) as f:
+    f.write( f"Learning rule:{learning_rule}\n" )
+    f.write( f"Function:{function}\n" )
+    f.write( f"Neurons:{neurons}\n" )
+    f.write( f"Dimensions:{dimensions}\n" )
+    f.write( f"Number of runs for averaging:{num_averaging}\n" )
