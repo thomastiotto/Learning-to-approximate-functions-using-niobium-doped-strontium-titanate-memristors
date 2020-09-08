@@ -225,6 +225,8 @@ def make_timestamped_dir( root=None ):
     if root is None:
         root = "../data/"
     
+    os.makedirs( os.path.dirname( root ), exist_ok=True )
+    
     time_string = datetime.datetime.now().strftime( "%d-%m-%Y_%H-%M" )
     dir_name = root + time_string + "/"
     if os.path.isdir( dir_name ):

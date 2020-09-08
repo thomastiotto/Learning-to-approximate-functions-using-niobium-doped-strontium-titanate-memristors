@@ -6,6 +6,7 @@ import nengo_dl
 import tensorflow as tf
 from nengo.learning_rules import PES
 from nengo.params import Default
+from nengo.processes import WhiteSignal
 from sklearn.metrics import mean_squared_error
 
 from memristor_nengo.extras import *
@@ -16,7 +17,7 @@ tf.compat.v1.disable_control_flow_v2()
 
 parser = argparse.ArgumentParser()
 parser.add_argument( "-f", "--function", default="x" )
-parser.add_argument( "-O", "--output", default="generate_sines( dimensions )" )
+parser.add_argument( "-i", "--input", default="sine", choices=[ "sine", "white" ] )
 parser.add_argument( "-t", "--timestep", default=0.001, type=int )
 parser.add_argument( "-S", "--simulation_time", default=30, type=int )
 parser.add_argument( "-N", "--neurons", nargs="*", action="store", type=int )
@@ -49,12 +50,16 @@ elif len( args.neurons ) == 3:
     post_n_neurons = args.neurons[ 1 ]
     error_n_neurons = args.neurons[ 2 ]
 dimensions = args.dimensions
+seed = args.seed
+if args.input == "sine":
+    input_function = generate_sines( dimensions )
+elif args.input == "white":
+    input_function = WhiteSignal( 60, high=5, seed=seed )
 noise_percent = args.noise
 exponent = args.parameters
 learning_rule = args.learning_rule
 backend = args.backend
 optimisations = args.optimisations
-seed = args.seed
 generate_plots = show_plots = save_plots = save_data = False
 if args.plot >= 1:
     generate_plots = True
@@ -93,8 +98,7 @@ model = nengo.Network( seed=seed )
 with model:
     # Create an input node
     input_node = nengo.Node(
-            output=eval( args.output ),
-            # output=WhiteSignal( 60, high=5, seed=seed ),
+            output=input_function,
             size_out=dimensions
             )
     

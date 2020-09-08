@@ -5,6 +5,7 @@ from memristor_nengo.extras import *
 
 parser = argparse.ArgumentParser()
 parser.add_argument( "-a", "--averaging", type=int, required=True )
+parser.add_argument( "-i", "--input", choices=[ "sine", "white" ], required=True )
 parser.add_argument( "-f", "--function", default="x" )
 parser.add_argument( "-N", "--neurons", type=int, default=10 )
 parser.add_argument( "-D", "--dimensions", type=int, default=3 )
@@ -14,6 +15,7 @@ args = parser.parse_args()
 
 learning_rule = args.learning_rule
 function = args.function
+input = args.input
 neurons = args.neurons
 dimensions = args.dimensions
 num_averaging = args.averaging
@@ -27,7 +29,7 @@ for avg in range( num_averaging ):
     print( f"Averaging #{avg}" )
     result = run(
             [ "python", "mPES.py", "-v", "-d", str( dimensions ), "-l", str( learning_rule ), "-N", str( neurons ),
-              "-f", str( function ) ],
+              "-f", str( function ), "-i", str( input ) ],
             capture_output=True,
             universal_newlines=True )
     # print( "Ret", result.returncode )
@@ -38,7 +40,6 @@ for avg in range( num_averaging ):
     print( mse )
     mse_res.append( mse )
 
-os.makedirs( os.path.dirname( directory + "averaging/" + function + "/" + str( learning_rule ) + "/" ), exist_ok=True )
 dir_name, dir_images, dir_data = make_timestamped_dir(
         root=directory + "averaging/" + function + "/" + str( learning_rule ) + "/" )
 
@@ -52,8 +53,6 @@ plt.savefig( dir_images + "result" + ".pdf" )
 plt.savefig( dir_images + "result" + ".png" )
 # plt.show()
 
-os.makedirs( os.path.dirname( dir_data + "results.csv" ), exist_ok=True )
-os.makedirs( os.path.dirname( dir_data + "parameters.txt" ), exist_ok=True )
 np.savetxt( dir_data + "results.csv",
             mse_res,
             delimiter=",", header="MSE", comments="" )
