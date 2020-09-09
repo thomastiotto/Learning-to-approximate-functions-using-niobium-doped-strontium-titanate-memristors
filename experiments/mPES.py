@@ -30,9 +30,9 @@ parser.add_argument( "-o", "--optimisations", default="run", choices=[ "run", "b
 parser.add_argument( "-s", "--seed", default=None, type=int )
 parser.add_argument( "-p", "--plot", action="count", default=0 )
 parser.add_argument( "-v", "--verbosity", action="count", default=0 )
-parser.add_argument( "-pd", "--plots_directory", default="../data/" )
+parser.add_argument( "--plots_directory", default="../data/" )
 parser.add_argument( "-D", "--device", default="/cpu:0" )
-parser.add_argument( "-lt", "--learn_time", default=3 / 4, type=float )
+parser.add_argument( "--learn_time", default=3 / 4, type=float )
 
 args = parser.parse_args()
 # TODO read parameters from conf file https://docs.python.org/3/library/configparser.html
