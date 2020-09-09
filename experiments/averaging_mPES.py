@@ -46,6 +46,7 @@ dir_name, dir_images, dir_data = make_timestamped_dir(
         root=directory + "averaging/" + function + "/" + str( learning_rule ) + "/" )
 
 mse_means = np.mean( mse_res )
+print( mse_means )
 plt.plot( range( num_averaging ), mse_res, label="MSE" )
 plt.axhline( mse_means, color="r", label="MSE average" )
 plt.annotate( str( mse_means ), xy=(0, mse_means) )
