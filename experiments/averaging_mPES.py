@@ -11,6 +11,7 @@ parser.add_argument( "-N", "--neurons", type=int, default=10 )
 parser.add_argument( "-D", "--dimensions", type=int, default=3 )
 parser.add_argument( "-l", "--learning_rule", choices=[ "mPES", "PES" ], required=True )
 parser.add_argument( "-d", "--directory", default="../data/" )
+parser.add_argument( "-lt", "--learn_time", default=3 / 4, type=float )
 args = parser.parse_args()
 
 learning_rule = args.learning_rule
@@ -20,6 +21,7 @@ neurons = args.neurons
 dimensions = args.dimensions
 num_averaging = args.averaging
 directory = args.directory
+learn_time = args.learn_time
 
 print( "Evaluation for", learning_rule )
 print( "Averaging runs", num_averaging )
@@ -29,7 +31,7 @@ for avg in range( num_averaging ):
     print( f"Averaging #{avg}" )
     result = run(
             [ "python", "mPES.py", "-v", "-d", str( dimensions ), "-l", str( learning_rule ), "-N", str( neurons ),
-              "-f", str( function ), "-i", str( input ) ],
+              "-f", str( function ), "-i", str( input ), "-lt", str( learn_time ) ],
             capture_output=True,
             universal_newlines=True )
     # print( "Ret", result.returncode )
