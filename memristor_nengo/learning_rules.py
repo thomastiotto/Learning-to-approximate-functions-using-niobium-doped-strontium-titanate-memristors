@@ -1,12 +1,11 @@
 import warnings
-import numpy as np
 
+import numpy as np
+from nengo.builder import Operator
+from nengo.builder.learning_rules import build_or_passthrough, get_post_ens
+from nengo.learning_rules import LearningRuleType
 from nengo.params import Default, NumberParam
 from nengo.synapses import Lowpass, SynapseParam
-from nengo.learning_rules import LearningRuleType
-
-from nengo.builder.learning_rules import get_post_ens, build_or_passthrough
-from nengo.builder import Operator
 
 
 class mPES( LearningRuleType ):

@@ -32,6 +32,7 @@ parser.add_argument( "-p", "--plot", action="count", default=0 )
 parser.add_argument( "-v", "--verbosity", action="count", default=0 )
 parser.add_argument( "-pd", "--plots_directory", default="../data/" )
 parser.add_argument( "-D", "--device", default="/cpu:0" )
+parser.add_argument( "-lt", "--learn_time", default=3 / 4, type=float )
 
 args = parser.parse_args()
 # TODO read parameters from conf file https://docs.python.org/3/library/configparser.html
@@ -78,7 +79,7 @@ if args.verbosity >= 2:
 plots_directory = args.plots_directory
 device = args.device
 
-learn_time = int( sim_time * 3 / 4 )
+learn_time = int( sim_time * args.learn_time )
 n_neurons = np.amax( [ pre_n_neurons, post_n_neurons ] )
 if optimisations == "build":
     optimize = False
@@ -223,6 +224,7 @@ if generate_plots:
                 plotter.plot_values_over_time( 1 / sim.data[ pos_memr_probe ], 1 / sim.data[ neg_memr_probe ] )
                 )
 
+# TODO give better names to folders or make hierarchy
 if save_plots or save_data:
     dir_name, dir_images, dir_data = make_timestamped_dir( root=plots_directory + learning_rule + "/" )
 
@@ -231,7 +233,7 @@ if save_plots:
     
     for i, fig in enumerate( plots ):
         fig.savefig( dir_images + str( i ) + ".pdf" )
-        fig.savefig( dir_images + str( i ) + ".png" )
+        # fig.savefig( dir_images + str( i ) + ".png" )
     
     print( f"Saved plots in {dir_images}" )
 
