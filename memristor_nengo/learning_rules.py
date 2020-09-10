@@ -25,6 +25,7 @@ class mPES( LearningRuleType ):
                   r_min=Default,
                   exponent=Default,
                   noisy=False,
+                  gain=None,
                   seed=None ):
         super().__init__( learning_rate, size_in="post_state" )
         if learning_rate is not Default and learning_rate >= 1.0:
@@ -38,6 +39,7 @@ class mPES( LearningRuleType ):
         self.r_min = r_min
         self.exponent = exponent
         self.noise_percentage = 0 if not noisy else noisy
+        self.gain = gain
         
         np.random.seed( seed )
         tf.random.set_seed( seed )
@@ -66,6 +68,7 @@ class SimmPES( Operator ):
             neg_memristors,
             weights,
             noise_percentage,
+            gain,
             r_max,
             r_min,
             exponent,
@@ -78,7 +81,7 @@ class SimmPES( Operator ):
         self.post_n_neurons = weights.shape[ 0 ]
         self.learning_rate = learning_rate
         self.noise_percentage = noise_percentage
-        self.gain = 1e6 / self.pre_n_neurons
+        self.gain = 1e6 / self.pre_n_neurons if not gain else gain
         self.error_threshold = 1e-5
         self.r_max = r_max
         self.r_min = r_min
@@ -264,6 +267,7 @@ def build_mpes( model, mpes, rule ):
                      model.sig[ conn ][ "neg_memristors" ],
                      model.sig[ conn ][ "weights" ],
                      mpes.noise_percentage,
+                     mpes.gain,
                      mpes.r_max,
                      mpes.r_min,
                      mpes.exponent )

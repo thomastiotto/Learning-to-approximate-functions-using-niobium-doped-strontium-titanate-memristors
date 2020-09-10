@@ -1,16 +1,12 @@
-import numpy as np
-from subprocess import run
-import matplotlib.pyplot as plt
-from scipy.signal import savgol_filter
-import pickle
 import argparse
+from subprocess import run
 
 from memristor_nengo.extras import *
 
 parser = argparse.ArgumentParser()
-parser.add_argument( "-p", "--parameter", choices=[ "exponent", "noise", "neurons" ], required=True )
+parser.add_argument( "-p", "--parameter", choices=[ "exponent", "noise", "neurons", "gain" ], required=True )
 parser.add_argument( "-l", "--limits", nargs=2, type=float, required=True )
-parser.add_argument( "-n", "--number", type=int, required=True )
+parser.add_argument( "-n", "--number", type=int )
 parser.add_argument( "-a", "--averaging", type=int, required=True )
 parser.add_argument( "-d", "--directory", default="../data/" )
 args = parser.parse_args()
@@ -18,11 +14,13 @@ args = parser.parse_args()
 parameter = args.parameter
 start_par = args.limits[ 0 ]
 end_par = args.limits[ 1 ]
-num_par = args.number
+num_par = args.number if args.parameter in [ "exponent", "noise", "neurons" ] else end_par - start_par + 1
 num_averaging = args.averaging
 directory = args.directory
 
-res_list = np.linspace( start_par, end_par, num=num_par )
+res_list = np.linspace( start_par, end_par, num=num_par ) if args.parameter in [ "exponent", "noise", "neurons" ] \
+    else np.logspace( np.rint( start_par ).astype( int ), np.rint( end_par ).astype( int ),
+                      num=np.rint( num_par ).astype( int ) )
 num_parameters = len( res_list )
 print( "Evaluation for", parameter )
 print( f"Search limits of parameters: [{start_par},{end_par}]" )
@@ -37,17 +35,21 @@ for k, par in enumerate( res_list ):
     for avg in range( num_averaging ):
         print( f"Averaging #{avg}" )
         if parameter == "exponent":
-            result = run( [ "python", "mPES.py", "-v", "-d", "1", "-P", str( par ) ],
+            result = run( [ "python", "mPES.py", "-v", "-D", "1", "-P", str( par ) ],
                           capture_output=True,
                           universal_newlines=True )
         if parameter == "noise":
-            result = run( [ "python", "mPES.py", "-v", "-d", "1", "-n", str( par ) ],
+            result = run( [ "python", "mPES.py", "-v", "-D", "1", "-n", str( par ) ],
                           capture_output=True,
                           universal_newlines=True )
         if parameter == "neurons":
             rounded_neurons = str( np.rint( par ).astype( int ) )
-            result = run( [ "python", "mPES.py", "-v", "-d", "1",
+            result = run( [ "python", "mPES.py", "-v", "-D", "1",
                             "-N", str( 100 ), rounded_neurons, str( 100 ) ],
+                          capture_output=True,
+                          universal_newlines=True )
+        if parameter == "gain":
+            result = run( [ "python", "mPES.py", "-v", "-D", "1", "-g", str( par ) ],
                           capture_output=True,
                           universal_newlines=True )
         # print( "Ret", result.returncode )

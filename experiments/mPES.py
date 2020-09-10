@@ -21,8 +21,9 @@ parser.add_argument( "-i", "--input", default="sine", choices=[ "sine", "white" 
 parser.add_argument( "-t", "--timestep", default=0.001, type=int )
 parser.add_argument( "-S", "--simulation_time", default=30, type=int )
 parser.add_argument( "-N", "--neurons", nargs="*", action="store", type=int )
-parser.add_argument( "-d", "--dimensions", default=3, type=int )
+parser.add_argument( "-D", "--dimensions", default=3, type=int )
 parser.add_argument( "-n", "--noise", default=0.15, type=float )
+parser.add_argument( "-g", "--gain", type=float )
 parser.add_argument( "-l", "--learning_rule", default="mPES", choices=[ "mPES", "PES" ] )
 parser.add_argument( "-P", "--parameters", default=Default, type=float )
 parser.add_argument( "-b", "--backend", default="nengo_dl", choices=[ "nengo_dl", "nengo_core" ] )
@@ -31,7 +32,7 @@ parser.add_argument( "-s", "--seed", default=None, type=int )
 parser.add_argument( "-p", "--plot", action="count", default=0 )
 parser.add_argument( "-v", "--verbosity", action="count", default=0 )
 parser.add_argument( "-pd", "--plots_directory", default="../data/" )
-parser.add_argument( "-D", "--device", default="/cpu:0" )
+parser.add_argument( "-d", "--device", default="/cpu:0" )
 parser.add_argument( "-lt", "--learn_time", default=3 / 4, type=float )
 
 args = parser.parse_args()
@@ -57,6 +58,7 @@ if args.input == "sine":
 elif args.input == "white":
     input_function = WhiteSignal( 60, high=5, seed=seed )
 noise_percent = args.noise
+gain = args.gain
 exponent = args.parameters
 learning_rule = args.learning_rule
 backend = args.backend
@@ -123,6 +125,7 @@ with model:
     if learning_rule == "mPES":
         conn.learning_rule_type = mPES(
                 noisy=noise_percent,
+                gain=gain,
                 seed=seed,
                 exponent=exponent )
     if learning_rule == "PES":
