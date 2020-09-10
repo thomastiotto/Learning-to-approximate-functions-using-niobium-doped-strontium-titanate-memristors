@@ -9,12 +9,14 @@ parser.add_argument( "-i", "--input", choices=[ "sine", "white" ], required=True
 parser.add_argument( "-f", "--function", default="x" )
 parser.add_argument( "-N", "--neurons", type=int, default=10 )
 parser.add_argument( "-D", "--dimensions", type=int, default=3 )
+parser.add_argument( "-g", "--gain", type=float, default=1e5 )
 parser.add_argument( "-l", "--learning_rule", choices=[ "mPES", "PES" ], required=True )
 parser.add_argument( "-d", "--directory", default="../data/" )
 parser.add_argument( "-lt", "--learn_time", default=3 / 4, type=float )
 args = parser.parse_args()
 
 learning_rule = args.learning_rule
+gain = args.gain
 function = args.function
 input = args.input
 neurons = args.neurons
@@ -30,13 +32,13 @@ mse_res = [ ]
 for avg in range( num_averaging ):
     print( f"Averaging #{avg}" )
     result = run(
-            [ "python", "mPES.py", "-v", "-d", str( dimensions ), "-l", str( learning_rule ), "-N", str( neurons ),
-              "-f", str( function ), "-i", str( input ), "-lt", str( learn_time ) ],
+            [ "python", "mPES.py", "-v", "-D", str( dimensions ), "-l", str( learning_rule ), "-N", str( neurons ),
+              "-f", str( function ), "-i", str( input ), "-lt", str( learn_time ), "-g", str( gain ) ],
             capture_output=True,
             universal_newlines=True )
-    # print( "Ret", result.returncode )
-    # print( "Out", result.stdout )
-    # print( "Err", result.stderr )
+    print( "Ret", result.returncode )
+    print( "Out", result.stdout )
+    print( "Err", result.stderr )
     # save MSE
     mse = float( result.stdout.split()[ 4 ] )
     print( mse )

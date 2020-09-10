@@ -35,21 +35,20 @@ for k, par in enumerate( res_list ):
     for avg in range( num_averaging ):
         print( f"Averaging #{avg}" )
         if parameter == "exponent":
-            result = run( [ "python", "mPES.py", "-v", "-D", "1", "-P", str( par ) ],
+            result = run( [ "python", "mPES.py", "-v", "-P", str( par ) ],
                           capture_output=True,
                           universal_newlines=True )
         if parameter == "noise":
-            result = run( [ "python", "mPES.py", "-v", "-D", "1", "-n", str( par ) ],
+            result = run( [ "python", "mPES.py", "-v", "-n", str( par ) ],
                           capture_output=True,
                           universal_newlines=True )
         if parameter == "neurons":
             rounded_neurons = str( np.rint( par ).astype( int ) )
-            result = run( [ "python", "mPES.py", "-v", "-D", "1",
-                            "-N", str( 100 ), rounded_neurons, str( 100 ) ],
+            result = run( [ "python", "mPES.py", "-v", "-N", str( 100 ), rounded_neurons, str( 100 ) ],
                           capture_output=True,
                           universal_newlines=True )
         if parameter == "gain":
-            result = run( [ "python", "mPES.py", "-v", "-D", "1", "-g", str( par ) ],
+            result = run( [ "python", "mPES.py", "-v", "-g", str( par ) ],
                           capture_output=True,
                           universal_newlines=True )
         # print( "Ret", result.returncode )
