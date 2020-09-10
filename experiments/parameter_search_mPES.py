@@ -5,12 +5,14 @@ from memristor_nengo.extras import *
 
 parser = argparse.ArgumentParser()
 parser.add_argument( "-p", "--parameter", choices=[ "exponent", "noise", "neurons", "gain" ], required=True )
+parser.add_argument( "-N", "--neurons", type=int, default=10 )
 parser.add_argument( "-l", "--limits", nargs=2, type=float, required=True )
 parser.add_argument( "-n", "--number", type=int )
 parser.add_argument( "-a", "--averaging", type=int, required=True )
 parser.add_argument( "-d", "--directory", default="../data/" )
 args = parser.parse_args()
 # parameters to search
+neurons = args.neurons
 parameter = args.parameter
 start_par = args.limits[ 0 ]
 end_par = args.limits[ 1 ]
@@ -35,18 +37,19 @@ for k, par in enumerate( res_list ):
     for avg in range( num_averaging ):
         print( f"Averaging #{avg}" )
         if parameter == "exponent":
-            result = run( [ "python", "mPES.py", "-v", "-P", str( par ) ],
+            result = run( [ "python", "mPES.py", "-v", "-P", str( par ), "-N", str( neurons ) ],
                           capture_output=True,
                           universal_newlines=True )
         if parameter == "noise":
-            result = run( [ "python", "mPES.py", "-v", "-n", str( par ) ],
+            result = run( [ "python", "mPES.py", "-v", "-n", str( par ), "-N", str( neurons ) ],
                           capture_output=True,
                           universal_newlines=True )
         if parameter == "neurons":
             rounded_neurons = str( np.rint( par ).astype( int ) )
-            result = run( [ "python", "mPES.py", "-v", "-N", str( 100 ), rounded_neurons, str( 100 ) ],
-                          capture_output=True,
-                          universal_newlines=True )
+            result = run(
+                    [ "python", "mPES.py", "-v", "-N", str( 100 ), rounded_neurons, str( 100 ), "-N", str( neurons ) ],
+                    capture_output=True,
+                    universal_newlines=True )
         if parameter == "gain":
             result = run( [ "python", "mPES.py", "-v", "-g", str( par ) ],
                           capture_output=True,
