@@ -36,9 +36,9 @@ for avg in range( num_averaging ):
               "-f", str( function ), "-i", str( input ), "-lt", str( learn_time ), "-g", str( gain ) ],
             capture_output=True,
             universal_newlines=True )
-    print( "Ret", result.returncode )
-    print( "Out", result.stdout )
-    print( "Err", result.stderr )
+    # print( "Ret", result.returncode )
+    # print( "Out", result.stdout )
+    # print( "Err", result.stderr )
     # save MSE
     mse = float( result.stdout.split()[ 4 ] )
     print( mse )
