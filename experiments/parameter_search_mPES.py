@@ -24,7 +24,7 @@ res_list = np.linspace( start_par, end_par, num=num_par ) if args.parameter in [
     else np.logspace( np.rint( start_par ).astype( int ), np.rint( end_par ).astype( int ),
                       num=np.rint( num_par ).astype( int ) )
 num_parameters = len( res_list )
-print( "Evaluation for", parameter )
+print( "Evaluation for", parameter, "with", neurons, "neurons" )
 print( f"Search limits of parameters: [{start_par},{end_par}]" )
 print( "Number of parameters:", num_parameters )
 print( "Averaging per parameter", num_averaging )
