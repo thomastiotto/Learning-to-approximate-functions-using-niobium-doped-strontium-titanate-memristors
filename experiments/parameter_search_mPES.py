@@ -5,6 +5,8 @@ from memristor_nengo.extras import *
 
 parser = argparse.ArgumentParser()
 parser.add_argument( "-p", "--parameter", choices=[ "exponent", "noise", "neurons", "gain" ], required=True )
+parser.add_argument( "-f", "--function", default="x" )
+parser.add_argument( "-D", "--dimensions", default=3, type=int )
 parser.add_argument( "-N", "--neurons", type=int, default=10 )
 parser.add_argument( "-i", "--input", default="sine", choices=[ "sine", "white" ] )
 parser.add_argument( "-l", "--limits", nargs=2, type=float, required=True )
@@ -13,6 +15,8 @@ parser.add_argument( "-a", "--averaging", type=int, required=True )
 parser.add_argument( "-d", "--directory", default="../data/" )
 args = parser.parse_args()
 # parameters to search
+function = args.function
+dimensions = args.dimensions
 neurons = args.neurons
 input = args.input
 parameter = args.parameter
@@ -39,24 +43,28 @@ for k, par in enumerate( res_list ):
     for avg in range( num_averaging ):
         print( f"Averaging #{avg}" )
         if parameter == "exponent":
-            result = run( [ "python", "mPES.py", "-v", "-P", str( par ), "-N", str( neurons ), "-i", str( input ) ],
+            result = run( [ "python", "mPES.py", "-v", "-P", str( par ), "-N", str( neurons ), "-i", str( input ), "-f",
+                            str( function ), "-D", str( dimensions ) ],
                           capture_output=True,
                           universal_newlines=True )
         if parameter == "noise":
-            result = run( [ "python", "mPES.py", "-v", "-n", str( par ), "-N", str( neurons ), "-i", str( input ) ],
+            result = run( [ "python", "mPES.py", "-v", "-n", str( par ), "-N", str( neurons ), "-i", str( input ), "-f",
+                            str( function ), "-D", str( dimensions ) ],
                           capture_output=True,
                           universal_newlines=True )
         if parameter == "neurons":
             rounded_neurons = str( np.rint( par ).astype( int ) )
             result = run(
                     [ "python", "mPES.py", "-v", "-N", str( 100 ), rounded_neurons, str( 100 ), "-N", str( neurons ),
-                      "-i", str( input ) ],
+                      "-i", str( input ), "-f", str( function ), "-D", str( dimensions ) ],
                     capture_output=True,
                     universal_newlines=True )
         if parameter == "gain":
-            result = run( [ "python", "mPES.py", "-v", "-g", str( par ), "-i", str( input ) ],
-                          capture_output=True,
-                          universal_newlines=True )
+            result = run(
+                    [ "python", "mPES.py", "-v", "-g", str( par ), "-i", str( input ), "-f", str( function ), "-D",
+                      str( dimensions ) ],
+                    capture_output=True,
+                    universal_newlines=True )
         # print( "Ret", result.returncode )
         # print( "Out", result.stdout )
         # print( "Err", result.stderr )
@@ -66,12 +74,11 @@ for k, par in enumerate( res_list ):
         it_res.append( mse )
     mse_list.append( it_res )
 
-dir_name, dir_images, dir_data = make_timestamped_dir( root=directory + "parameter_search/" + str( parameter ) + "/" )
+dir_name, dir_images, dir_data = make_timestamped_dir(
+        root=directory + "parameter_search/" + str( parameter ) + "/" )
 
 mse_means = np.mean( mse_list, axis=1 )
 plt.plot( res_list, mse_means, label="MSE" )
-mse_means_smooth = np.convolve( mse_means, np.ones( (mse_means.size,) ) / mse_means.size, mode="same" )
-plt.plot( res_list, mse_means_smooth, label="MSE average" )
 
 plt.legend()
 plt.savefig( dir_images + "result" + ".pdf" )
@@ -81,5 +88,14 @@ plt.savefig( dir_images + "result" + ".png" )
 # pickle.dump( res_list, open( dir_data + str( parameter ) + ".pkl", "wb" ) )
 # pickle.dump( mse_list, open( dir_data + "mse" + ".pkl", "wb" ) )
 np.savetxt( dir_data + "results.csv",
-            np.stack( (res_list, mse_means, mse_means_smooth), axis=1 ),
-            delimiter=",", header=parameter + ",MSE,MSE smooth", comments="" )
+            np.stack( (res_list, mse_means), axis=1 ),
+            delimiter=",", header=parameter + ",MSE", comments="" )
+with open( dir_data + "parameters.txt", "w" ) as f:
+    f.write( f"Parameter: {parameter}\n" )
+    f.write( f"Function: {function}\n" )
+    f.write( f"Dimensions: {dimensions}\n" )
+    f.write( f"Neurons: {neurons}\n" )
+    f.write( f"Input: {input}\n" )
+    f.write( f"Limits: [{start_par},{end_par}]\n" )
+    f.write( f"Number of searched parameters: {num_par}\n" )
+    f.write( f"Number of runs for averaging: {num_averaging}\n" )

@@ -45,7 +45,9 @@ for avg in range( num_averaging ):
     mse_res.append( mse )
 
 dir_name, dir_images, dir_data = make_timestamped_dir(
-        root=directory + "averaging/" + function + "/" + str( learning_rule ) + "/" )
+        root=directory + "averaging/" + str( learning_rule ) + "/" + function + "_" + input + "_" + str(
+            neurons ) + "_" + str(
+                dimensions ) + "_" + str( gain ) + "/" )
 
 mse_means = np.mean( mse_res )
 print( "Average MSE:", mse_means )
