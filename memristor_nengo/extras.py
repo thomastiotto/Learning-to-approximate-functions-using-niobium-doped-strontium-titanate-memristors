@@ -256,12 +256,10 @@ def make_timestamped_dir( root=None ):
     
     os.makedirs( os.path.dirname( root ), exist_ok=True )
     
-    time_string = datetime.datetime.now().strftime( "%d-%m-%Y_%H-%M" )
+    time_string = datetime.datetime.now().strftime( "%d-%m-%Y_%H-%M-%S" )
     dir_name = root + time_string + "/"
     if os.path.isdir( dir_name ):
-        dir_name = dir_name[ :-1 ]
-        minutes = str( int( dir_name[ -1 ] ) + 1 )
-        dir_name = dir_name[ :-1 ] + minutes + "/"
+        raise FileExistsError( "The directory already exists" )
     dir_images = dir_name + "images/"
     dir_data = dir_name + "data/"
     os.mkdir( dir_name )
