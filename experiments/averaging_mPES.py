@@ -45,23 +45,25 @@ for avg in range( num_averaging ):
               "-f", str( function ), "-i", str( input ), "-lt", str( learn_time ), "-g", str( gain ) ],
             capture_output=True,
             universal_newlines=True )
-    # print( "Ret", result.returncode )
-    # print( "Out", result.stdout )
-    # print( "Err", result.stderr )
+    
     # save statistics
-    mse = np.mean( [ float( i ) for i in result.stdout.split( "\n" )[ 2 ][ 1:-1 ].split( "," ) ] )
-    print( "MSE", mse )
-    res_mse.append( mse )
-    pearson = np.mean( [ float( i ) for i in result.stdout.split( "\n" )[ 3 ][ 1:-1 ].split( "," ) ] )
-    print( "Pearson", pearson )
-    res_pearson.append( pearson )
-    spearman = np.mean( [ float( i ) for i in result.stdout.split( "\n" )[ 4 ][ 1:-1 ].split( "," ) ] )
-    print( "Spearman", spearman )
-    res_spearman.append( spearman )
-    kendall = np.mean( [ float( i ) for i in result.stdout.split( "\n" )[ 5 ][ 1:-1 ].split( "," ) ] )
-    print( "Kendall", kendall )
-    res_kendall.append( kendall )
-
+    try:
+        mse = np.mean( [ float( i ) for i in result.stdout.split( "\n" )[ 2 ][ 1:-1 ].split( "," ) ] )
+        print( "MSE", mse )
+        res_mse.append( mse )
+        pearson = np.mean( [ float( i ) for i in result.stdout.split( "\n" )[ 3 ][ 1:-1 ].split( "," ) ] )
+        print( "Pearson", pearson )
+        res_pearson.append( pearson )
+        spearman = np.mean( [ float( i ) for i in result.stdout.split( "\n" )[ 4 ][ 1:-1 ].split( "," ) ] )
+        print( "Spearman", spearman )
+        res_spearman.append( spearman )
+        kendall = np.mean( [ float( i ) for i in result.stdout.split( "\n" )[ 5 ][ 1:-1 ].split( "," ) ] )
+        print( "Kendall", kendall )
+        res_kendall.append( kendall )
+    except:
+        print( "Ret", result.returncode )
+        print( "Out", result.stdout )
+        print( "Err", result.stderr )
 mse_means = np.mean( res_mse )
 pearson_means = np.mean( res_pearson )
 spearman_means = np.mean( res_spearman )
