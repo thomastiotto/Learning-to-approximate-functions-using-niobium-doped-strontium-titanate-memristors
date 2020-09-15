@@ -37,11 +37,19 @@ print( "Averaging per parameter", num_averaging )
 print( "Total iterations", num_parameters * num_averaging )
 
 mse_list = [ ]
+pearson_list = [ ]
+spearman_list = [ ]
+kendall_list = [ ]
+counter = 0
 for k, par in enumerate( res_list ):
     print( f"Parameter #{k} ({par})" )
-    it_res = [ ]
+    it_res_mse = [ ]
+    it_res_pearson = [ ]
+    it_res_spearman = [ ]
+    it_res_kendall = [ ]
     for avg in range( num_averaging ):
-        print( f"Averaging #{avg}" )
+        counter += 1
+        print( f"[{counter}/{num_parameters * num_averaging}] Averaging #{avg}" )
         if parameter == "exponent":
             result = run( [ "python", "mPES.py", "-v", "-P", str( par ), "-N", str( neurons ), "-i", str( input ), "-f",
                             str( function ), "-D", str( dimensions ) ],
@@ -68,28 +76,55 @@ for k, par in enumerate( res_list ):
         # print( "Ret", result.returncode )
         # print( "Out", result.stdout )
         # print( "Err", result.stderr )
-        # save MSE
-        mse = float( result.stdout.split()[ 4 ] )
-        print( mse )
-        it_res.append( mse )
-    mse_list.append( it_res )
+        # save statistics
+        mse = np.mean( [ float( i ) for i in result.stdout.split( "\n" )[ 2 ][ 1:-1 ].split( "," ) ] )
+        print( "MSE", mse )
+        it_res_mse.append( mse )
+        pearson = np.mean( [ float( i ) for i in result.stdout.split( "\n" )[ 3 ][ 1:-1 ].split( "," ) ] )
+        print( "Pearson", pearson )
+        it_res_pearson.append( pearson )
+        spearman = np.mean( [ float( i ) for i in result.stdout.split( "\n" )[ 4 ][ 1:-1 ].split( "," ) ] )
+        print( "Spearman", spearman )
+        it_res_spearman.append( spearman )
+        kendall = np.mean( [ float( i ) for i in result.stdout.split( "\n" )[ 5 ][ 1:-1 ].split( "," ) ] )
+        print( "Kendall", kendall )
+        it_res_kendall.append( kendall )
+    mse_list.append( it_res_mse )
+    pearson_list.append( it_res_pearson )
+    spearman_list.append( it_res_spearman )
+    kendall_list.append( it_res_kendall )
 
 dir_name, dir_images, dir_data = make_timestamped_dir(
         root=directory + "parameter_search/" + str( parameter ) + "/" )
 
 mse_means = np.mean( mse_list, axis=1 )
-plt.plot( res_list, mse_means, label="MSE" )
+pearson_means = np.mean( pearson_list, axis=1 )
+spearman_means = np.mean( spearman_list, axis=1 )
+kendall_means = np.mean( kendall_list, axis=1 )
+print( "Average MSE for each parameter:", mse_means )
+print( "Average Pearson for each parameter:", pearson_means )
+print( "Average Spearman for each parameter:", spearman_means )
+print( "Average Kendall for each parameter:", kendall_means )
 
-plt.legend()
-plt.savefig( dir_images + "result" + ".pdf" )
-plt.savefig( dir_images + "result" + ".png" )
-# plt.show()
+fig = plt.figure()
+ax = fig.add_subplot( 111 )
+ax.plot( res_list, mse_means, label="MSE" )
+ax.legend()
+fig.savefig( dir_images + "mse" + ".pdf" )
 
-# pickle.dump( res_list, open( dir_data + str( parameter ) + ".pkl", "wb" ) )
-# pickle.dump( mse_list, open( dir_data + "mse" + ".pkl", "wb" ) )
+fig = plt.figure()
+ax = fig.add_subplot( 111 )
+ax.plot( res_list, pearson_means, label="Pearson" )
+ax.plot( res_list, spearman_means, label="Spearman" )
+ax.plot( res_list, kendall_means, label="Kendall" )
+ax.legend()
+fig.savefig( dir_images + "correlations" + ".pdf" )
+
+print( f"Saved plots in {dir_images}" )
+
 np.savetxt( dir_data + "results.csv",
-            np.stack( (res_list, mse_means), axis=1 ),
-            delimiter=",", header=parameter + ",MSE", comments="" )
+            np.stack( (res_list, mse_means, pearson_means, spearman_means, kendall_means), axis=1 ),
+            delimiter=",", header=parameter + ",MSE,Pearson,Spearman,Kendall", comments="" )
 with open( dir_data + "parameters.txt", "w" ) as f:
     f.write( f"Parameter: {parameter}\n" )
     f.write( f"Function: {function}\n" )
@@ -99,3 +134,4 @@ with open( dir_data + "parameters.txt", "w" ) as f:
     f.write( f"Limits: [{start_par},{end_par}]\n" )
     f.write( f"Number of searched parameters: {num_par}\n" )
     f.write( f"Number of runs for averaging: {num_averaging}\n" )
+print( f"Saved data in {dir_data}" )

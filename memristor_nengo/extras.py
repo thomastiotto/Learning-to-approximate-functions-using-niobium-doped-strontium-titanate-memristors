@@ -242,6 +242,20 @@ def make_timestamped_dir( root=None ):
     return dir_name, dir_images, dir_data
 
 
+def correlations( X, Y ):
+    import scipy
+    
+    pearson_correlations = [ ]
+    spearman_correlations = [ ]
+    kendall_correlations = [ ]
+    for x, y in zip( X.T, Y.T ):
+        pearson_correlations.append( scipy.stats.pearsonr( x, y )[ 0 ] )
+        spearman_correlations.append( scipy.stats.spearmanr( x, y )[ 0 ] )
+        kendall_correlations.append( scipy.stats.kendalltau( x, y )[ 0 ] )
+    
+    return pearson_correlations, spearman_correlations, kendall_correlations
+
+
 def gini( array ):
     """Calculate the Gini coefficient of exponent numpy array."""
     # based on bottom eq:

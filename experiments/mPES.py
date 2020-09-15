@@ -160,7 +160,7 @@ with model:
         pos_memr_probe = nengo.Probe( conn.learning_rule, "pos_memristors", synapse=None, sample_every=sample_every )
         neg_memr_probe = nengo.Probe( conn.learning_rule, "neg_memristors", synapse=None, sample_every=sample_every )
 
-# Create the simulator
+# Create the Simulator and run it
 printlv2( f"Backend is {backend}" )
 if backend == "nengo_core":
     cm = nengo.Simulator( model, seed=seed, dt=timestep, optimize=optimize, progress_bar=progress_bar )
@@ -173,17 +173,29 @@ with cm as sim:
         sim.run( sim_time / simulation_discretisation )
 printlv2( f"\nTotal time for simulation: {time.strftime( '%H:%M:%S', time.gmtime( time.time() - start_time ) )} s" )
 
+# Average
 printlv2( "Weights average after learning:" )
 printlv1( np.average( sim.data[ weight_probe ][ -1, ... ] ) )
+
+# Sparsity
 printlv2( "Weights sparsity at t=0 and after learning:" )
 printlv1( gini( sim.data[ weight_probe ][ 0 ] ), end=" -> " )
 printlv1( gini( sim.data[ weight_probe ][ -1 ] ) )
+
+x = sim.data[ pre_probe ][ int( (learn_time / timestep) / (sample_every / timestep) ):, ... ]
+y = sim.data[ post_probe ][ int( (learn_time / timestep) / (sample_every / timestep) ):, ... ]
+# MSE after learning
 printlv2( "MSE after learning [f(pre) vs. post]:" )
-mse = mean_squared_error(
-        function_to_learn( sim.data[ pre_probe ][ int( (learn_time / timestep) / (sample_every / timestep) ):, ... ] ),
-        sim.data[ post_probe ][ int( (learn_time / timestep) / (sample_every / timestep) ):, ... ]
-        )
-printlv1( mse )
+mse = mean_squared_error( function_to_learn( x ), y, multioutput='raw_values' )
+printlv1( mse.tolist() )
+# Correlation coefficients after learning
+correlation_coefficients = correlations( function_to_learn( x ), y )
+printlv2( "Pearson correlation after learning [f(pre) vs. post]:" )
+printlv1( correlation_coefficients[ 0 ] )
+printlv2( "Spearman correlation after learning [f(pre) vs. post]:" )
+printlv1( correlation_coefficients[ 1 ] )
+printlv2( "Kendall correlation after learning [f(pre) vs. post]:" )
+printlv1( correlation_coefficients[ 2 ] )
 
 plots = [ ]
 if generate_plots:
