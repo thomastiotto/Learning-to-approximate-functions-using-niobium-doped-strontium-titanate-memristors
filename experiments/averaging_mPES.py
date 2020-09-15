@@ -25,6 +25,10 @@ num_averaging = args.averaging
 directory = args.directory
 learn_time = args.learn_time
 
+dir_name, dir_images, dir_data = make_timestamped_dir(
+        root=directory + "averaging/" + str( learning_rule ) + "/" + function + "_" + input + "_" + str( neurons ) + "_"
+             + str( dimensions ) + "_" + str( gain ) + "/" )
+
 print( "Evaluation for", learning_rule )
 print( "Averaging runs", num_averaging )
 
@@ -57,11 +61,6 @@ for avg in range( num_averaging ):
     kendall = np.mean( [ float( i ) for i in result.stdout.split( "\n" )[ 5 ][ 1:-1 ].split( "," ) ] )
     print( "Kendall", kendall )
     res_kendall.append( kendall )
-
-dir_name, dir_images, dir_data = make_timestamped_dir(
-        root=directory + "averaging/" + str( learning_rule ) + "/" + function + "_" + input + "_" + str(
-                neurons ) + "_" + str(
-                dimensions ) + "_" + str( gain ) + "/" )
 
 mse_means = np.mean( res_mse )
 pearson_means = np.mean( res_pearson )

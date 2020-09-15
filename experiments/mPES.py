@@ -1,7 +1,6 @@
 import argparse
 import time
 
-import nengo
 import nengo_dl
 import tensorflow as tf
 from nengo.learning_rules import PES
@@ -159,6 +158,8 @@ with model:
     if isinstance( conn.learning_rule_type, mPES ):
         pos_memr_probe = nengo.Probe( conn.learning_rule, "pos_memristors", synapse=None, sample_every=sample_every )
         neg_memr_probe = nengo.Probe( conn.learning_rule, "neg_memristors", synapse=None, sample_every=sample_every )
+    
+    cond_probe = ConditionalProbe.setup( pre )
 
 # Create the Simulator and run it
 printlv2( f"Backend is {backend}" )
@@ -172,6 +173,8 @@ with cm as sim:
         printlv2( f"\nRunning discretised step {i + 1} of {simulation_discretisation}" )
         sim.run( sim_time / simulation_discretisation )
 printlv2( f"\nTotal time for simulation: {time.strftime( '%H:%M:%S', time.gmtime( time.time() - start_time ) )} s" )
+
+k = cond_probe.get_conditional_probe()
 
 # Average
 printlv2( "Weights average after learning:" )

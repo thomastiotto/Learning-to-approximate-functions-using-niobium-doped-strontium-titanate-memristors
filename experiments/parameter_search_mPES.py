@@ -26,6 +26,8 @@ num_par = args.number if args.parameter in [ "exponent", "noise", "neurons" ] el
 num_averaging = args.averaging
 directory = args.directory
 
+dir_name, dir_images, dir_data = make_timestamped_dir( root=directory + "parameter_search/" + str( parameter ) + "/" )
+
 res_list = np.linspace( start_par, end_par, num=num_par ) if args.parameter in [ "exponent", "noise", "neurons" ] \
     else np.logspace( np.rint( start_par ).astype( int ), np.rint( end_par ).astype( int ),
                       num=np.rint( num_par ).astype( int ) )
@@ -93,9 +95,6 @@ for k, par in enumerate( res_list ):
     pearson_list.append( it_res_pearson )
     spearman_list.append( it_res_spearman )
     kendall_list.append( it_res_kendall )
-
-dir_name, dir_images, dir_data = make_timestamped_dir(
-        root=directory + "parameter_search/" + str( parameter ) + "/" )
 
 mse_means = np.mean( mse_list, axis=1 )
 pearson_means = np.mean( pearson_list, axis=1 )
