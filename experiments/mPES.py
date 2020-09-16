@@ -100,6 +100,14 @@ elif optimisations == "memory":
     simulation_discretisation = n_neurons
 printlv2( f"Using {optimisations} optimisation" )
 
+if backend == "nengo_dl":
+    import tensorflow as tf
+    
+    physical_devices = tf.config.list_physical_devices()
+    printlv2( "Devices available:" )
+    for d in physical_devices:
+        printlv2( "Device type:", d[ 1 ], "String:", d[ 0 ] )
+
 model = nengo.Network( seed=seed )
 with model:
     # Create an input node
@@ -166,10 +174,12 @@ with model:
     # cond_probe = ConditionalProbe.setup( pre )
 
 # Create the Simulator and run it
-printlv2( f"Backend is {backend}" )
+printlv2( f"Backend is {backend}, running on ", end="" )
 if backend == "nengo_core":
+    printlv2( "CPU" )
     cm = nengo.Simulator( model, seed=seed, dt=timestep, optimize=optimize, progress_bar=progress_bar )
 if backend == "nengo_dl":
+    printlv2( device )
     cm = nengo_dl.Simulator( model, seed=seed, dt=timestep, progress_bar=progress_bar, device=device )
 start_time = time.time()
 with cm as sim:
