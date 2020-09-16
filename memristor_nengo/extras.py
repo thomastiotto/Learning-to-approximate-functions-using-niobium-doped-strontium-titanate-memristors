@@ -8,28 +8,35 @@ from nengo.utils.matplotlib import rasterplot
 
 
 class ConditionalProbe:
-    def __init__( self, ens, probe_from=0 ):
-        self.dimensions = ens.dimensions
+    def __init__( self, obj, attr, probe_from ):
+        if isinstance( obj, nengo.Ensemble ):
+            self.size_out = obj.dimensions
+        if isinstance( obj, nengo.Node ):
+            self.size_out = obj.size_out
+        if isinstance( obj, nengo.Connection ):
+            self.size_out = obj.size_out
+        
+        self.attr = attr
         self.time = probe_from
-        self.probed_data = [ [ ] for _ in range( self.dimensions ) ]
+        self.probed_data = [ [ ] for _ in range( self.size_out ) ]
     
     def __call__( self, t, x ):
-        if x.shape != (self.dimensions,):
+        if x.shape != (self.size_out,):
             raise RuntimeError(
                     "Expected dimensions=%d; got shape: %s"
-                    % (self.dimensions, x.shape)
+                    % (self.size_out, x.shape)
                     )
         if t > 0 and t > self.time:
             for i, k in enumerate( x ):
                 self.probed_data[ i ].append( k )
     
     @classmethod
-    def setup( cls, ens, probe_from=0 ):
-        obj = ConditionalProbe( ens, probe_from )
-        output = nengo.Node( obj, size_in=ens.dimensions )
-        nengo.Connection( ens, output, synapse=0.01 )
+    def setup( cls, obj, attr=None, probe_from=0 ):
+        cond_probe = ConditionalProbe( obj, attr, probe_from )
+        output = nengo.Node( cond_probe, size_in=cond_probe.size_out )
+        nengo.Connection( obj, output, synapse=0.01 )
         
-        return obj
+        return cond_probe
     
     def get_conditional_probe( self ):
         return np.array( self.probed_data ).T
