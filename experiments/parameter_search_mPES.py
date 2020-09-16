@@ -77,16 +77,19 @@ for k, par in enumerate( res_list ):
                     universal_newlines=True )
         # save statistics
         try:
-            mse = np.mean( [ float( i ) for i in result.stdout.split( "\n" )[ 2 ][ 1:-1 ].split( "," ) ] )
+            print( "Ret", result.returncode )
+            print( "Out", result.stdout )
+            print( "Err", result.stderr )
+            mse = np.mean( [ float( i ) for i in result.stdout.split( "\n" )[ 0 ][ 1:-1 ].split( "," ) ] )
             print( "MSE", mse )
             it_res_mse.append( mse )
-            pearson = np.mean( [ float( i ) for i in result.stdout.split( "\n" )[ 3 ][ 1:-1 ].split( "," ) ] )
+            pearson = np.mean( [ float( i ) for i in result.stdout.split( "\n" )[ 1 ][ 1:-1 ].split( "," ) ] )
             print( "Pearson", pearson )
             it_res_pearson.append( pearson )
-            spearman = np.mean( [ float( i ) for i in result.stdout.split( "\n" )[ 4 ][ 1:-1 ].split( "," ) ] )
+            spearman = np.mean( [ float( i ) for i in result.stdout.split( "\n" )[ 2 ][ 1:-1 ].split( "," ) ] )
             print( "Spearman", spearman )
             it_res_spearman.append( spearman )
-            kendall = np.mean( [ float( i ) for i in result.stdout.split( "\n" )[ 5 ][ 1:-1 ].split( "," ) ] )
+            kendall = np.mean( [ float( i ) for i in result.stdout.split( "\n" )[ 3 ][ 1:-1 ].split( "," ) ] )
             print( "Kendall", kendall )
             it_res_kendall.append( kendall )
         except:

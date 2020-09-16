@@ -34,9 +34,8 @@ parser.add_argument( "-v", "--verbosity", action="count", default=0 )
 parser.add_argument( "-pd", "--plots_directory", default="../data/" )
 parser.add_argument( "-d", "--device", default="/cpu:0" )
 parser.add_argument( "-lt", "--learn_time", default=3 / 4, type=float )
-parser.add_argument( '--probe', dest='probe', action='store_true' )
-parser.add_argument( '--no-probe', dest='probe', action='store_false' )
-parser.set_defaults( probe=True )
+parser.add_argument( '--probe', default=1, choices=[ 0, 1, 2 ], type=int,
+                     help="0: probing disabled, 1: only probes to calculate statistics, 2: all probes active" )
 
 mem_usage = memory_usage( -1, interval=.1, max_usage=True, include_children=True )
 
@@ -167,10 +166,12 @@ with model:
             error.neurons,
             transform=-20 * np.ones( (error.n_neurons, 1) ) )
     
-    if probe:
-        input_node_probe = nengo.Probe( input_node, sample_every=sample_every )
+    # essential ones are used to calculate the statistics
+    if probe > 0:
         pre_probe = nengo.Probe( pre, synapse=0.01, sample_every=sample_every )
         post_probe = nengo.Probe( post, synapse=0.01, sample_every=sample_every )
+    if probe > 1:
+        input_node_probe = nengo.Probe( input_node, sample_every=sample_every )
         error_probe = nengo.Probe( error, synapse=0.01, sample_every=sample_every )
         learn_probe = nengo.Probe( stop_learning, synapse=None, sample_every=sample_every )
         weight_probe = nengo.Probe( conn, "weights", synapse=None, sample_every=sample_every )
@@ -197,16 +198,8 @@ with cm as sim:
 printlv2( f"\nTotal time for simulation: {time.strftime( '%H:%M:%S', time.gmtime( time.time() - start_time ) )} s" )
 printlv2( "Maximum memory usage:", mem_usage, "MB" )
 
-if probe:
-    # Average
-    printlv2( "Weights average after learning:" )
-    printlv1( np.average( sim.data[ weight_probe ][ -1, ... ] ) )
-    
-    # Sparsity
-    printlv2( "Weights sparsity at t=0 and after learning:" )
-    printlv1( gini( sim.data[ weight_probe ][ 0 ] ), end=" -> " )
-    printlv1( gini( sim.data[ weight_probe ][ -1 ] ) )
-    
+if probe > 0:
+    # essential statistics
     x = sim.data[ pre_probe ][ int( (learn_time / timestep) / (sample_every / timestep) ):, ... ]
     y = sim.data[ post_probe ][ int( (learn_time / timestep) / (sample_every / timestep) ):, ... ]
     # MSE after learning
@@ -221,75 +214,85 @@ if probe:
     printlv1( correlation_coefficients[ 1 ] )
     printlv2( "Kendall correlation after learning [f(pre) vs. post]:" )
     printlv1( correlation_coefficients[ 2 ] )
+
+if probe > 1:
+    # Average
+    printlv2( "Weights average after learning:" )
+    printlv1( np.average( sim.data[ weight_probe ][ -1, ... ] ) )
     
-    plots = [ ]
-    if generate_plots:
-        plotter = Plotter( sim.trange( sample_every=sample_every ), post_n_neurons, pre_n_neurons, dimensions,
-                           learn_time,
-                           sample_every,
-                           plot_size=(13, 7),
-                           dpi=300 )
-        
-        plots.append(
-                plotter.plot_results( sim.data[ input_node_probe ], sim.data[ pre_probe ], sim.data[ post_probe ],
-                                      error=sim.data[ post_probe ] - function_to_learn( sim.data[ pre_probe ] ),
-                                      smooth=True,
-                                      mse=mse )
-                )
-        plots.append(
-                plotter.plot_results( sim.data[ input_node_probe ], sim.data[ pre_probe ], sim.data[ post_probe ],
-                                      error=sim.data[ post_probe ] - function_to_learn( sim.data[ pre_probe ] ),
-                                      smooth=False,
-                                      mse=mse )
-                )
-        plots.append(
-                plotter.plot_ensemble_spikes( "Post", sim.data[ post_spikes_probe ], sim.data[ post_probe ] )
-                )
-        plots.append(
-                plotter.plot_weight_matrices_over_time( sim.data[ weight_probe ], sample_every=sample_every )
-                )
-        plots.append(
-                plotter.plot_testing( sim.data[ pre_probe ], sim.data[ post_probe ],
-                                      smooth=True )
-                )
-        plots.append(
-                plotter.plot_testing( sim.data[ pre_probe ], sim.data[ post_probe ],
-                                      smooth=False )
-                )
-        if n_neurons <= 10:
-            plots.append(
-                    plotter.plot_weights_over_time( sim.data[ pos_memr_probe ], sim.data[ neg_memr_probe ] )
-                    )
-            plots.append(
-                    plotter.plot_values_over_time( 1 / sim.data[ pos_memr_probe ], 1 / sim.data[ neg_memr_probe ] )
-                    )
+    # Sparsity
+    printlv2( "Weights sparsity at t=0 and after learning:" )
+    printlv1( gini( sim.data[ weight_probe ][ 0 ] ), end=" -> " )
+    printlv1( gini( sim.data[ weight_probe ][ -1 ] ) )
+
+plots = [ ]
+if generate_plots and probe > 1:
+    plotter = Plotter( sim.trange( sample_every=sample_every ), post_n_neurons, pre_n_neurons, dimensions,
+                       learn_time,
+                       sample_every,
+                       plot_size=(13, 7),
+                       dpi=300 )
     
-    if save_plots:
+    plots.append(
+            plotter.plot_results( sim.data[ input_node_probe ], sim.data[ pre_probe ], sim.data[ post_probe ],
+                                  error=sim.data[ post_probe ] - function_to_learn( sim.data[ pre_probe ] ),
+                                  smooth=True,
+                                  mse=mse )
+            )
+    plots.append(
+            plotter.plot_results( sim.data[ input_node_probe ], sim.data[ pre_probe ], sim.data[ post_probe ],
+                                  error=sim.data[ post_probe ] - function_to_learn( sim.data[ pre_probe ] ),
+                                  smooth=False,
+                                  mse=mse )
+            )
+    plots.append(
+            plotter.plot_ensemble_spikes( "Post", sim.data[ post_spikes_probe ], sim.data[ post_probe ] )
+            )
+    plots.append(
+            plotter.plot_weight_matrices_over_time( sim.data[ weight_probe ], sample_every=sample_every )
+            )
+    plots.append(
+            plotter.plot_testing( sim.data[ pre_probe ], sim.data[ post_probe ],
+                                  smooth=True )
+            )
+    plots.append(
+            plotter.plot_testing( sim.data[ pre_probe ], sim.data[ post_probe ],
+                                  smooth=False )
+            )
+    if n_neurons <= 10:
+        plots.append(
+                plotter.plot_weights_over_time( sim.data[ pos_memr_probe ], sim.data[ neg_memr_probe ] )
+                )
+        plots.append(
+                plotter.plot_values_over_time( 1 / sim.data[ pos_memr_probe ], 1 / sim.data[ neg_memr_probe ] )
+                )
+
+if save_plots:
+    assert generate_plots
+    
+    for i, fig in enumerate( plots ):
+        fig.savefig( dir_images + str( i ) + ".pdf" )
+        # fig.savefig( dir_images + str( i ) + ".png" )
+    
+    print( f"Saved plots in {dir_images}" )
+
+if save_data:
+    save_weights( dir_data, sim.data[ weight_probe ] )
+    print( f"Saved NumPy weights in {dir_data}" )
+    
+    save_results_to_csv( dir_data, sim.data[ input_node_probe ], sim.data[ pre_probe ], sim.data[ post_probe ],
+                         sim.data[ post_probe ] - function_to_learn( sim.data[ pre_probe ] ) )
+    save_memristors_to_csv( dir_data, sim.data[ pos_memr_probe ], sim.data[ neg_memr_probe ] )
+    print( f"Saved data in {dir_data}" )
+
+#     TODO save output txt with metrics
+
+if show_plots:
+    def show_plots():
         assert generate_plots
         
         for i, fig in enumerate( plots ):
-            fig.savefig( dir_images + str( i ) + ".pdf" )
-            # fig.savefig( dir_images + str( i ) + ".png" )
-        
-        print( f"Saved plots in {dir_images}" )
+            fig.show()
     
-    if save_data:
-        save_weights( dir_data, sim.data[ weight_probe ] )
-        print( f"Saved NumPy weights in {dir_data}" )
-        
-        save_results_to_csv( dir_data, sim.data[ input_node_probe ], sim.data[ pre_probe ], sim.data[ post_probe ],
-                             sim.data[ post_probe ] - function_to_learn( sim.data[ pre_probe ] ) )
-        save_memristors_to_csv( dir_data, sim.data[ pos_memr_probe ], sim.data[ neg_memr_probe ] )
-        print( f"Saved data in {dir_data}" )
     
-    #     TODO save output txt with metrics
-    
-    if show_plots:
-        def show_plots():
-            assert generate_plots
-            
-            for i, fig in enumerate( plots ):
-                fig.show()
-        
-        
-        show_plots()
+    show_plots()
