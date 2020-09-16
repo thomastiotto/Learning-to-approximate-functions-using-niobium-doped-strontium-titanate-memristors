@@ -78,9 +78,6 @@ for k, par in enumerate( res_list ):
                     universal_newlines=True )
         # save statistics
         try:
-            print( "Ret", result.returncode )
-            print( "Out", result.stdout )
-            print( "Err", result.stderr )
             mse = np.mean( [ float( i ) for i in result.stdout.split( "\n" )[ 0 ][ 1:-1 ].split( "," ) ] )
             print( "MSE", mse )
             it_res_mse.append( mse )
