@@ -27,6 +27,7 @@ num_averaging = args.averaging
 directory = args.directory
 
 dir_name, dir_images, dir_data = make_timestamped_dir( root=directory + "parameter_search/" + str( parameter ) + "/" )
+print( "Reserved folder", dir_name )
 
 res_list = np.linspace( start_par, end_par, num=num_par ) if args.parameter in [ "exponent", "noise", "neurons" ] \
     else np.logspace( np.rint( start_par ).astype( int ), np.rint( end_par ).astype( int ),
