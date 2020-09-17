@@ -28,6 +28,7 @@ learn_time = args.learn_time
 dir_name, dir_images, dir_data = make_timestamped_dir(
         root=directory + "averaging/" + str( learning_rule ) + "/" + function + "_" + input + "_" + str( neurons ) + "_"
              + str( dimensions ) + "_" + str( gain ) + "/" )
+print( "Reserved folder", dir_name )
 
 print( "Evaluation for", learning_rule )
 print( "Averaging runs", num_averaging )

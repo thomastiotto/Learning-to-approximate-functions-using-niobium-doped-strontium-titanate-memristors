@@ -2,6 +2,7 @@
 <module type="PYTHON_MODULE" version="4">
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$">
+      <excludeFolder url="file://$MODULE_DIR$/data" />
       <excludeFolder url="file://$MODULE_DIR$/data/averaging" />
       <excludeFolder url="file://$MODULE_DIR$/data/mPES/06-08-2020_08-40" />
       <excludeFolder url="file://$MODULE_DIR$/data/mPES/07-09-2020_11-45" />

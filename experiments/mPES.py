@@ -106,14 +106,6 @@ elif optimisations == "memory":
     simulation_discretisation = n_neurons
 printlv2( f"Using {optimisations} optimisation" )
 
-if backend == "nengo_dl":
-    import tensorflow as tf
-    
-    physical_devices = tf.config.list_physical_devices()
-    printlv2( "Devices available:" )
-    for d in physical_devices:
-        printlv2( "Device type:", d[ 1 ], "String:", d[ 0 ] )
-
 model = nengo.Network( seed=seed )
 with model:
     # Create an input node
