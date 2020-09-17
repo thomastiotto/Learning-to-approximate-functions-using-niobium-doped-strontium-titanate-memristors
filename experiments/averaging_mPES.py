@@ -49,16 +49,16 @@ for avg in range( num_averaging ):
     
     # save statistics
     try:
-        mse = np.mean( [ float( i ) for i in result.stdout.split( "\n" )[ 2 ][ 1:-1 ].split( "," ) ] )
+        mse = np.mean( [ float( i ) for i in result.stdout.split( "\n" )[ 0 ][ 1:-1 ].split( "," ) ] )
         print( "MSE", mse )
         res_mse.append( mse )
-        pearson = np.mean( [ float( i ) for i in result.stdout.split( "\n" )[ 3 ][ 1:-1 ].split( "," ) ] )
+        pearson = np.mean( [ float( i ) for i in result.stdout.split( "\n" )[ 1 ][ 1:-1 ].split( "," ) ] )
         print( "Pearson", pearson )
         res_pearson.append( pearson )
-        spearman = np.mean( [ float( i ) for i in result.stdout.split( "\n" )[ 4 ][ 1:-1 ].split( "," ) ] )
+        spearman = np.mean( [ float( i ) for i in result.stdout.split( "\n" )[ 2 ][ 1:-1 ].split( "," ) ] )
         print( "Spearman", spearman )
         res_spearman.append( spearman )
-        kendall = np.mean( [ float( i ) for i in result.stdout.split( "\n" )[ 5 ][ 1:-1 ].split( "," ) ] )
+        kendall = np.mean( [ float( i ) for i in result.stdout.split( "\n" )[ 3 ][ 1:-1 ].split( "," ) ] )
         print( "Kendall", kendall )
         res_kendall.append( kendall )
     except:
