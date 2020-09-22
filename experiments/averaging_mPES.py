@@ -40,7 +40,7 @@ res_kendall = [ ]
 counter = 0
 for avg in range( num_averaging ):
     counter += 1
-    print( f"[{counter}/{num_averaging}] Averaging #{avg}" )
+    print( f"[{counter}/{num_averaging}] Averaging #{avg + 1}" )
     result = run(
             [ "python", "mPES.py", "-v", "-D", str( dimensions ), "-l", str( learning_rule ), "-N", str( neurons ),
               "-f", str( function ), "-i", str( input ), "-lt", str( learn_time ), "-g", str( gain ) ],

@@ -52,7 +52,7 @@ for k, par in enumerate( res_list ):
     it_res_kendall = [ ]
     for avg in range( num_averaging ):
         counter += 1
-        print( f"[{counter}/{num_parameters * num_averaging}] Averaging #{avg}" )
+        print( f"[{counter}/{num_parameters * num_averaging}] Averaging #{avg + 1}" )
         if parameter == "exponent":
             result = run( [ "python", "mPES.py", "-v", "-P", str( par ), "-N", str( neurons ), "-i", str( input ), "-f",
                             str( function ), "-D", str( dimensions ) ],
