@@ -11,8 +11,9 @@ parser.add_argument( "-N", "--neurons", type=int, default=10 )
 parser.add_argument( "-D", "--dimensions", type=int, default=3 )
 parser.add_argument( "-g", "--gain", type=float, default=1e5 )
 parser.add_argument( "-l", "--learning_rule", choices=[ "mPES", "PES" ], required=True )
-parser.add_argument( "-d", "--directory", default="../data/" )
+parser.add_argument( "--directory", default="../data/" )
 parser.add_argument( "-lt", "--learn_time", default=3 / 4, type=float )
+parser.add_argument( "-d", "--device", default="/cpu:0" )
 args = parser.parse_args()
 
 learning_rule = args.learning_rule
@@ -24,6 +25,7 @@ dimensions = args.dimensions
 num_averaging = args.averaging
 directory = args.directory
 learn_time = args.learn_time
+device = args.device
 
 dir_name, dir_images, dir_data = make_timestamped_dir(
         root=directory + "averaging/" + str( learning_rule ) + "/" + function + "_" + input + "_" + str( neurons ) + "_"
@@ -43,7 +45,8 @@ for avg in range( num_averaging ):
     print( f"[{counter}/{num_averaging}] Averaging #{avg + 1}" )
     result = run(
             [ "python", "mPES.py", "-v", "-D", str( dimensions ), "-l", str( learning_rule ), "-N", str( neurons ),
-              "-f", str( function ), "-i", str( input ), "-lt", str( learn_time ), "-g", str( gain ) ],
+              "-f", str( function ), "-i", str( input ), "-lt", str( learn_time ), "-g", str( gain ), "-d",
+              str( device ) ],
             capture_output=True,
             universal_newlines=True )
     
