@@ -23,4 +23,6 @@ This process yields a post-synaptic ensemble capable of correctly representing t
 * ``tests``: simple tests for specific functionalities
 
 ## Running the code
-* ``test_builder_mPES.py`` runs mPES learning using the simulated memristors and the ``memristor_nengo`` library
+* ``mPES.py`` runs mPES learning using the simulated memristors and the ``memristor_nengo`` library
+* ``averaging_mPES.py`` runs mPES on randomly initialised models and calculates their learning performance statistics
+* ``parameter_search_mPES`` runs mPES varying the specified parameter in a chosen range and calculates the learning performance statistics for each parameter value
