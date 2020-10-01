@@ -4,7 +4,51 @@ import os
 import matplotlib.pyplot as plt
 import nengo
 import numpy as np
+from nengo.processes import Process
 from nengo.utils.matplotlib import rasterplot
+
+
+class Sines( Process ):
+    
+    def __init__( self, period=4, **kwargs ):
+        super().__init__( default_size_in=0, **kwargs )
+        
+        self.period = period
+    
+    def make_step( self, shape_in, shape_out, dt, rng, state ):
+        # iteratively build phase shifted sines
+        s = "lambda t: ("
+        phase_shift = (2 * np.pi) / shape_out[ 0 ]
+        for i in range( shape_out[ 0 ] ):
+            s += f"np.sin( 1 / {self.period} * 2 * np.pi * t + {i * phase_shift}),"
+        s += ")"
+        signal = eval( s )
+        
+        def step_sines( t ):
+            return signal( t )
+        
+        return step_sines
+
+
+class SwitchInputs( Process ):
+    def __init__( self, pre_switch, post_switch, switch_time, **kwargs ):
+        assert issubclass( pre_switch.__class__, Process ) and issubclass( post_switch.__class__, Process ), \
+            f"Expected two nengo Processes, got ({pre_switch.__class__},{post_switch.__class__}) instead"
+        
+        super().__init__( default_size_in=0, **kwargs )
+        
+        self.switch_time = switch_time
+        self.preswitch_signal = pre_switch
+        self.postswitch_signal = post_switch
+    
+    def make_step( self, shape_in, shape_out, dt, rng, state ):
+        preswitch_step = self.preswitch_signal.make_step( shape_in, shape_out, dt, rng, state )
+        postswitch_step = self.postswitch_signal.make_step( shape_in, shape_out, dt, rng, state )
+        
+        def step_switchinputs( t ):
+            return preswitch_step( t ) if t < self.switch_time else postswitch_step( t )
+        
+        return step_switchinputs
 
 
 class ConditionalProbe:
@@ -244,17 +288,6 @@ class Plotter():
         # plt.tight_layout()
         
         return fig
-
-
-def generate_sines( dimensions ):
-    # iteratively build phase shifted sines
-    s = "lambda t: ("
-    phase_shift = (2 * np.pi) / dimensions
-    for i in range( dimensions ):
-        s += f"np.sin( 1 / 4 * 2 * np.pi * t + {i * phase_shift}),"
-    s += ")"
-    
-    return eval( s )
 
 
 def make_timestamped_dir( root=None ):

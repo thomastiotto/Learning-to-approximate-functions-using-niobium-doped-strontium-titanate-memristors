@@ -8,7 +8,7 @@ parser.add_argument( "-p", "--parameter", choices=[ "exponent", "noise", "neuron
 parser.add_argument( "-f", "--function", default="x" )
 parser.add_argument( "-D", "--dimensions", default=3, type=int )
 parser.add_argument( "-N", "--neurons", type=int, default=10 )
-parser.add_argument( "-i", "--input", default="sine", choices=[ "sine", "white" ] )
+parser.add_argument( "-i", "--inputs", default=[ "sine", "sine" ], nargs="*", choices=[ "sine", "white" ] )
 parser.add_argument( "-l", "--limits", nargs=2, type=float, required=True )
 parser.add_argument( "-n", "--number", type=int )
 parser.add_argument( "-a", "--averaging", type=int, required=True )
@@ -18,7 +18,7 @@ args = parser.parse_args()
 function = args.function
 dimensions = args.dimensions
 neurons = args.neurons
-input = args.input
+inputs = args.inputs
 parameter = args.parameter
 start_par = args.limits[ 0 ]
 end_par = args.limits[ 1 ]
@@ -54,26 +54,31 @@ for k, par in enumerate( res_list ):
         counter += 1
         print( f"[{counter}/{num_parameters * num_averaging}] Averaging #{avg + 1}" )
         if parameter == "exponent":
-            result = run( [ "python", "mPES.py", "-v", "-P", str( par ), "-N", str( neurons ), "-i", str( input ), "-f",
-                            str( function ), "-D", str( dimensions ) ],
-                          capture_output=True,
-                          universal_newlines=True )
+            result = run(
+                    [ "python", "mPES.py", "-v", "-P", str( par ), "-N", str( neurons ), "-f",
+                      str( function ), "-D", str( dimensions ) ]
+                    + [ "-i" ] + inputs,
+                    capture_output=True,
+                    universal_newlines=True )
         if parameter == "noise":
-            result = run( [ "python", "mPES.py", "-v", "-n", str( par ), "-N", str( neurons ), "-i", str( input ), "-f",
-                            str( function ), "-D", str( dimensions ) ],
-                          capture_output=True,
-                          universal_newlines=True )
+            result = run(
+                    [ "python", "mPES.py", "-v", "-n", str( par ), "-N", str( neurons ), "-f", str( function ),
+                      "-D", str( dimensions ) ]
+                    + [ "-i" ] + inputs,
+                    capture_output=True,
+                    universal_newlines=True )
         if parameter == "neurons":
             rounded_neurons = str( np.rint( par ).astype( int ) )
             result = run(
                     [ "python", "mPES.py", "-v", "-N", str( 100 ), rounded_neurons, str( 100 ), "-N", str( neurons ),
-                      "-i", str( input ), "-f", str( function ), "-D", str( dimensions ) ],
+                      "-f", str( function ), "-D", str( dimensions ) ]
+                    + [ "-i" ] + inputs,
                     capture_output=True,
                     universal_newlines=True )
         if parameter == "gain":
             result = run(
-                    [ "python", "mPES.py", "-v", "-g", str( par ), "-i", str( input ), "-f", str( function ), "-D",
-                      str( dimensions ) ],
+                    [ "python", "mPES.py", "-v", "-g", str( par ), "-f", str( function ), "-D", str( dimensions ) ]
+                    + [ "-i" ] + inputs,
                     capture_output=True,
                     universal_newlines=True )
         # save statistics
@@ -132,7 +137,7 @@ with open( dir_data + "parameters.txt", "w" ) as f:
     f.write( f"Function: {function}\n" )
     f.write( f"Dimensions: {dimensions}\n" )
     f.write( f"Neurons: {neurons}\n" )
-    f.write( f"Input: {input}\n" )
+    f.write( f"Input: {inputs}\n" )
     f.write( f"Limits: [{start_par},{end_par}]\n" )
     f.write( f"Number of searched parameters: {num_par}\n" )
     f.write( f"Number of runs for averaging: {num_averaging}\n" )
