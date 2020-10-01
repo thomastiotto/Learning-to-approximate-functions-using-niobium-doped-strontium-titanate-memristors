@@ -5,12 +5,12 @@ from memristor_nengo.extras import *
 
 parser = argparse.ArgumentParser()
 parser.add_argument( "-a", "--averaging", type=int, required=True )
-parser.add_argument( "-i", "--input", choices=[ "sine", "white" ], required=True )
+parser.add_argument( "-i", "--inputs", default=[ "sine", "sine" ], nargs="*", choices=[ "sine", "white" ] )
 parser.add_argument( "-f", "--function", default="x" )
 parser.add_argument( "-N", "--neurons", type=int, default=10 )
 parser.add_argument( "-D", "--dimensions", type=int, default=3 )
 parser.add_argument( "-g", "--gain", type=float, default=1e5 )
-parser.add_argument( "-l", "--learning_rule", choices=[ "mPES", "PES" ], required=True )
+parser.add_argument( "-l", "--learning_rule", default="mPES", choices=[ "mPES", "PES" ] )
 parser.add_argument( "--directory", default="../data/" )
 parser.add_argument( "-lt", "--learn_time", default=3 / 4, type=float )
 parser.add_argument( "-d", "--device", default="/cpu:0" )
@@ -19,7 +19,7 @@ args = parser.parse_args()
 learning_rule = args.learning_rule
 gain = args.gain
 function = args.function
-input = args.input
+inputs = args.inputs
 neurons = args.neurons
 dimensions = args.dimensions
 num_averaging = args.averaging
@@ -28,7 +28,8 @@ learn_time = args.learn_time
 device = args.device
 
 dir_name, dir_images, dir_data = make_timestamped_dir(
-        root=directory + "averaging/" + str( learning_rule ) + "/" + function + "_" + input + "_" + str( neurons ) + "_"
+        root=directory + "averaging/" + str( learning_rule ) + "/" + function + "_" + str( inputs ) + "_" + str(
+            neurons ) + "_"
              + str( dimensions ) + "_" + str( gain ) + "/" )
 print( "Reserved folder", dir_name )
 
@@ -45,8 +46,9 @@ for avg in range( num_averaging ):
     print( f"[{counter}/{num_averaging}] Averaging #{avg + 1}" )
     result = run(
             [ "python", "mPES.py", "-v", "-D", str( dimensions ), "-l", str( learning_rule ), "-N", str( neurons ),
-              "-f", str( function ), "-i", str( input ), "-lt", str( learn_time ), "-g", str( gain ), "-d",
-              str( device ) ],
+              "-f", str( function ), "-lt", str( learn_time ), "-g", str( gain ), "-d",
+              str( device ) ]
+            + [ "-i" ] + inputs,
             capture_output=True,
             universal_newlines=True )
     

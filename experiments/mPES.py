@@ -21,10 +21,10 @@ tf.compat.v1.disable_control_flow_v2()
 
 parser = argparse.ArgumentParser()
 parser.add_argument( "-f", "--function", default="x" )
-parser.add_argument( "-i", "--input", default="sine", choices=[ "sine", "white" ] )
+parser.add_argument( "-i", "--inputs", default=[ "sine", "sine" ], nargs="*", choices=[ "sine", "white" ] )
 parser.add_argument( "-t", "--timestep", default=0.001, type=int )
 parser.add_argument( "-S", "--simulation_time", default=30, type=int )
-parser.add_argument( "-N", "--neurons", nargs="*", action="store", type=int )
+parser.add_argument( "-N", "--neurons", nargs="*", default=[ 10 ], action="store", type=int )
 parser.add_argument( "-D", "--dimensions", default=3, type=int )
 parser.add_argument( "-n", "--noise", default=0.15, type=float )
 parser.add_argument( "-g", "--gain", default=None, type=float )
@@ -43,28 +43,38 @@ parser.add_argument( '--probe', default=1, choices=[ 0, 1, 2 ], type=int,
 
 mem_usage = memory_usage( -1, interval=.1, max_usage=True, include_children=True )
 
-args = parser.parse_args()
 # TODO read parameters from conf file https://docs.python.org/3/library/configparser.html
+args = parser.parse_args()
+seed = args.seed
 function_string = "lambda x: " + args.function
 function_to_learn = eval( function_string )
+if len( args.inputs ) not in (1, 2):
+    parser.error( 'Either give no values for action, or two, not {}.'.format( len( args.inputs ) ) )
+if len( args.inputs ) == 1:
+    if args.inputs[ 0 ] == "sine":
+        input_function_train = input_function_test = Sines( period=4 )
+    if args.inputs[ 0 ] == "white":
+        input_function_train = input_function_test = WhiteSignal( period=60, high=5, seed=seed )
+if len( args.inputs ) == 2:
+    if args.inputs[ 0 ] == "sine":
+        input_function_train = Sines( period=4 )
+    if args.inputs[ 0 ] == "white":
+        input_function_train = WhiteSignal( period=60, high=5, seed=seed )
+    if args.inputs[ 1 ] == "sine":
+        input_function_test = Sines( period=4 )
+    if args.inputs[ 1 ] == "white":
+        input_function_test = WhiteSignal( period=60, high=5, seed=seed )
 timestep = args.timestep
 sim_time = args.simulation_time
-if args.neurons is not None and len( args.neurons ) not in (1, 3):
-    parser.error( 'Either give no values for action, or three, not {}.'.format( len( args.neurons ) ) )
-if args.neurons is None:
-    pre_n_neurons = post_n_neurons = error_n_neurons = 10
-elif len( args.neurons ) == 1:
+if len( args.neurons ) not in (1, 3):
+    parser.error( 'Either give no values for action, or one, or three, not {}.'.format( len( args.neurons ) ) )
+if len( args.neurons ) == 1:
     pre_n_neurons = post_n_neurons = error_n_neurons = args.neurons[ 0 ]
 elif len( args.neurons ) == 3:
     pre_n_neurons = args.neurons[ 0 ]
     post_n_neurons = args.neurons[ 1 ]
     error_n_neurons = args.neurons[ 2 ]
 dimensions = args.dimensions
-seed = args.seed
-if args.input == "sine":
-    input_function = generate_sines( dimensions )
-elif args.input == "white":
-    input_function = WhiteSignal( 60, high=5, seed=seed )
 noise_percent = args.noise
 gain = args.gain
 exponent = args.parameters
@@ -114,7 +124,9 @@ model = nengo.Network( seed=seed )
 with model:
     # Create an input node
     input_node = nengo.Node(
-            output=input_function,
+            output=SwitchInputs( input_function_train,
+                                 input_function_test,
+                                 switch_time=learn_time ),
             size_out=dimensions
             )
     
