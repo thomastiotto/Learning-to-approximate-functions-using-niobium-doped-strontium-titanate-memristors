@@ -6,7 +6,6 @@ os.environ[ "CUDA_DEVICE_ORDER" ] = "PCI_BUS_ID"
 # os.environ["CUDA_VISIBLE_DEVICES"]="0,3"  # specify which GPU(s) to be used
 
 import nengo_dl
-import tensorflow as tf
 from memory_profiler import memory_usage
 from nengo.learning_rules import PES
 from nengo.params import Default
@@ -16,8 +15,9 @@ from sklearn.metrics import mean_squared_error
 from memristor_nengo.extras import *
 from memristor_nengo.learning_rules import mPES
 
-tf.compat.v1.disable_eager_execution()
-tf.compat.v1.disable_control_flow_v2()
+# Should not be useful for NengoDL>=3.3.0
+# tf.compat.v1.disable_eager_execution()
+# tf.compat.v1.disable_control_flow_v2()
 
 parser = argparse.ArgumentParser()
 parser.add_argument( "-f", "--function", default="x" )
@@ -208,14 +208,14 @@ printlv2( "Maximum memory usage:", mem_usage, "MB" )
 
 if probe > 0:
     # essential statistics
-    x = sim.data[ pre_probe ][ int( (learn_time / timestep) / (sample_every / timestep) ):, ... ]
-    y = sim.data[ post_probe ][ int( (learn_time / timestep) / (sample_every / timestep) ):, ... ]
+    y_true = sim.data[ pre_probe ][ int( (learn_time / timestep) / (sample_every / timestep) ):, ... ]
+    y_pred = sim.data[ post_probe ][ int( (learn_time / timestep) / (sample_every / timestep) ):, ... ]
     # MSE after learning
     printlv2( "MSE after learning [f(pre) vs. post]:" )
-    mse = mean_squared_error( function_to_learn( x ), y, multioutput='raw_values' )
+    mse = mean_squared_error( function_to_learn( y_true ), y_pred, multioutput='raw_values' )
     printlv1( mse.tolist() )
     # Correlation coefficients after learning
-    correlation_coefficients = correlations( function_to_learn( x ), y )
+    correlation_coefficients = correlations( function_to_learn( y_true ), y_pred )
     printlv2( "Pearson correlation after learning [f(pre) vs. post]:" )
     printlv1( correlation_coefficients[ 0 ] )
     printlv2( "Spearman correlation after learning [f(pre) vs. post]:" )
@@ -239,7 +239,9 @@ if generate_plots and probe > 1:
                        learn_time,
                        sample_every,
                        plot_size=(13, 7),
-                       dpi=300 )
+                       dpi=300,
+                       pre_alpha=0
+                       )
     
     plots.append(
             plotter.plot_results( sim.data[ input_node_probe ], sim.data[ pre_probe ], sim.data[ post_probe ],
@@ -276,7 +278,7 @@ if generate_plots and probe > 1:
                 )
 
 if save_plots:
-    assert generate_plots
+    assert generate_plots and probe > 1
     
     for i, fig in enumerate( plots ):
         fig.savefig( dir_images + str( i ) + ".pdf" )
@@ -297,7 +299,7 @@ if save_data:
 
 if show_plots:
     def show_plots():
-        assert generate_plots
+        assert generate_plots and probe > 1
         
         for i, fig in enumerate( plots ):
             fig.show()

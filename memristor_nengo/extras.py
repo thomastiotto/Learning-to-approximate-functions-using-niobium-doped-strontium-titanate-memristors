@@ -87,7 +87,8 @@ class ConditionalProbe:
 
 
 class Plotter():
-    def __init__( self, trange, rows, cols, dimensions, learning_time, sampling, plot_size=(12, 8), dpi=80, dt=0.001 ):
+    def __init__( self, trange, rows, cols, dimensions, learning_time, sampling, plot_size=(12, 8), dpi=80, dt=0.001,
+                  pre_alpha=0.3 ):
         self.time_vector = trange
         self.plot_sizes = plot_size
         self.dpi = dpi
@@ -97,6 +98,7 @@ class Plotter():
         self.learning_time = learning_time
         self.sampling = sampling
         self.dt = dt
+        self.pre_alpha = pre_alpha
     
     def plot_testing( self, pre, post, smooth=False, mse=None ):
         fig, axes = plt.subplots( 1, 1, sharex=True, sharey=True, squeeze=False )
@@ -116,18 +118,19 @@ class Plotter():
         axes[ 0, 0 ].plot(
                 time,
                 pre,
-                linestyle=":",
+                # linestyle=":",
+                alpha=self.pre_alpha,
                 label='Pre' )
         axes[ 0, 0 ].set_prop_cycle( None )
         axes[ 0, 0 ].plot(
                 time,
                 post,
                 label='Post' )
-        if self.n_dims <= 3:
-            axes[ 0, 0 ].legend(
-                    [ f"Pre dim {i}" for i in range( self.n_dims ) ] +
-                    [ f"Post dim {i}" for i in range( self.n_dims ) ],
-                    loc='best' )
+        # if self.n_dims <= 3:
+        #     axes[ 0, 0 ].legend(
+        #             [ f"Pre dim {i}" for i in range( self.n_dims ) ] +
+        #             [ f"Post dim {i}" for i in range( self.n_dims ) ],
+        #             loc='best' )
         axes[ 0, 0 ].set_title( "Pre and post decoded", fontsize=16 )
         
         if mse is not None:
@@ -148,10 +151,10 @@ class Plotter():
                 input,
                 label='Input',
                 linewidth=2.0 )
-        if self.n_dims <= 3:
-            axes[ 0, 0 ].legend(
-                    [ f"Input dim {i}" for i in range( self.n_dims ) ],
-                    loc='best' )
+        # if self.n_dims <= 3:
+        #     axes[ 0, 0 ].legend(
+        #             [ f"Input dim {i}" for i in range( self.n_dims ) ],
+        #             loc='best' )
         axes[ 0, 0 ].set_title( "Input signal", fontsize=16 )
         
         if smooth:
@@ -163,18 +166,19 @@ class Plotter():
         axes[ 1, 0 ].plot(
                 self.time_vector,
                 pre,
-                linestyle=":",
+                # linestyle=":",
+                alpha=self.pre_alpha,
                 label='Pre' )
         axes[ 1, 0 ].set_prop_cycle( None )
         axes[ 1, 0 ].plot(
                 self.time_vector,
                 post,
                 label='Post' )
-        if self.n_dims <= 3:
-            axes[ 1, 0 ].legend(
-                    [ f"Pre dim {i}" for i in range( self.n_dims ) ] +
-                    [ f"Post dim {i}" for i in range( self.n_dims ) ],
-                    loc='best' )
+        # if self.n_dims <= 3:
+        #     axes[ 1, 0 ].legend(
+        #             [ f"Pre dim {i}" for i in range( self.n_dims ) ] +
+        #             [ f"Post dim {i}" for i in range( self.n_dims ) ],
+        #             loc='best' )
         axes[ 1, 0 ].set_title( "Pre and post decoded", fontsize=16 )
         
         if smooth:
