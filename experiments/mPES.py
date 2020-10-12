@@ -34,7 +34,7 @@ parser.add_argument( "-b", "--backend", default="nengo_dl", choices=[ "nengo_dl"
 parser.add_argument( "-o", "--optimisations", default="run", choices=[ "run", "build", "memory" ] )
 parser.add_argument( "-s", "--seed", default=None, type=int )
 parser.add_argument( "--plot", default=0, choices=[ 0, 1, 2, 3 ], type=int )
-parser.add_argument( "--verbosity", default=0, choices=[ 0, 1, 2 ], type=int, )
+parser.add_argument( "--verbosity", default=2, choices=[ 0, 1, 2 ], type=int, )
 parser.add_argument( "-pd", "--plots_directory", default="../data/" )
 parser.add_argument( "-d", "--device", default="/cpu:0" )
 parser.add_argument( "-lt", "--learn_time", default=3 / 4, type=float )

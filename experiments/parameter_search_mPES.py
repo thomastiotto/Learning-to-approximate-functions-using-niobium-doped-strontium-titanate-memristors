@@ -55,14 +55,15 @@ for k, par in enumerate( res_list ):
         print( f"[{counter}/{num_parameters * num_averaging}] Averaging #{avg + 1}" )
         if parameter == "exponent":
             result = run(
-                    [ "python", "mPES.py", "-v", "-P", str( par ), "-N", str( neurons ), "-f",
+                    [ "python", "mPES.py", "--verbosity", str( 1 ), "-P", str( par ), "-N", str( neurons ), "-f",
                       str( function ), "-D", str( dimensions ) ]
                     + [ "-i" ] + inputs,
                     capture_output=True,
                     universal_newlines=True )
         if parameter == "noise":
             result = run(
-                    [ "python", "mPES.py", "-v", "-n", str( par ), "-N", str( neurons ), "-f", str( function ),
+                    [ "python", "mPES.py", "--verbosity", str( 1 ), "-n", str( par ), "-N", str( neurons ), "-f",
+                      str( function ),
                       "-D", str( dimensions ) ]
                     + [ "-i" ] + inputs,
                     capture_output=True,
@@ -70,14 +71,16 @@ for k, par in enumerate( res_list ):
         if parameter == "neurons":
             rounded_neurons = str( np.rint( par ).astype( int ) )
             result = run(
-                    [ "python", "mPES.py", "-v", "-N", str( 100 ), rounded_neurons, str( 100 ), "-N", str( neurons ),
+                    [ "python", "mPES.py", "--verbosity", str( 1 ), "-N", str( 100 ), rounded_neurons, str( 100 ), "-N",
+                      str( neurons ),
                       "-f", str( function ), "-D", str( dimensions ) ]
                     + [ "-i" ] + inputs,
                     capture_output=True,
                     universal_newlines=True )
         if parameter == "gain":
             result = run(
-                    [ "python", "mPES.py", "-v", "-g", str( par ), "-f", str( function ), "-D", str( dimensions ) ]
+                    [ "python", "mPES.py", "--verbosity", str( 1 ), "-g", str( par ), "-f", str( function ), "-D",
+                      str( dimensions ) ]
                     + [ "-i" ] + inputs,
                     capture_output=True,
                     universal_newlines=True )
