@@ -33,8 +33,8 @@ parser.add_argument( "-P", "--parameters", default=Default, type=float )
 parser.add_argument( "-b", "--backend", default="nengo_dl", choices=[ "nengo_dl", "nengo_core" ] )
 parser.add_argument( "-o", "--optimisations", default="run", choices=[ "run", "build", "memory" ] )
 parser.add_argument( "-s", "--seed", default=None, type=int )
-parser.add_argument( "-p", "--plot", action="count", default=0 )
-parser.add_argument( "-v", "--verbosity", action="count", default=0 )
+parser.add_argument( "--plot", default=0, choices=[ 0, 1, 2, 3 ], type=int )
+parser.add_argument( "--verbosity", default=0, choices=[ 0, 1, 2 ], type=int, )
 parser.add_argument( "-pd", "--plots_directory", default="../data/" )
 parser.add_argument( "-d", "--device", default="/cpu:0" )
 parser.add_argument( "-lt", "--learn_time", default=3 / 4, type=float )
@@ -240,7 +240,7 @@ if generate_plots and probe > 1:
                        sample_every,
                        plot_size=(13, 7),
                        dpi=300,
-                       pre_alpha=0
+                       pre_alpha=0.3
                        )
     
     plots.append(
@@ -262,14 +262,14 @@ if generate_plots and probe > 1:
             plotter.plot_weight_matrices_over_time( sim.data[ weight_probe ], sample_every=sample_every )
             )
     plots.append(
-            plotter.plot_testing( sim.data[ pre_probe ], sim.data[ post_probe ],
+            plotter.plot_testing( function_to_learn( sim.data[ pre_probe ] ), sim.data[ post_probe ],
                                   smooth=True )
             )
     plots.append(
-            plotter.plot_testing( sim.data[ pre_probe ], sim.data[ post_probe ],
+            plotter.plot_testing( function_to_learn( sim.data[ pre_probe ] ), sim.data[ post_probe ],
                                   smooth=False )
             )
-    if n_neurons <= 10:
+    if n_neurons <= 10 and learning_rule == "mPES":
         plots.append(
                 plotter.plot_weights_over_time( sim.data[ pos_memr_probe ], sim.data[ neg_memr_probe ] )
                 )

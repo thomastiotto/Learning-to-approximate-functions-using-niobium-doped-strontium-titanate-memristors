@@ -109,6 +109,9 @@ class Plotter():
         pre = pre[ learning_time:, ... ]
         post = post[ learning_time:, ... ]
         
+        axes[ 0, 0 ].xaxis.set_tick_params( labelsize='xx-large' )
+        axes[ 0, 0 ].yaxis.set_tick_params( labelsize='xx-large' )
+        
         if smooth:
             from scipy.signal import savgol_filter
             
@@ -131,7 +134,7 @@ class Plotter():
         #             [ f"Pre dim {i}" for i in range( self.n_dims ) ] +
         #             [ f"Post dim {i}" for i in range( self.n_dims ) ],
         #             loc='best' )
-        axes[ 0, 0 ].set_title( "Pre and post decoded", fontsize=16 )
+        # axes[ 0, 0 ].set_title( "Pre and post decoded on testing phase", fontsize=16 )
         
         if mse is not None:
             axes[ 0, 0 ].text( 0.85, 0.2, f"MSE: {np.round( mse, 5 )}",
@@ -146,6 +149,11 @@ class Plotter():
     def plot_results( self, input, pre, post, error, smooth=False, mse=None ):
         fig, axes = plt.subplots( 3, 1, sharex=True, sharey=True, squeeze=False )
         fig.set_size_inches( self.plot_sizes )
+        
+        for ax in axes.flatten():
+            ax.xaxis.set_tick_params( labelsize='xx-large' )
+            ax.yaxis.set_tick_params( labelsize='xx-large' )
+        
         axes[ 0, 0 ].plot(
                 self.time_vector,
                 input,

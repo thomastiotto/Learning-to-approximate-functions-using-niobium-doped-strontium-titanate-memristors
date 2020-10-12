@@ -17,7 +17,7 @@ timestep = 0.001
 
 model = nengo.Network()
 with model:
-    # -- input and pre popluation
+    # -- input and pre population
     inp = nengo.Node(
             # WhiteNoise( dist=Gaussian( 0, 0.05 ) ),
             WhiteSignal( 60, 5 ),
