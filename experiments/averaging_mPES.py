@@ -39,14 +39,15 @@ res_mse = [ ]
 res_pearson = [ ]
 res_spearman = [ ]
 res_kendall = [ ]
+res_mse_to_rho = [ ]
 counter = 0
 for avg in range( num_averaging ):
     counter += 1
     print( f"[{counter}/{num_averaging}] Averaging #{avg + 1}" )
     result = run(
-            [ "python", "mPES.py", "-v", "-D", str( dimensions ), "-l", str( learning_rule ), "-N", str( neurons ),
-              "-f", str( function ), "-lt", str( learn_time ), "-g", str( gain ), "-d",
-              str( device ) ]
+            [ "python", "mPES.py", "--verbosity", str( 1 ), "-D", str( dimensions ), "-l", str( learning_rule ),
+              "-N", str( neurons ), "-f", str( function ), "-lt", str( learn_time ), "-g", str( gain ),
+              "-d", str( device ) ]
             + [ "-i" ] + inputs,
             capture_output=True,
             universal_newlines=True )
@@ -65,6 +66,9 @@ for avg in range( num_averaging ):
         kendall = np.mean( [ float( i ) for i in result.stdout.split( "\n" )[ 3 ][ 1:-1 ].split( "," ) ] )
         print( "Kendall", kendall )
         res_kendall.append( kendall )
+        mse_to_rho = np.mean( [ float( i ) for i in result.stdout.split( "\n" )[ 4 ][ 1:-1 ].split( "," ) ] )
+        print( "MSE-to-rho", mse_to_rho )
+        res_mse_to_rho.append( mse_to_rho )
     except:
         print( "Ret", result.returncode )
         print( "Out", result.stdout )
@@ -73,10 +77,12 @@ mse_means = np.mean( res_mse )
 pearson_means = np.mean( res_pearson )
 spearman_means = np.mean( res_spearman )
 kendall_means = np.mean( res_kendall )
+mse_to_rho_means = np.mean( res_mse_to_rho )
 print( "Average MSE:", mse_means )
 print( "Average Pearson:", pearson_means )
 print( "Average Spearman:", spearman_means )
 print( "Average Kendall:", kendall_means )
+print( "Average MSE-to-rho:", mse_to_rho_means )
 
 res_list = range( num_averaging )
 

@@ -225,6 +225,8 @@ if probe > 0:
     printlv1( correlation_coefficients[ 1 ] )
     printlv2( "Kendall correlation after learning [f(pre) vs. post]:" )
     printlv1( correlation_coefficients[ 2 ] )
+    printlv2( "MSE-to-rho after learning [f(pre) vs. post]:" )
+    printlv1( mse_to_rho_ratio( mse, correlation_coefficients[ 1 ] ) )
 
 if probe > 1:
     # Average

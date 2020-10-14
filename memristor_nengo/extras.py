@@ -8,10 +8,6 @@ from nengo.processes import Process
 from nengo.utils.matplotlib import rasterplot
 
 
-def mse_to_rho_ratio( mse, rho ):
-    return np.array( rho ).mean() / mse.mean()
-
-
 class Sines( Process ):
     
     def __init__( self, period=4, **kwargs ):
@@ -323,6 +319,10 @@ def make_timestamped_dir( root=None ):
     os.mkdir( dir_data )
     
     return dir_name, dir_images, dir_data
+
+
+def mse_to_rho_ratio( mse, rho ):
+    return [ i for i in np.array( rho ) / mse ]
 
 
 def correlations( X, Y ):

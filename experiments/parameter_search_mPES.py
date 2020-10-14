@@ -43,6 +43,7 @@ mse_list = [ ]
 pearson_list = [ ]
 spearman_list = [ ]
 kendall_list = [ ]
+mse_to_rho_list = [ ]
 counter = 0
 for k, par in enumerate( res_list ):
     print( f"Parameter #{k} ({par})" )
@@ -50,6 +51,7 @@ for k, par in enumerate( res_list ):
     it_res_pearson = [ ]
     it_res_spearman = [ ]
     it_res_kendall = [ ]
+    it_res_mse_to_rho = [ ]
     for avg in range( num_averaging ):
         counter += 1
         print( f"[{counter}/{num_parameters * num_averaging}] Averaging #{avg + 1}" )
@@ -97,6 +99,9 @@ for k, par in enumerate( res_list ):
             kendall = np.mean( [ float( i ) for i in result.stdout.split( "\n" )[ 3 ][ 1:-1 ].split( "," ) ] )
             print( "Kendall", kendall )
             it_res_kendall.append( kendall )
+            mse_to_rho = np.mean( [ float( i ) for i in result.stdout.split( "\n" )[ 4 ][ 1:-1 ].split( "," ) ] )
+            print( "MSE-to-rho", mse_to_rho )
+            it_res_mse_to_rho.append( mse_to_rho )
         except:
             print( "Ret", result.returncode )
             print( "Out", result.stdout )
@@ -105,15 +110,18 @@ for k, par in enumerate( res_list ):
     pearson_list.append( it_res_pearson )
     spearman_list.append( it_res_spearman )
     kendall_list.append( it_res_kendall )
+    mse_to_rho_list.append( it_res_mse_to_rho )
 
 mse_means = np.mean( mse_list, axis=1 )
 pearson_means = np.mean( pearson_list, axis=1 )
 spearman_means = np.mean( spearman_list, axis=1 )
 kendall_means = np.mean( kendall_list, axis=1 )
+mse_to_rho_means = np.mean( mse_to_rho_list, axis=1 )
 print( "Average MSE for each parameter:", mse_means )
 print( "Average Pearson for each parameter:", pearson_means )
 print( "Average Spearman for each parameter:", spearman_means )
 print( "Average Kendall for each parameter:", kendall_means )
+print( "Average MSE-to-rho for each parameter:", mse_to_rho_means )
 
 fig = plt.figure()
 ax = fig.add_subplot( 111 )
@@ -132,8 +140,8 @@ fig.savefig( dir_images + "correlations" + ".pdf" )
 print( f"Saved plots in {dir_images}" )
 
 np.savetxt( dir_data + "results.csv",
-            np.stack( (res_list, mse_means, pearson_means, spearman_means, kendall_means), axis=1 ),
-            delimiter=",", header=parameter + ",MSE,Pearson,Spearman,Kendall", comments="" )
+            np.stack( (res_list, mse_means, pearson_means, spearman_means, kendall_means, mse_to_rho_means), axis=1 ),
+            delimiter=",", header=parameter + ",MSE,Pearson,Spearman,Kendall,MSE-to-rho", comments="" )
 with open( dir_data + "parameters.txt", "w" ) as f:
     f.write( f"Parameter: {parameter}\n" )
     f.write( f"Function: {function}\n" )
