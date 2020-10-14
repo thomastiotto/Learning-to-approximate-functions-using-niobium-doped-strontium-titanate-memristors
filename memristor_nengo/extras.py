@@ -8,6 +8,10 @@ from nengo.processes import Process
 from nengo.utils.matplotlib import rasterplot
 
 
+def mse_to_rho_ratio( mse, rho ):
+    return np.array( rho ).mean() / mse.mean()
+
+
 class Sines( Process ):
     
     def __init__( self, period=4, **kwargs ):

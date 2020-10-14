@@ -27,7 +27,7 @@ parser.add_argument( "-S", "--simulation_time", default=30, type=int )
 parser.add_argument( "-N", "--neurons", nargs="*", default=[ 10 ], action="store", type=int )
 parser.add_argument( "-D", "--dimensions", default=3, type=int )
 parser.add_argument( "-n", "--noise", default=0.15, type=float )
-parser.add_argument( "-g", "--gain", default=None, type=float )
+parser.add_argument( "-g", "--gain", default=1e4, type=float )  # default chosen by paramter search experiments
 parser.add_argument( "-l", "--learning_rule", default="mPES", choices=[ "mPES", "PES" ] )
 parser.add_argument( "-P", "--parameters", default=Default, type=float )
 parser.add_argument( "-b", "--backend", default="nengo_dl", choices=[ "nengo_dl", "nengo_core" ] )
@@ -66,11 +66,14 @@ if len( args.inputs ) == 2:
         input_function_test = WhiteSignal( period=60, high=5, seed=seed )
 timestep = args.timestep
 sim_time = args.simulation_time
-if len( args.neurons ) not in (1, 3):
+if len( args.neurons ) not in range( 1, 3 ):
     parser.error( 'Either give no values for action, or one, or three, not {}.'.format( len( args.neurons ) ) )
 if len( args.neurons ) == 1:
     pre_n_neurons = post_n_neurons = error_n_neurons = args.neurons[ 0 ]
-elif len( args.neurons ) == 3:
+if len( args.neurons ) == 2:
+    pre_n_neurons = error_n_neurons = args.neurons[ 0 ]
+    post_n_neurons = args.neurons[ 1 ]
+if len( args.neurons ) == 3:
     pre_n_neurons = args.neurons[ 0 ]
     post_n_neurons = args.neurons[ 1 ]
     error_n_neurons = args.neurons[ 2 ]

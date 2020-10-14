@@ -72,15 +72,14 @@ for k, par in enumerate( res_list ):
             rounded_neurons = str( np.rint( par ).astype( int ) )
             result = run(
                     [ "python", "mPES.py", "--verbosity", str( 1 ), "-N", str( 100 ), rounded_neurons, str( 100 ), "-N",
-                      str( neurons ),
-                      "-f", str( function ), "-D", str( dimensions ) ]
+                      str( neurons ), "-f", str( function ), "-D", str( dimensions ) ]
                     + [ "-i" ] + inputs,
                     capture_output=True,
                     universal_newlines=True )
         if parameter == "gain":
             result = run(
-                    [ "python", "mPES.py", "--verbosity", str( 1 ), "-g", str( par ), "-f", str( function ), "-D",
-                      str( dimensions ) ]
+                    [ "python", "mPES.py", "--verbosity", str( 1 ), "-g", str( par ), "-f", str( function ),
+                      "-D", str( dimensions ), "-N", str( neurons ) ]
                     + [ "-i" ] + inputs,
                     capture_output=True,
                     universal_newlines=True )

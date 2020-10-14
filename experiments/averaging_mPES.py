@@ -28,9 +28,8 @@ learn_time = args.learn_time
 device = args.device
 
 dir_name, dir_images, dir_data = make_timestamped_dir(
-        root=directory + "averaging/" + str( learning_rule ) + "/" + function + "_" + str( inputs ) + "_" + str(
-            neurons ) + "_"
-             + str( dimensions ) + "_" + str( gain ) + "/" )
+        root=directory + "averaging/" + str( learning_rule ) + "/" + function + "_" + str( inputs ) + "_"
+             + str( neurons ) + "_" + str( dimensions ) + "_" + str( gain ) + "/" )
 print( "Reserved folder", dir_name )
 
 print( "Evaluation for", learning_rule )
