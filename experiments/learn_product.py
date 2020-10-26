@@ -2,27 +2,32 @@ import numpy as np
 import scipy.stats as st
 import matplotlib.pyplot as plt
 
-from sklearn.metrics import mean_squared_error
+import argparse
+import os
+
+os.environ[ "CUDA_DEVICE_ORDER" ] = "PCI_BUS_ID"
 
 import nengo_dl
-from nengo.processes import WhiteNoise, WhiteSignal
+from nengo.processes import WhiteNoise
 from nengo.dists import Gaussian
 from nengo.learning_rules import PES
 
-import sys
-
-sys.path.append( "../tests" )
 from memristor_nengo.extras import *
 from memristor_nengo.learning_rules import mPES
 
-sim_time = 50
+parser = argparse.ArgumentParser()
+parser.add_argument( "-T", "--sim_time", default=10, type=int )
+parser.add_argument( "-d", "--device", default="/cpu:0" )
+args = parser.parse_args()
+
+sim_time = args.sim_time
 learn_block_time = 2.5
+device = args.device
 
 learned_model = nengo.Network()
 with learned_model:
     inp = nengo.Node(
             WhiteNoise( dist=Gaussian( 0, 0.05 ) ),
-            # WhiteSignal( 60, 5 ),
             size_out=2
             )
     pre = nengo.Ensemble( 200, dimensions=2 )
@@ -41,7 +46,6 @@ with learned_model:
             post.neurons,
             transform=np.zeros( (post.n_neurons, pre.n_neurons) ),
             learning_rule_type=mPES( gain=1e3 ),
-            # learning_rule_type=PES(),
             )
     
     nengo.Connection( error, conn.learning_rule )
@@ -128,9 +132,9 @@ errors_iterations_learn = [ ]
 errors_iterations_control = [ ]
 for i in range( 10 ):
     print( "Iteration", i )
-    with nengo_dl.Simulator( learned_model ) as learned_sim:
+    with nengo_dl.Simulator( learned_model, device=device ) as learned_sim:
         learned_sim.run( sim_time )
-    with nengo_dl.Simulator( control_model ) as control_sim:
+    with nengo_dl.Simulator( control_model, device=device ) as control_sim:
         control_sim.run( sim_time )
     
     # essential statistics
