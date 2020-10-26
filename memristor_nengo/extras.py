@@ -111,6 +111,7 @@ class Plotter():
         
         axes[ 0, 0 ].xaxis.set_tick_params( labelsize='xx-large' )
         axes[ 0, 0 ].yaxis.set_tick_params( labelsize='xx-large' )
+        axes[ 0, 0 ].set_ylim( -1, 1 )
         
         if smooth:
             from scipy.signal import savgol_filter
