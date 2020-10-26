@@ -4,8 +4,13 @@ import matplotlib.pyplot as plt
 
 import argparse
 import os
+import sys
 
 os.environ[ "CUDA_DEVICE_ORDER" ] = "PCI_BUS_ID"
+# for nengo GUI
+sys.path.append( "." )
+# for rosa
+sys.path.append( ".." )
 
 import nengo_dl
 from nengo.processes import WhiteNoise
@@ -16,11 +21,13 @@ from memristor_nengo.extras import *
 from memristor_nengo.learning_rules import mPES
 
 parser = argparse.ArgumentParser()
-parser.add_argument( "-T", "--sim_time", default=10, type=int )
+parser.add_argument( "-T", "--sim_time", default=50, type=int )
+parser.add_argument( "-I", "--iterations", default=10, type=int )
 parser.add_argument( "-d", "--device", default="/cpu:0" )
 args = parser.parse_args()
 
 sim_time = args.sim_time
+iterations = args.iterations
 learn_block_time = 2.5
 device = args.device
 
@@ -130,7 +137,7 @@ with control_model:
 # 10 trail runs for each model
 errors_iterations_learn = [ ]
 errors_iterations_control = [ ]
-for i in range( 10 ):
+for i in range( iterations ):
     print( "Iteration", i )
     with nengo_dl.Simulator( learned_model, device=device ) as learned_sim:
         learned_sim.run( sim_time )
@@ -177,12 +184,11 @@ ci_control = st.t.interval( 0.95, len( errors_iterations_control ) - 1, loc=np.m
 # plot testing error
 fig, ax = plt.subplots()
 x = range( errors_mean_learn.shape[ 0 ] )
-ax.plot( x, errors_mean_learn, label="Learned (mPES)" )
-ax.plot( x, ci_learn[ 0 ], linestyle="--", alpha=0.5 )
-ax.plot( x, ci_learn[ 1 ], linestyle="--", alpha=0.5 )
-ax.plot( x, errors_mean_learn, label="Learned (mPES)" )
-ax.plot( x, ci_control[ 0 ], linestyle="--", alpha=0.5 )
-ax.plot( x, ci_control[ 1 ], linestyle="--", alpha=0.5 )
-ax.plot( x, errors_mean_control, label="Control (PES)" )
+ax.plot( x, errors_mean_learn, label="Learned (mPES)", c="b" )
+ax.plot( x, ci_learn[ 0 ], linestyle="--", alpha=0.5, c="b" )
+ax.plot( x, ci_learn[ 1 ], linestyle="--", alpha=0.5, c="b" )
+ax.plot( x, errors_mean_control, label="Control (PES)", c="r" )
+ax.plot( x, ci_control[ 0 ], linestyle="--", alpha=0.5, c="r" )
+ax.plot( x, ci_control[ 1 ], linestyle="--", alpha=0.5, c="r" )
 ax.legend( loc="best" )
 fig.show()
