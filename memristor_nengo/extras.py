@@ -8,6 +8,16 @@ from nengo.processes import Process
 from nengo.utils.matplotlib import rasterplot
 
 
+def setup():
+    import sys
+    
+    os.environ[ "CUDA_DEVICE_ORDER" ] = "PCI_BUS_ID"
+    # for nengo GUI
+    sys.path.append( "." )
+    # for rosa
+    sys.path.append( ".." )
+
+
 class Sines( Process ):
     
     def __init__( self, period=4, **kwargs ):
