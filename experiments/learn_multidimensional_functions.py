@@ -58,7 +58,17 @@ if experiment == 4:
     function_to_learn = lambda x: np.fft.ifft(
             np.fft.fft( x[ :int( dimensions[ 0 ] / 2 ) ] ) * np.fft.fft( x[ int( dimensions[ 0 ] / 2 ): ] )
             )
-    # sim_time = 200
+    sim_time = 200
+if experiment == 5:
+    print( "3D CIRCULAR CONVOLUTIONS experiment" )
+    exp_name = "Two-dimensional circular convolution"
+    # [ pre, post, ground_truth, error,conv ]
+    neurons = [ 600, 300, 300, 300, 300 ]
+    dimensions = [ 6, 3, 3, 3, 3 ]
+    function_to_learn = lambda x: np.fft.ifft(
+            np.fft.fft( x[ :int( dimensions[ 0 ] / 2 ) ] ) * np.fft.fft( x[ int( dimensions[ 0 ] / 2 ): ] )
+            )
+    sim_time = 400
 
 assert 'exp_name' in locals()
 
