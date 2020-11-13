@@ -26,7 +26,7 @@ args = parser.parse_args()
 
 experiment = args.experiment
 if experiment == 1:
-    print( "PRODUCT experiment" )
+    exp_string = "PRODUCT experiment"
     exp_name = "Multiplying two numbers"
     function_to_learn = lambda x: x[ 0 ] * x[ 1 ]
     # [ pre, post, ground_truth, error ]
@@ -34,7 +34,7 @@ if experiment == 1:
     dimensions = [ 2, 1, 1, 1 ]
     sim_time = 50
 if experiment == 2:
-    print( "COMBINED PRODUCTS experiment" )
+    exp_string = "COMBINED PRODUCTS experiment"
     exp_name = "Combining two products"
     function_to_learn = lambda x: x[ 0 ] * x[ 1 ] + x[ 2 ] * x[ 3 ]
     # [ pre, post, ground_truth, error ]
@@ -42,7 +42,7 @@ if experiment == 2:
     dimensions = [ 4, 1, 1, 1 ]
     sim_time = 100
 if experiment == 3:
-    print( "SEPARATE PRODUCTS experiment" )
+    exp_string = "SEPARATE PRODUCTS experiment"
     exp_name = "Three separate products"
     function_to_learn = lambda x: [ x[ 0 ] * x[ 1 ], x[ 0 ] * x[ 2 ], x[ 1 ] * x[ 2 ] ]
     # [ pre, post, ground_truth, error ]
@@ -50,7 +50,7 @@ if experiment == 3:
     dimensions = [ 3, 3, 3, 3 ]
     sim_time = 100
 if experiment == 4:
-    print( "2D CIRCULAR CONVOLUTIONS experiment" )
+    exp_string = "2D CIRCULAR CONVOLUTIONS experiment"
     exp_name = "Two-dimensional circular convolution"
     # [ pre, post, ground_truth, error,conv ]
     neurons = [ 400, 400, 200, 200, 200 ]
@@ -60,7 +60,7 @@ if experiment == 4:
             )
     sim_time = 200
 if experiment == 5:
-    print( "3D CIRCULAR CONVOLUTIONS experiment" )
+    exp_string = "3D CIRCULAR CONVOLUTIONS experiment"
     exp_name = "Two-dimensional circular convolution"
     # [ pre, post, ground_truth, error,conv ]
     neurons = [ 600, 300, 300, 300, 300 ]
@@ -80,6 +80,7 @@ learn_block_time = 2.5
 device = args.device
 directory = "../data/"
 
+print( exp_string )
 dir_name, dir_images, dir_data = make_timestamped_dir(
         root=directory + "trevor/" + exp_name + "/" )
 print( "Reserved folder", dir_name )
@@ -311,6 +312,7 @@ np.savetxt( dir_data + "results.csv",
                    "Mean PES error,CI PES +,CI PES -,"
                    "Mean NEF error,CI NEF +,CI NEF -,",
             comments="" )
+print( exp_string )
 print( f"Saved results in {dir_data}" )
 fig.savefig( dir_images + "product" + ".pdf" )
 print( f"Saved plots in {dir_images}" )
