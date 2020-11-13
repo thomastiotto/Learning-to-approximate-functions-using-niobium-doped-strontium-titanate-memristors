@@ -214,7 +214,7 @@ def LearningConvolutionModel( neurons, dimensions, learning_rule, function_to_le
     return function_learning_model
 
 
-if experiment > 3:
+if experiment < 3:
     learned_model_mpes = LearningModel( neurons, dimensions, mPES( gain=gain ), function_to_learn )
     control_model_pes = LearningModel( neurons, dimensions, PES(), function_to_learn )
     control_model_nef = LearningModel( neurons, dimensions, None, function_to_learn )
@@ -283,7 +283,10 @@ plt.title( exp_name )
 x = range( num_testing_blocks )
 ax.set_ylabel( "Total error" )
 ax.set_xlabel( "Seconds" )
-plt.xticks( x, np.array( x ) * sim_time / num_testing_blocks + 2 * learn_block_time )
+plt.xticks( x, np.array( x ) * sim_time / num_testing_blocks + 2 * learn_block_time, rotation=45 )
+from matplotlib.ticker import StrMethodFormatter
+
+ax.xaxis.set_major_formatter( StrMethodFormatter( '{x:,.0f}' ) )
 ax.plot( x, ci_mpes[ 0 ], label="Learned (mPES)", c="g" )
 ax.plot( x, ci_mpes[ 1 ], linestyle="--", alpha=0.5, c="g" )
 ax.plot( x, ci_mpes[ 2 ], linestyle="--", alpha=0.5, c="g" )
