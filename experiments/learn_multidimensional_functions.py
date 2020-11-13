@@ -61,7 +61,7 @@ if experiment == 4:
     sim_time = 200
 if experiment == 5:
     exp_string = "3D CIRCULAR CONVOLUTIONS experiment"
-    exp_name = "Two-dimensional circular convolution"
+    exp_name = "Three-dimensional circular convolution"
     # [ pre, post, ground_truth, error,conv ]
     neurons = [ 600, 300, 300, 300, 300 ]
     dimensions = [ 6, 3, 3, 3, 3 ]
