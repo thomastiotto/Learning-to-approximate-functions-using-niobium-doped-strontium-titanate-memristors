@@ -90,8 +90,8 @@ print( "Reserved folder", dir_name )
 def LearningModel( neurons, dimensions, learning_rule, function_to_learn ):
     with nengo.Network() as function_learning_model:
         function_learning_model.inp = nengo.Node(
-                # WhiteNoise( dist=Gaussian( 0, 0.05 ) ),
-                WhiteSignal( sim_time, high=5, seed=seed ),
+                WhiteNoise( dist=Gaussian( 0, 0.05 ), seed=seed ),
+                # WhiteSignal( sim_time, high=5, seed=seed ),
                 size_out=dimensions[ 0 ]
                 )
         function_learning_model.pre = nengo.Ensemble( neurons[ 0 ], dimensions=dimensions[ 0 ] )
@@ -153,8 +153,8 @@ def LearningModel( neurons, dimensions, learning_rule, function_to_learn ):
 def LearningConvolutionModel( neurons, dimensions, learning_rule, function_to_learn ):
     with nengo.Network() as function_learning_model:
         function_learning_model.inp = nengo.Node(
-                # WhiteNoise( dist=Gaussian( 0, 0.05 ) ),
-                WhiteSignal( sim_time, high=5, seed=seed ),
+                WhiteNoise( dist=Gaussian( 0, 0.05 ), seed=seed ),
+                # WhiteSignal( sim_time, high=5, seed=seed ),
                 size_out=dimensions[ 0 ]
                 )
         function_learning_model.pre = nengo.Ensemble( neurons[ 0 ], dimensions=dimensions[ 0 ] )
@@ -217,7 +217,7 @@ def LearningConvolutionModel( neurons, dimensions, learning_rule, function_to_le
     return function_learning_model
 
 
-if experiment < 3:
+if experiment <= 3:
     learned_model_mpes = LearningModel( neurons, dimensions, mPES( gain=gain ), function_to_learn )
     control_model_pes = LearningModel( neurons, dimensions, PES(), function_to_learn )
     control_model_nef = LearningModel( neurons, dimensions, None, function_to_learn )
@@ -319,5 +319,5 @@ np.savetxt( dir_data + "results.csv",
             comments="" )
 print( exp_string )
 print( f"Saved results in {dir_data}" )
-fig.savefig( dir_images + "product" + ".pdf" )
+fig.savefig( dir_images + "product" + ".eps" )
 print( f"Saved plots in {dir_images}" )
