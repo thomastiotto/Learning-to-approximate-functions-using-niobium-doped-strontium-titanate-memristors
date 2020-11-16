@@ -79,6 +79,7 @@ gain = args.gain
 learn_block_time = 2.5
 device = args.device
 directory = "../data/"
+seed = 0
 
 print( exp_string )
 dir_name, dir_images, dir_data = make_timestamped_dir(
@@ -90,21 +91,20 @@ def LearningModel( neurons, dimensions, learning_rule, function_to_learn ):
     with nengo.Network() as function_learning_model:
         function_learning_model.inp = nengo.Node(
                 # WhiteNoise( dist=Gaussian( 0, 0.05 ) ),
-                WhiteSignal( 60, high=5 ),
+                WhiteSignal( sim_time, high=5, seed=seed ),
                 size_out=dimensions[ 0 ]
                 )
         function_learning_model.pre = nengo.Ensemble( neurons[ 0 ], dimensions=dimensions[ 0 ] )
         function_learning_model.post = nengo.Ensemble( neurons[ 1 ], dimensions=dimensions[ 1 ] )
         function_learning_model.ground_truth = nengo.Ensemble( neurons[ 2 ], dimensions=dimensions[ 2 ] )
-        function_learning_model.error = nengo.Ensemble( neurons[ 3 ], dimensions=dimensions[ 3 ] )
         
         nengo.Connection( function_learning_model.inp, function_learning_model.pre )
         nengo.Connection( function_learning_model.inp, function_learning_model.ground_truth,
                           function=function_to_learn )
-        nengo.Connection( function_learning_model.post, function_learning_model.error )
-        nengo.Connection( function_learning_model.ground_truth, function_learning_model.error, transform=-1 )
         
         if learning_rule:
+            function_learning_model.error = nengo.Ensemble( neurons[ 3 ], dimensions=dimensions[ 3 ] )
+            
             # -- learning connection
             function_learning_model.conn = nengo.Connection(
                     function_learning_model.pre.neurons,
@@ -114,6 +114,26 @@ def LearningModel( neurons, dimensions, learning_rule, function_to_learn ):
                     learning_rule_type=learning_rule
                     )
             nengo.Connection( function_learning_model.error, function_learning_model.conn.learning_rule )
+            nengo.Connection( function_learning_model.post, function_learning_model.error )
+            nengo.Connection( function_learning_model.ground_truth, function_learning_model.error, transform=-1 )
+            
+            class cyclic_inhibit:
+                def __init__( self, cycle_time ):
+                    self.out_inhibit = 0.0
+                    self.cycle_time = cycle_time
+                
+                def step( self, t ):
+                    if t % self.cycle_time == 0 and t != 0:
+                        if self.out_inhibit == 0.0:
+                            self.out_inhibit = 2.0
+                        else:
+                            self.out_inhibit = 0.0
+                    
+                    return self.out_inhibit
+            
+            function_learning_model.inhib = nengo.Node( cyclic_inhibit( learn_block_time ).step )
+            nengo.Connection( function_learning_model.inhib, function_learning_model.error.neurons,
+                              transform=[ [ -1 ] ] * function_learning_model.error.n_neurons )
         else:
             function_learning_model.conn = nengo.Connection(
                     function_learning_model.pre,
@@ -121,29 +141,11 @@ def LearningModel( neurons, dimensions, learning_rule, function_to_learn ):
                     function=function_to_learn
                     )
         
-        class cyclic_inhibit:
-            def __init__( self, cycle_time ):
-                self.out_inhibit = 0.0
-                self.cycle_time = cycle_time
-            
-            def step( self, t ):
-                if t % self.cycle_time == 0 and t != 0:
-                    if self.out_inhibit == 0.0:
-                        self.out_inhibit = 2.0
-                    else:
-                        self.out_inhibit = 0.0
-                
-                return self.out_inhibit
-        
-        function_learning_model.inhib = nengo.Node( cyclic_inhibit( learn_block_time ).step )
-        nengo.Connection( function_learning_model.inhib, function_learning_model.error.neurons,
-                          transform=[ [ -1 ] ] * function_learning_model.error.n_neurons )
-        
         # -- probes
-        function_learning_model.ground_truth_probe = nengo.Probe( function_learning_model.ground_truth, synapse=0.01 )
         function_learning_model.pre_probe = nengo.Probe( function_learning_model.pre, synapse=0.01 )
         function_learning_model.post_probe = nengo.Probe( function_learning_model.post, synapse=0.01 )
-        function_learning_model.error_probe = nengo.Probe( function_learning_model.error, synapse=0.03 )
+        function_learning_model.ground_truth_probe = nengo.Probe( function_learning_model.ground_truth, synapse=0.01 )
+        # function_learning_model.error_probe = nengo.Probe( function_learning_model.error, synapse=0.03 )
     
     return function_learning_model
 
@@ -152,13 +154,12 @@ def LearningConvolutionModel( neurons, dimensions, learning_rule, function_to_le
     with nengo.Network() as function_learning_model:
         function_learning_model.inp = nengo.Node(
                 # WhiteNoise( dist=Gaussian( 0, 0.05 ) ),
-                WhiteSignal( 60, high=5 ),
+                WhiteSignal( sim_time, high=5, seed=seed ),
                 size_out=dimensions[ 0 ]
                 )
         function_learning_model.pre = nengo.Ensemble( neurons[ 0 ], dimensions=dimensions[ 0 ] )
         function_learning_model.post = nengo.Ensemble( neurons[ 1 ], dimensions=dimensions[ 1 ] )
         function_learning_model.ground_truth = nengo.Ensemble( neurons[ 2 ], dimensions=dimensions[ 2 ] )
-        function_learning_model.error = nengo.Ensemble( neurons[ 3 ], dimensions=dimensions[ 3 ] )
         function_learning_model.conv = nengo.networks.CircularConvolution( neurons[ 4 ], dimensions[ 4 ] )
         
         nengo.Connection( function_learning_model.inp, function_learning_model.pre )
@@ -167,10 +168,10 @@ def LearningConvolutionModel( neurons, dimensions, learning_rule, function_to_le
         nengo.Connection( function_learning_model.inp[ int( dimensions[ 0 ] / 2 ): ],
                           function_learning_model.conv.input_b )
         nengo.Connection( function_learning_model.conv.output, function_learning_model.ground_truth )
-        nengo.Connection( function_learning_model.post, function_learning_model.error )
-        nengo.Connection( function_learning_model.ground_truth, function_learning_model.error, transform=-1 )
         
         if learning_rule:
+            function_learning_model.error = nengo.Ensemble( neurons[ 3 ], dimensions=dimensions[ 3 ] )
+            
             # -- learning connection
             function_learning_model.conn = nengo.Connection(
                     function_learning_model.pre.neurons,
@@ -180,6 +181,26 @@ def LearningConvolutionModel( neurons, dimensions, learning_rule, function_to_le
                     learning_rule_type=learning_rule
                     )
             nengo.Connection( function_learning_model.error, function_learning_model.conn.learning_rule )
+            nengo.Connection( function_learning_model.post, function_learning_model.error )
+            nengo.Connection( function_learning_model.ground_truth, function_learning_model.error, transform=-1 )
+            
+            class cyclic_inhibit:
+                def __init__( self, cycle_time ):
+                    self.out_inhibit = 0.0
+                    self.cycle_time = cycle_time
+                
+                def step( self, t ):
+                    if t % self.cycle_time == 0 and t != 0:
+                        if self.out_inhibit == 0.0:
+                            self.out_inhibit = 2.0
+                        else:
+                            self.out_inhibit = 0.0
+                    
+                    return self.out_inhibit
+            
+            function_learning_model.inhib = nengo.Node( cyclic_inhibit( learn_block_time ).step )
+            nengo.Connection( function_learning_model.inhib, function_learning_model.error.neurons,
+                              transform=[ [ -1 ] ] * function_learning_model.error.n_neurons )
         else:
             function_learning_model.conn = nengo.Connection(
                     function_learning_model.pre,
@@ -187,29 +208,11 @@ def LearningConvolutionModel( neurons, dimensions, learning_rule, function_to_le
                     function=function_to_learn
                     )
         
-        class cyclic_inhibit:
-            def __init__( self, cycle_time ):
-                self.out_inhibit = 0.0
-                self.cycle_time = cycle_time
-            
-            def step( self, t ):
-                if t % self.cycle_time == 0 and t != 0:
-                    if self.out_inhibit == 0.0:
-                        self.out_inhibit = 2.0
-                    else:
-                        self.out_inhibit = 0.0
-                
-                return self.out_inhibit
-        
-        function_learning_model.inhib = nengo.Node( cyclic_inhibit( learn_block_time ).step )
-        nengo.Connection( function_learning_model.inhib, function_learning_model.error.neurons,
-                          transform=[ [ -1 ] ] * function_learning_model.error.n_neurons )
-        
         # -- probes
         function_learning_model.ground_truth_probe = nengo.Probe( function_learning_model.ground_truth, synapse=0.01 )
         function_learning_model.pre_probe = nengo.Probe( function_learning_model.pre, synapse=0.01 )
         function_learning_model.post_probe = nengo.Probe( function_learning_model.post, synapse=0.01 )
-        function_learning_model.error_probe = nengo.Probe( function_learning_model.error, synapse=0.03 )
+        # function_learning_model.error_probe = nengo.Probe( function_learning_model.error, synapse=0.03 )
     
     return function_learning_model
 
@@ -219,7 +222,8 @@ if experiment < 3:
     control_model_pes = LearningModel( neurons, dimensions, PES(), function_to_learn )
     control_model_nef = LearningModel( neurons, dimensions, None, function_to_learn )
 else:
-    learned_model_mpes = LearningConvolutionModel( neurons, dimensions, mPES( gain=gain ), function_to_learn )
+    learned_model_mpes = LearningConvolutionModel( neurons, dimensions, mPES( gain=gain ),
+                                                   function_to_learn )
     control_model_pes = LearningConvolutionModel( neurons, dimensions, PES(), function_to_learn )
     control_model_nef = LearningConvolutionModel( neurons, dimensions, None, function_to_learn )
 
@@ -278,15 +282,13 @@ ci_nef = ci( errors_iterations_nef )
 
 # plot testing error
 fig, ax = plt.subplots()
-fig.set_size_inches( (12, 8) )
+fig.set_size_inches( (18, 8) )
 plt.title( exp_name )
 x = range( num_testing_blocks )
 ax.set_ylabel( "Total error" )
 ax.set_xlabel( "Seconds" )
-plt.xticks( x, np.array( x ) * sim_time / num_testing_blocks + 2 * learn_block_time, rotation=45 )
-from matplotlib.ticker import StrMethodFormatter
+plt.xticks( x, np.array( x ) * sim_time / num_testing_blocks + 2 * learn_block_time )
 
-ax.xaxis.set_major_formatter( StrMethodFormatter( '{x:,.0f}' ) )
 ax.plot( x, ci_mpes[ 0 ], label="Learned (mPES)", c="g" )
 ax.plot( x, ci_mpes[ 1 ], linestyle="--", alpha=0.5, c="g" )
 ax.plot( x, ci_mpes[ 2 ], linestyle="--", alpha=0.5, c="g" )
