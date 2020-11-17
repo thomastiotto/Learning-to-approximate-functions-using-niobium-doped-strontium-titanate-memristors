@@ -294,10 +294,12 @@ ci_nef = ci( errors_iterations_nef )
 fig, ax = plt.subplots()
 fig.set_size_inches( (18, 8) )
 plt.title( exp_name )
-x = range( num_testing_blocks )
+x = np.arange( num_testing_blocks )
 ax.set_ylabel( "Total error" )
 ax.set_xlabel( "Seconds" )
-plt.xticks( x, np.array( x ) * sim_time / num_testing_blocks + 2 * learn_block_time )
+plt.xticks( x, np.arange( start=2 * learn_block_time,
+                          stop=(num_testing_blocks) * sim_time / num_testing_blocks + 2 * learn_block_time,
+                          step=sim_time / 10, dtype=int ) )
 
 ax.plot( x, ci_mpes[ 0 ], label="Learned (mPES)", c="g" )
 ax.plot( x, ci_mpes[ 1 ], linestyle="--", alpha=0.5, c="g" )
@@ -333,4 +335,4 @@ fig.savefig( dir_images + "product" + ".pdf" )
 print( f"Saved plots in {dir_images}" )
 
 end_time = time.time()
-print( f"{end_time - start_time:.2f}" )
+print( f"Elapsed time: {datetime.timedelta( seconds=np.ceil( end_time - start_time ) )} (h:mm:ss)" )
