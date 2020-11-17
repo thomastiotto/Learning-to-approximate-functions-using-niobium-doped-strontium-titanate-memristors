@@ -18,7 +18,7 @@ def setup():
     # for rosa
     sys.path.append( ".." )
     
-    tf.logging.set_verbosity( tf.logging.ERROR )
+    tf.compat.v1.logging.set_verbosity( tf.compat.v1.logging.ERROR )
 
 
 class Sines( Process ):
