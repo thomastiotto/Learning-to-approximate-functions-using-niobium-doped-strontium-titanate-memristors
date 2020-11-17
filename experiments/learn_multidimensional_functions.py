@@ -90,7 +90,7 @@ dir_name, dir_images, dir_data = make_timestamped_dir(
 print( "Reserved folder", dir_name )
 
 
-def LearningModel( neurons, dimensions, learning_rule, function_to_learn ):
+def LearningModel( neurons, dimensions, learning_rule, function_to_learn, seed ):
     with nengo.Network() as function_learning_model:
         
         nengo_dl.configure_settings( stateful=False )
@@ -156,7 +156,7 @@ def LearningModel( neurons, dimensions, learning_rule, function_to_learn ):
     return function_learning_model
 
 
-def LearningConvolutionModel( neurons, dimensions, learning_rule, function_to_learn ):
+def LearningConvolutionModel( neurons, dimensions, learning_rule, function_to_learn, seed ):
     with nengo.Network() as function_learning_model:
         
         nengo_dl.configure_settings( stateful=False )
@@ -226,21 +226,22 @@ def LearningConvolutionModel( neurons, dimensions, learning_rule, function_to_le
     return function_learning_model
 
 
-# instantiate models
-if experiment <= 3:
-    learned_model_mpes = LearningModel( neurons, dimensions, mPES( gain=gain ), function_to_learn )
-    control_model_pes = LearningModel( neurons, dimensions, PES(), function_to_learn )
-    control_model_nef = LearningModel( neurons, dimensions, None, function_to_learn )
-else:
-    learned_model_mpes = LearningConvolutionModel( neurons, dimensions, mPES( gain=gain ), function_to_learn )
-    control_model_pes = LearningConvolutionModel( neurons, dimensions, PES(), function_to_learn )
-    control_model_nef = LearningConvolutionModel( neurons, dimensions, None, function_to_learn )
-
 # trail runs for each model
 errors_iterations_mpes = [ ]
 errors_iterations_pes = [ ]
 errors_iterations_nef = [ ]
 for i in range( iterations ):
+    
+    if experiment <= 3:
+        learned_model_mpes = LearningModel( neurons, dimensions, mPES( gain=gain ), function_to_learn, seed=seed + i )
+        control_model_pes = LearningModel( neurons, dimensions, PES(), function_to_learn, seed=seed + i )
+        control_model_nef = LearningModel( neurons, dimensions, None, function_to_learn, seed=seed + i )
+    else:
+        learned_model_mpes = LearningConvolutionModel( neurons, dimensions, mPES( gain=gain ), function_to_learn,
+                                                       seed=seed + i )
+        control_model_pes = LearningConvolutionModel( neurons, dimensions, PES(), function_to_learn, seed=seed + i )
+        control_model_nef = LearningConvolutionModel( neurons, dimensions, None, function_to_learn, seed=seed + i )
+    
     print( "Iteration", i )
     with nengo_dl.Simulator( learned_model_mpes, device=device ) as sim_mpes:
         print( "Learning network (mPES)" )
