@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import argparse
 import os
 import sys
+import time
 
 import nengo_dl
 from nengo.processes import WhiteNoise, WhiteSignal
@@ -12,6 +13,8 @@ from nengo.learning_rules import PES
 
 from memristor_nengo.extras import *
 from memristor_nengo.learning_rules import mPES
+
+start_time = time.time()
 
 setup()
 
@@ -321,3 +324,6 @@ print( exp_string )
 print( f"Saved results in {dir_data}" )
 fig.savefig( dir_images + "product" + ".eps" )
 print( f"Saved plots in {dir_images}" )
+
+end_time = time.time()
+print( f"{end_time - start_time:.2f}" )
