@@ -322,7 +322,7 @@ np.savetxt( dir_data + "results.csv",
             comments="" )
 print( exp_string )
 print( f"Saved results in {dir_data}" )
-fig.savefig( dir_images + "product" + ".eps" )
+fig.savefig( dir_images + "product" + ".pdf" )
 print( f"Saved plots in {dir_images}" )
 
 end_time = time.time()

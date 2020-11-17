@@ -6,6 +6,7 @@ import nengo
 import numpy as np
 from nengo.processes import Process
 from nengo.utils.matplotlib import rasterplot
+import tensorflow as tf
 
 
 def setup():
@@ -16,6 +17,8 @@ def setup():
     sys.path.append( "." )
     # for rosa
     sys.path.append( ".." )
+    
+    tf.logging.set_verbosity( tf.logging.ERROR )
 
 
 class Sines( Process ):
