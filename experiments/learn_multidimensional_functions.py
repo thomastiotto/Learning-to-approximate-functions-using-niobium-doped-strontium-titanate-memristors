@@ -92,6 +92,9 @@ print( "Reserved folder", dir_name )
 
 def LearningModel( neurons, dimensions, learning_rule, function_to_learn ):
     with nengo.Network() as function_learning_model:
+        
+        nengo_dl.configure_settings( stateful=False )
+        
         function_learning_model.inp = nengo.Node(
                 WhiteNoise( dist=Gaussian( 0, 0.05 ), seed=seed ),
                 # WhiteSignal( sim_time, high=5, seed=seed ),
@@ -155,6 +158,9 @@ def LearningModel( neurons, dimensions, learning_rule, function_to_learn ):
 
 def LearningConvolutionModel( neurons, dimensions, learning_rule, function_to_learn ):
     with nengo.Network() as function_learning_model:
+        
+        nengo_dl.configure_settings( stateful=False )
+        
         function_learning_model.inp = nengo.Node(
                 WhiteNoise( dist=Gaussian( 0, 0.05 ), seed=seed ),
                 # WhiteSignal( sim_time, high=5, seed=seed ),
@@ -220,13 +226,13 @@ def LearningConvolutionModel( neurons, dimensions, learning_rule, function_to_le
     return function_learning_model
 
 
+# instantiate models
 if experiment <= 3:
     learned_model_mpes = LearningModel( neurons, dimensions, mPES( gain=gain ), function_to_learn )
     control_model_pes = LearningModel( neurons, dimensions, PES(), function_to_learn )
     control_model_nef = LearningModel( neurons, dimensions, None, function_to_learn )
 else:
-    learned_model_mpes = LearningConvolutionModel( neurons, dimensions, mPES( gain=gain ),
-                                                   function_to_learn )
+    learned_model_mpes = LearningConvolutionModel( neurons, dimensions, mPES( gain=gain ), function_to_learn )
     control_model_pes = LearningConvolutionModel( neurons, dimensions, PES(), function_to_learn )
     control_model_nef = LearningConvolutionModel( neurons, dimensions, None, function_to_learn )
 
