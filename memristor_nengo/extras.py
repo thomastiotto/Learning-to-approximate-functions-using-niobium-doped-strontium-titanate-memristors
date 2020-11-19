@@ -13,6 +13,8 @@ def setup():
     import sys
     
     os.environ[ "CUDA_DEVICE_ORDER" ] = "PCI_BUS_ID"
+    os.environ[ 'TF_FORCE_GPU_ALLOW_GROWTH' ] = "true"
+    
     # for nengo GUI
     sys.path.append( "." )
     # for rosa

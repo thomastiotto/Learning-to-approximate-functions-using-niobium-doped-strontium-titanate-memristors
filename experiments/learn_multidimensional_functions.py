@@ -80,6 +80,8 @@ if args.sim_time is not None:
 iterations = args.iterations
 gain = args.gain
 learn_block_time = 2.5
+# to have an extra testing block at t=[0,2.5]
+sim_time += learn_block_time
 device = args.device
 directory = "../data/"
 seed = 0
@@ -116,7 +118,8 @@ def LearningModel( neurons, dimensions, learning_rule, function_to_learn, seed )
                     function_learning_model.pre.neurons,
                     function_learning_model.post.neurons,
                     transform=np.zeros(
-                            (function_learning_model.post.n_neurons, function_learning_model.pre.n_neurons) ),
+                            (function_learning_model.post.n_neurons, function_learning_model.pre.n_neurons)
+                            ),
                     learning_rule_type=learning_rule
                     )
             nengo.Connection( function_learning_model.error, function_learning_model.conn.learning_rule )
@@ -129,7 +132,7 @@ def LearningModel( neurons, dimensions, learning_rule, function_to_learn, seed )
                     self.cycle_time = cycle_time
                 
                 def step( self, t ):
-                    if t % self.cycle_time == 0 and t != 0:
+                    if t % self.cycle_time == 0:
                         if self.out_inhibit == 0.0:
                             self.out_inhibit = 2.0
                         else:
@@ -185,8 +188,6 @@ def LearningConvolutionModel( neurons, dimensions, learning_rule, function_to_le
             function_learning_model.conn = nengo.Connection(
                     function_learning_model.pre.neurons,
                     function_learning_model.post.neurons,
-                    transform=np.zeros(
-                            (function_learning_model.post.n_neurons, function_learning_model.pre.n_neurons) ),
                     learning_rule_type=learning_rule
                     )
             nengo.Connection( function_learning_model.error, function_learning_model.conn.learning_rule )
@@ -199,7 +200,7 @@ def LearningConvolutionModel( neurons, dimensions, learning_rule, function_to_le
                     self.cycle_time = cycle_time
                 
                 def step( self, t ):
-                    if t % self.cycle_time == 0 and t != 0:
+                    if t % self.cycle_time == 0:
                         if self.out_inhibit == 0.0:
                             self.out_inhibit = 2.0
                         else:
@@ -263,11 +264,11 @@ for i in range( iterations ):
         ground_truth_data = np.array_split( sim.data[ mod.ground_truth_probe ], sim_time / learn_block_time )
         post_data = np.array_split( sim.data[ mod.post_probe ], sim_time / learn_block_time )
         # extract learning blocks
-        learned_ground_truth_data = np.array( [ x for i, x in enumerate( ground_truth_data ) if i % 2 == 0 ] )
-        test_ground_truth_data = np.array( [ x for i, x in enumerate( ground_truth_data ) if i % 2 != 0 ] )
+        train_ground_truth_data = np.array( [ x for i, x in enumerate( ground_truth_data ) if i % 2 != 0 ] )
+        test_ground_truth_data = np.array( [ x for i, x in enumerate( ground_truth_data ) if i % 2 == 0 ] )
         # extract testing blocks
-        learned_post_data = np.array( [ x for i, x in enumerate( post_data ) if i % 2 == 0 ] )
-        test_post_data = np.array( [ x for i, x in enumerate( post_data ) if i % 2 != 0 ] )
+        train_post_data = np.array( [ x for i, x in enumerate( post_data ) if i % 2 != 0 ] )
+        test_post_data = np.array( [ x for i, x in enumerate( post_data ) if i % 2 == 0 ] )
         
         # compute testing error for learn network
         total_error = np.sum( np.sum( np.abs( test_post_data - test_ground_truth_data ), axis=1 ), axis=1 )
@@ -294,12 +295,9 @@ ci_nef = ci( errors_iterations_nef )
 fig, ax = plt.subplots()
 fig.set_size_inches( (18, 8) )
 plt.title( exp_name )
-x = np.arange( num_testing_blocks )
+x = (np.arange( num_testing_blocks + 1 ) * 2 * learn_block_time).astype( np.int )
 ax.set_ylabel( "Total error" )
 ax.set_xlabel( "Seconds" )
-plt.xticks( x, np.arange( start=2 * learn_block_time,
-                          stop=(num_testing_blocks) * sim_time / num_testing_blocks + 2 * learn_block_time,
-                          step=sim_time / 10, dtype=int ) )
 
 ax.plot( x, ci_mpes[ 0 ], label="Learned (mPES)", c="g" )
 ax.plot( x, ci_mpes[ 1 ], linestyle="--", alpha=0.5, c="g" )
