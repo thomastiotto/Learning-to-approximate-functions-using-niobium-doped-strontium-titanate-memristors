@@ -17,6 +17,7 @@ class mPES( LearningRuleType ):
     r_max = NumberParam( "r_max", readonly=True, default=2.3e8 )
     r_min = NumberParam( "r_min", readonly=True, default=200 )
     exponent = NumberParam( "exponent", readonly=True, default=-0.146 )
+    gain = NumberParam( "gain", readonly=True, default=1e3 )
     
     def __init__( self,
                   learning_rate=Default,
@@ -25,7 +26,7 @@ class mPES( LearningRuleType ):
                   r_min=Default,
                   exponent=Default,
                   noisy=False,
-                  gain=None,
+                  gain=Default,
                   seed=None ):
         super().__init__( learning_rate, size_in="post_state" )
         if learning_rate is not Default and learning_rate >= 1.0:
@@ -77,11 +78,9 @@ class SimmPES( Operator ):
             ):
         super( SimmPES, self ).__init__( tag=tag )
         
-        self.pre_n_neurons = weights.shape[ 1 ]
-        self.post_n_neurons = weights.shape[ 0 ]
         self.learning_rate = learning_rate
         self.noise_percentage = noise_percentage
-        self.gain = 1e6 / self.pre_n_neurons if not gain else gain
+        self.gain = gain
         self.error_threshold = 1e-5
         self.r_max = r_max
         self.r_min = r_min
@@ -338,11 +337,6 @@ class SimmPESBuilder( OpBuilder ):
                                                     "error_threshold",
                                                     signals.dtype,
                                                     shape=(1, -1, 1, 1) )
-        self.post_n_neurons = signals.op_constant( self.ops,
-                                                   [ 1 for _ in self.ops ],
-                                                   "post_n_neurons",
-                                                   signals.dtype,
-                                                   shape=(1, -1, 1, 1) )
         self.g_min = 1.0 / self.r_max
         self.g_max = 1.0 / self.r_min
     
@@ -420,7 +414,7 @@ class SimmPESBuilder( OpBuilder ):
         
         pes_delta = -local_error * pre_filtered
         
-        spiked_map = find_spikes( pre_filtered, self.post_n_neurons )
+        spiked_map = find_spikes( pre_filtered, self.output_size )
         pes_delta = pes_delta * spiked_map
         
         V = tf.sign( pes_delta ) * 1e-1
