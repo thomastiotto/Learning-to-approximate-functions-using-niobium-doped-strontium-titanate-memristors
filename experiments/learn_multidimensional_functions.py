@@ -117,7 +117,7 @@ def LearningModel( neurons, dimensions, learning_rule, function_to_learn, seed )
             function_learning_model.conn = nengo.Connection(
                     function_learning_model.pre.neurons,
                     function_learning_model.post.neurons,
-                    transform=np.zeros(
+                    transform=np.random.random(
                             (function_learning_model.post.n_neurons, function_learning_model.pre.n_neurons)
                             ),
                     learning_rule_type=learning_rule
@@ -188,6 +188,9 @@ def LearningConvolutionModel( neurons, dimensions, learning_rule, function_to_le
             function_learning_model.conn = nengo.Connection(
                     function_learning_model.pre.neurons,
                     function_learning_model.post.neurons,
+                    transform=np.random.random(
+                            (function_learning_model.post.n_neurons, function_learning_model.pre.n_neurons)
+                            ),
                     learning_rule_type=learning_rule
                     )
             nengo.Connection( function_learning_model.error, function_learning_model.conn.learning_rule )
