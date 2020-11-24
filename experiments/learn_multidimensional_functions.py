@@ -142,7 +142,7 @@ def LearningModel( neurons, dimensions, learning_rule, function_to_learn, convol
                 model.conn = nengo.Connection(
                         model.pre,
                         model.post,
-                        function=lambda x: np.random.random( 1 ),
+                        function=lambda x: np.random.random( dimensions[ 1 ] ),
                         learning_rule_type=learning_rule
                         )
             nengo.Connection( model.error, model.conn.learning_rule )
