@@ -25,6 +25,9 @@ parser.add_argument( "-T", "--sim_time", default=None, type=float )
 parser.add_argument( "-I", "--iterations", default=10, type=int )
 parser.add_argument( "-g", "--gain", default=1e3, type=float )
 parser.add_argument( "-d", "--device", default="/cpu:0" )
+parser.add_argument( '--encoded', dest='encoded', action='store_true' )
+parser.add_argument( '--no-encoded', dest='encoded', action='store_false' )
+parser.set_defaults( encoded=False )
 args = parser.parse_args()
 
 experiment = args.experiment
@@ -86,6 +89,7 @@ device = args.device
 directory = "../data/"
 seed = 0
 convolve = False if experiment <= 3 else True
+encoded = args.encoded
 
 print( exp_string )
 dir_name, dir_images, dir_data = make_timestamped_dir(
@@ -94,6 +98,8 @@ print( "Reserved folder", dir_name )
 
 
 def LearningModel( neurons, dimensions, learning_rule, function_to_learn, convolve, seed ):
+    global encoded
+    
     with nengo.Network() as model:
         
         nengo_dl.configure_settings( stateful=False )
@@ -123,15 +129,22 @@ def LearningModel( neurons, dimensions, learning_rule, function_to_learn, convol
         if learning_rule:
             model.error = nengo.Ensemble( neurons[ 3 ], dimensions=dimensions[ 3 ] )
             
-            # -- learning connection
-            model.conn = nengo.Connection(
-                    model.pre.neurons,
-                    model.post.neurons,
-                    transform=np.random.random(
-                            (model.post.n_neurons, model.pre.n_neurons)
-                            ),
-                    learning_rule_type=learning_rule
-                    )
+            if isinstance( learning_rule, mPES ) or (isinstance( learning_rule, PES ) and not encoded):
+                model.conn = nengo.Connection(
+                        model.pre.neurons,
+                        model.post.neurons,
+                        transform=np.random.random(
+                                (model.post.n_neurons, model.pre.n_neurons)
+                                ),
+                        learning_rule_type=learning_rule
+                        )
+            else:
+                model.conn = nengo.Connection(
+                        model.pre,
+                        model.post,
+                        function=lambda x: np.random.random( 1 ),
+                        learning_rule_type=learning_rule
+                        )
             nengo.Connection( model.error, model.conn.learning_rule )
             nengo.Connection( model.post, model.error )
             nengo.Connection( model.ground_truth, model.error, transform=-1 )
