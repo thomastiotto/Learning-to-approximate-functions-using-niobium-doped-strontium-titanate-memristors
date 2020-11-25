@@ -6,6 +6,21 @@ import nengo
 import numpy as np
 from nengo.processes import Process
 from nengo.utils.matplotlib import rasterplot
+import tensorflow as tf
+
+
+def setup():
+    import sys
+    
+    os.environ[ "CUDA_DEVICE_ORDER" ] = "PCI_BUS_ID"
+    os.environ[ 'TF_FORCE_GPU_ALLOW_GROWTH' ] = "true"
+    
+    # for nengo GUI
+    sys.path.append( "." )
+    # for rosa
+    sys.path.append( ".." )
+    
+    tf.compat.v1.logging.set_verbosity( tf.compat.v1.logging.ERROR )
 
 
 class Sines( Process ):
@@ -87,7 +102,8 @@ class ConditionalProbe:
 
 
 class Plotter():
-    def __init__( self, trange, rows, cols, dimensions, learning_time, sampling, plot_size=(12, 8), dpi=80, dt=0.001 ):
+    def __init__( self, trange, rows, cols, dimensions, learning_time, sampling, plot_size=(12, 8), dpi=80, dt=0.001,
+                  pre_alpha=0.3 ):
         self.time_vector = trange
         self.plot_sizes = plot_size
         self.dpi = dpi
@@ -97,6 +113,7 @@ class Plotter():
         self.learning_time = learning_time
         self.sampling = sampling
         self.dt = dt
+        self.pre_alpha = pre_alpha
     
     def plot_testing( self, pre, post, smooth=False, mse=None ):
         fig, axes = plt.subplots( 1, 1, sharex=True, sharey=True, squeeze=False )
@@ -107,6 +124,10 @@ class Plotter():
         pre = pre[ learning_time:, ... ]
         post = post[ learning_time:, ... ]
         
+        axes[ 0, 0 ].xaxis.set_tick_params( labelsize='xx-large' )
+        axes[ 0, 0 ].yaxis.set_tick_params( labelsize='xx-large' )
+        axes[ 0, 0 ].set_ylim( -1, 1 )
+        
         if smooth:
             from scipy.signal import savgol_filter
             
@@ -116,19 +137,20 @@ class Plotter():
         axes[ 0, 0 ].plot(
                 time,
                 pre,
-                linestyle=":",
+                # linestyle=":",
+                alpha=self.pre_alpha,
                 label='Pre' )
         axes[ 0, 0 ].set_prop_cycle( None )
         axes[ 0, 0 ].plot(
                 time,
                 post,
                 label='Post' )
-        if self.n_dims <= 3:
-            axes[ 0, 0 ].legend(
-                    [ f"Pre dim {i}" for i in range( self.n_dims ) ] +
-                    [ f"Post dim {i}" for i in range( self.n_dims ) ],
-                    loc='best' )
-        axes[ 0, 0 ].set_title( "Pre and post decoded", fontsize=16 )
+        # if self.n_dims <= 3:
+        #     axes[ 0, 0 ].legend(
+        #             [ f"Pre dim {i}" for i in range( self.n_dims ) ] +
+        #             [ f"Post dim {i}" for i in range( self.n_dims ) ],
+        #             loc='best' )
+        # axes[ 0, 0 ].set_title( "Pre and post decoded on testing phase", fontsize=16 )
         
         if mse is not None:
             axes[ 0, 0 ].text( 0.85, 0.2, f"MSE: {np.round( mse, 5 )}",
@@ -143,15 +165,20 @@ class Plotter():
     def plot_results( self, input, pre, post, error, smooth=False, mse=None ):
         fig, axes = plt.subplots( 3, 1, sharex=True, sharey=True, squeeze=False )
         fig.set_size_inches( self.plot_sizes )
+        
+        for ax in axes.flatten():
+            ax.xaxis.set_tick_params( labelsize='xx-large' )
+            ax.yaxis.set_tick_params( labelsize='xx-large' )
+        
         axes[ 0, 0 ].plot(
                 self.time_vector,
                 input,
                 label='Input',
                 linewidth=2.0 )
-        if self.n_dims <= 3:
-            axes[ 0, 0 ].legend(
-                    [ f"Input dim {i}" for i in range( self.n_dims ) ],
-                    loc='best' )
+        # if self.n_dims <= 3:
+        #     axes[ 0, 0 ].legend(
+        #             [ f"Input dim {i}" for i in range( self.n_dims ) ],
+        #             loc='best' )
         axes[ 0, 0 ].set_title( "Input signal", fontsize=16 )
         
         if smooth:
@@ -163,18 +190,19 @@ class Plotter():
         axes[ 1, 0 ].plot(
                 self.time_vector,
                 pre,
-                linestyle=":",
+                # linestyle=":",
+                alpha=self.pre_alpha,
                 label='Pre' )
         axes[ 1, 0 ].set_prop_cycle( None )
         axes[ 1, 0 ].plot(
                 self.time_vector,
                 post,
                 label='Post' )
-        if self.n_dims <= 3:
-            axes[ 1, 0 ].legend(
-                    [ f"Pre dim {i}" for i in range( self.n_dims ) ] +
-                    [ f"Post dim {i}" for i in range( self.n_dims ) ],
-                    loc='best' )
+        # if self.n_dims <= 3:
+        #     axes[ 1, 0 ].legend(
+        #             [ f"Pre dim {i}" for i in range( self.n_dims ) ] +
+        #             [ f"Post dim {i}" for i in range( self.n_dims ) ],
+        #             loc='best' )
         axes[ 1, 0 ].set_title( "Pre and post decoded", fontsize=16 )
         
         if smooth:
@@ -307,6 +335,10 @@ def make_timestamped_dir( root=None ):
     os.mkdir( dir_data )
     
     return dir_name, dir_images, dir_data
+
+
+def mse_to_rho_ratio( mse, rho ):
+    return [ i for i in np.array( rho ) / mse ]
 
 
 def correlations( X, Y ):

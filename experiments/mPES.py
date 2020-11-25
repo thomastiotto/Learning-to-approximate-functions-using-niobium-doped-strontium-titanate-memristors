@@ -6,7 +6,6 @@ os.environ[ "CUDA_DEVICE_ORDER" ] = "PCI_BUS_ID"
 # os.environ["CUDA_VISIBLE_DEVICES"]="0,3"  # specify which GPU(s) to be used
 
 import nengo_dl
-import tensorflow as tf
 from memory_profiler import memory_usage
 from nengo.learning_rules import PES
 from nengo.params import Default
@@ -143,7 +142,7 @@ with model:
     conn = nengo.Connection(
             pre.neurons,
             post.neurons,
-            transform=np.zeros( (post.n_neurons, pre.n_neurons) )
+            transform=np.random.random( (post.n_neurons, pre.n_neurons) )
             )
     
     # Apply the learning rule to conn
