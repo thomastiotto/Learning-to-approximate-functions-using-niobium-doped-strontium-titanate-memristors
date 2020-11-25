@@ -6,7 +6,6 @@ os.environ[ "CUDA_DEVICE_ORDER" ] = "PCI_BUS_ID"
 # os.environ["CUDA_VISIBLE_DEVICES"]="0,3"  # specify which GPU(s) to be used
 
 import nengo_dl
-from memory_profiler import memory_usage
 from nengo.learning_rules import PES
 from nengo.params import Default
 from nengo.processes import WhiteSignal
@@ -39,8 +38,6 @@ parser.add_argument( "-d", "--device", default="/cpu:0" )
 parser.add_argument( "-lt", "--learn_time", default=3 / 4, type=float )
 parser.add_argument( '--probe', default=1, choices=[ 0, 1, 2 ], type=int,
                      help="0: probing disabled, 1: only probes to calculate statistics, 2: all probes active" )
-
-mem_usage = memory_usage( -1, interval=.1, max_usage=True, include_children=True )
 
 # TODO read parameters from conf file https://docs.python.org/3/library/configparser.html
 args = parser.parse_args()
@@ -203,7 +200,6 @@ with cm as sim:
         printlv2( f"\nRunning discretised step {i + 1} of {simulation_discretisation}" )
         sim.run( sim_time / simulation_discretisation )
 printlv2( f"\nTotal time for simulation: {time.strftime( '%H:%M:%S', time.gmtime( time.time() - start_time ) )} s" )
-printlv2( "Maximum memory usage:", mem_usage, "MB" )
 
 if probe > 0:
     # essential statistics
