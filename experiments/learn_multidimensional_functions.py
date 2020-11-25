@@ -1,15 +1,10 @@
-import numpy as np
-import scipy.stats as st
-import matplotlib.pyplot as plt
 import argparse
-import os
-import sys
 import time
 
 import nengo_dl
-from nengo.processes import WhiteNoise, WhiteSignal
 from nengo.dists import Gaussian
 from nengo.learning_rules import PES
+from nengo.processes import WhiteNoise, WhiteSignal
 
 from memristor_nengo.extras import *
 from memristor_nengo.learning_rules import mPES
@@ -25,9 +20,9 @@ parser.add_argument( "-T", "--sim_time", default=None, type=float )
 parser.add_argument( "-I", "--iterations", default=10, type=int )
 parser.add_argument( "-g", "--gain", default=1e3, type=float )
 parser.add_argument( "-d", "--device", default="/cpu:0" )
-parser.add_argument( '--encoded', dest='encoded', action='store_true' )
-parser.add_argument( '--no-encoded', dest='encoded', action='store_false' )
-parser.set_defaults( encoded=False )
+parser.add_argument( '--decoded', dest='decoded', action='store_true' )
+parser.add_argument( '--no-decoded', dest='decoded', action='store_false' )
+parser.set_defaults( decoded=True )
 args = parser.parse_args()
 
 experiment = args.experiment
@@ -89,7 +84,7 @@ device = args.device
 directory = "../data/"
 seed = 0
 convolve = False if experiment <= 3 else True
-encoded = args.encoded
+decoded = args.decoded
 
 print( exp_string )
 dir_name, dir_images, dir_data = make_timestamped_dir(
@@ -98,38 +93,42 @@ print( "Reserved folder", dir_name )
 
 
 def LearningModel( neurons, dimensions, learning_rule, function_to_learn, convolve, seed ):
-    global encoded
+    global decoded
     
     with nengo.Network() as model:
         
         nengo_dl.configure_settings( stateful=False )
         
         model.inp = nengo.Node(
-                WhiteNoise( dist=Gaussian( 0, 0.05 ), seed=seed ),
-                # WhiteSignal( sim_time, high=5, seed=seed ),
+                # WhiteNoise( dist=Gaussian( 0, 0.05 ), seed=seed ),
+                WhiteSignal( sim_time, high=5, seed=seed ),
                 size_out=dimensions[ 0 ]
                 )
-        model.pre = nengo.Ensemble( neurons[ 0 ], dimensions=dimensions[ 0 ] )
-        model.post = nengo.Ensemble( neurons[ 1 ], dimensions=dimensions[ 1 ] )
-        model.ground_truth = nengo.Ensemble( neurons[ 2 ], dimensions=dimensions[ 2 ] )
+        model.pre = nengo.Ensemble( neurons[ 0 ], dimensions=dimensions[ 0 ], seed=seed )
+        model.post = nengo.Ensemble( neurons[ 1 ], dimensions=dimensions[ 1 ], seed=seed )
+        model.ground_truth = nengo.Ensemble( neurons[ 2 ], dimensions=dimensions[ 2 ], seed=seed )
         
         nengo.Connection( model.inp, model.pre )
         
         if convolve:
-            model.conv = nengo.networks.CircularConvolution( neurons[ 4 ], dimensions[ 4 ] )
+            model.conv = nengo.networks.CircularConvolution( neurons[ 4 ], dimensions[ 4 ], seed=seed )
             nengo.Connection( model.inp[ :int( dimensions[ 0 ] / 2 ) ],
-                              model.conv.input_a )
+                              model.conv.input_a,
+                              synapse=None )
             nengo.Connection( model.inp[ int( dimensions[ 0 ] / 2 ): ],
-                              model.conv.input_b )
-            nengo.Connection( model.conv.output, model.ground_truth )
+                              model.conv.input_b,
+                              synapse=None )
+            nengo.Connection( model.conv.output, model.ground_truth,
+                              synapse=None )
         else:
             nengo.Connection( model.inp, model.ground_truth,
-                              function=function_to_learn )
+                              function=function_to_learn,
+                              synapse=None )
         
         if learning_rule:
-            model.error = nengo.Ensemble( neurons[ 3 ], dimensions=dimensions[ 3 ] )
+            model.error = nengo.Ensemble( neurons[ 3 ], dimensions=dimensions[ 3 ], seed=seed )
             
-            if isinstance( learning_rule, mPES ) or (isinstance( learning_rule, PES ) and not encoded):
+            if isinstance( learning_rule, mPES ) or (isinstance( learning_rule, PES ) and not decoded):
                 model.conn = nengo.Connection(
                         model.pre.neurons,
                         model.post.neurons,
