@@ -253,20 +253,26 @@ class Plotter():
         
         return fig
     
-    def plot_values_over_time( self, pos_memr, neg_memr ):
+    def plot_values_over_time( self, pos_memr, neg_memr, value="conductance" ):
+        if value == "conductance":
+            tit = "Conductances"
+            pos_memr = 1 / pos_memr
+            neg_memr = 1 / neg_memr
+        if value == "resistance":
+            tit = "Resistances"
         fig, axes = plt.subplots( self.n_rows, self.n_cols )
         fig.set_size_inches( self.plot_sizes )
         for i in range( axes.shape[ 0 ] ):
             for j in range( axes.shape[ 1 ] ):
-                pos_cond = pos_memr[ ..., i, j ]
-                neg_cond = neg_memr[ ..., i, j ]
+                pos_cond = pos_memr[ :int( self.learning_time / self.dt ), i, j ]
+                neg_cond = neg_memr[ :int( self.learning_time / self.dt ), i, j ]
                 axes[ i, j ].plot( pos_cond, c="r" )
                 axes[ i, j ].plot( neg_cond, c="b" )
                 axes[ i, j ].set_title( f"{j}->{i}" )
                 axes[ i, j ].set_yticklabels( [ ] )
                 axes[ i, j ].set_xticklabels( [ ] )
                 plt.subplots_adjust( hspace=0.7 )
-        fig.get_axes()[ 0 ].annotate( "Conductances over time", (0.5, 0.94),
+        fig.get_axes()[ 0 ].annotate( f"{tit} over time", (0.5, 0.94),
                                       xycoords='figure fraction', ha='center',
                                       fontsize=20
                                       )
@@ -279,8 +285,8 @@ class Plotter():
         fig.set_size_inches( self.plot_sizes )
         for i in range( axes.shape[ 0 ] ):
             for j in range( axes.shape[ 1 ] ):
-                pos_cond = 1 / pos_memr[ ..., i, j ]
-                neg_cond = 1 / neg_memr[ ..., i, j ]
+                pos_cond = 1 / pos_memr[ :int( self.learning_time / self.dt ), i, j ]
+                neg_cond = 1 / neg_memr[ :int( self.learning_time / self.dt ), i, j ]
                 axes[ i, j ].plot( pos_cond - neg_cond, c="g" )
                 axes[ i, j ].set_title( f"{j}->{i}" )
                 axes[ i, j ].set_yticklabels( [ ] )

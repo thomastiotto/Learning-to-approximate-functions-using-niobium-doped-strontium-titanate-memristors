@@ -2,11 +2,7 @@ import argparse
 import os
 import time
 
-os.environ[ "CUDA_DEVICE_ORDER" ] = "PCI_BUS_ID"
-# os.environ["CUDA_VISIBLE_DEVICES"]="0,3"  # specify which GPU(s) to be used
-
 import nengo_dl
-from memory_profiler import memory_usage
 from nengo.learning_rules import PES
 from nengo.params import Default
 from nengo.processes import WhiteSignal
@@ -15,37 +11,49 @@ from sklearn.metrics import mean_squared_error
 from memristor_nengo.extras import *
 from memristor_nengo.learning_rules import mPES
 
+setup()
+
 # Should not be useful for NengoDL>=3.3.0
 # tf.compat.v1.disable_eager_execution()
 # tf.compat.v1.disable_control_flow_v2()
 
 parser = argparse.ArgumentParser()
-parser.add_argument( "-f", "--function", default="x" )
-parser.add_argument( "-i", "--inputs", default=[ "sine", "sine" ], nargs="*", choices=[ "sine", "white" ] )
+parser.add_argument( "-f", "--function", default="x",
+                     help="The function to learn.  Default is x" )
+parser.add_argument( "-i", "--inputs", default=[ "sine", "sine" ], nargs="*", choices=[ "sine", "white" ],
+                     help="The input signals [learning, testing].  Default is sine" )
 parser.add_argument( "-t", "--timestep", default=0.001, type=int )
 parser.add_argument( "-S", "--simulation_time", default=30, type=int )
-parser.add_argument( "-N", "--neurons", nargs="*", default=[ 10 ], action="store", type=int )
-parser.add_argument( "-D", "--dimensions", default=3, type=int )
-parser.add_argument( "-n", "--noise", default=0.15, type=float )
-parser.add_argument( "-g", "--gain", default=1e4, type=float )  # default chosen by paramter search experiments
+parser.add_argument( "-N", "--neurons", nargs="*", default=[ 10 ], action="store", type=int,
+                     help="The number of neurons used in the Ensembles [pre, post, error].  Default is 10" )
+parser.add_argument( "-D", "--dimensions", default=3, type=int,
+                     help="The number of dimensions of the input signal" )
+parser.add_argument( "-n", "--noise", nargs="*", default=[ 0.15 ], action="store", type=float,
+                     help="The noise on the simulated memristors [R_0, R_1, c, R_init]  Default is 0.15" )
+parser.add_argument( "-g", "--gain", default=1e4, type=float )  # default chosen by parameter search experiments
 parser.add_argument( "-l", "--learning_rule", default="mPES", choices=[ "mPES", "PES" ] )
-parser.add_argument( "-P", "--parameters", default=Default, type=float )
+parser.add_argument( "-P", "--parameters", default=Default, type=float,
+                     help="The parametrs of simualted memristors.  For now only the exponent c" )
 parser.add_argument( "-b", "--backend", default="nengo_dl", choices=[ "nengo_dl", "nengo_core" ] )
 parser.add_argument( "-o", "--optimisations", default="run", choices=[ "run", "build", "memory" ] )
 parser.add_argument( "-s", "--seed", default=None, type=int )
-parser.add_argument( "--plot", default=0, choices=[ 0, 1, 2, 3 ], type=int )
-parser.add_argument( "--verbosity", default=2, choices=[ 0, 1, 2 ], type=int, )
-parser.add_argument( "-pd", "--plots_directory", default="../data/" )
-parser.add_argument( "-d", "--device", default="/cpu:0" )
+parser.add_argument( "--plot", default=0, choices=[ 0, 1, 2, 3 ], type=int,
+                     help="0: No visual output, 1: Show plots, 2: Save plots, 3: Save data" )
+parser.add_argument( "--verbosity", default=2, choices=[ 0, 1, 2 ], type=int,
+                     help="0: No textual output, 1: Only numbers, 2: Full output" )
+parser.add_argument( "-pd", "--plots_directory", default="../data/",
+                     help="Directory where plots will be saved.  Default is ../data/" )
+parser.add_argument( "-d", "--device", default="/cpu:0",
+                     help="/cpu:0 or /gpu:[x]" )
 parser.add_argument( "-lt", "--learn_time", default=3 / 4, type=float )
 parser.add_argument( '--probe', default=1, choices=[ 0, 1, 2 ], type=int,
                      help="0: probing disabled, 1: only probes to calculate statistics, 2: all probes active" )
 
-mem_usage = memory_usage( -1, interval=.1, max_usage=True, include_children=True )
-
 # TODO read parameters from conf file https://docs.python.org/3/library/configparser.html
 args = parser.parse_args()
 seed = args.seed
+tf.random.set_seed( seed )
+np.random.seed( seed )
 function_string = "lambda x: " + args.function
 function_to_learn = eval( function_string )
 if len( args.inputs ) not in (1, 2):
@@ -79,6 +87,12 @@ if len( args.neurons ) == 3:
     error_n_neurons = args.neurons[ 2 ]
 dimensions = args.dimensions
 noise_percent = args.noise
+if len( args.noise ) not in (1, 4):
+    parser.error( 'Either give no values for action, or one, or four, not {}.'.format( len( args.noise ) ) )
+if len( args.noise ) == 1:
+    noise_percent = [ args.noise[ 0 ] ] * 4
+if len( args.noise ) == 4:
+    noise_percent = [ args.noise[ 0 ] ] + [ args.noise[ 1 ] ] + [ args.noise[ 2 ] ] + [ args.noise[ 3 ] ]
 gain = args.gain
 exponent = args.parameters
 learning_rule = args.learning_rule
@@ -207,7 +221,6 @@ with cm as sim:
         printlv2( f"\nRunning discretised step {i + 1} of {simulation_discretisation}" )
         sim.run( sim_time / simulation_discretisation )
 printlv2( f"\nTotal time for simulation: {time.strftime( '%H:%M:%S', time.gmtime( time.time() - start_time ) )} s" )
-printlv2( "Maximum memory usage:", mem_usage, "MB" )
 
 if probe > 0:
     # essential statistics
@@ -279,7 +292,8 @@ if generate_plots and probe > 1:
                 plotter.plot_weights_over_time( sim.data[ pos_memr_probe ], sim.data[ neg_memr_probe ] )
                 )
         plots.append(
-                plotter.plot_values_over_time( 1 / sim.data[ pos_memr_probe ], 1 / sim.data[ neg_memr_probe ] )
+                plotter.plot_values_over_time( sim.data[ pos_memr_probe ], sim.data[ neg_memr_probe ],
+                                               value="resistance" )
                 )
 
 if save_plots:
