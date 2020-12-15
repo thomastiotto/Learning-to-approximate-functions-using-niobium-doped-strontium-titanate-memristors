@@ -1,7 +1,6 @@
 import warnings
 
 import numpy as np
-import tensorflow_probability as tfp
 
 from nengo.builder import Operator
 from nengo.builder.learning_rules import build_or_passthrough, get_post_ens
