@@ -65,8 +65,7 @@ for k, par in enumerate( res_list ):
         if parameter == "noise":
             result = run(
                     [ "python", "mPES.py", "--verbosity", str( 1 ), "-n", str( par ), "-N", str( neurons ), "-f",
-                      str( function ),
-                      "-D", str( dimensions ) ]
+                      str( function ), "-D", str( dimensions ) ]
                     + [ "-i" ] + inputs,
                     capture_output=True,
                     universal_newlines=True )
@@ -136,6 +135,12 @@ ax.plot( res_list, spearman_means, label="Spearman" )
 ax.plot( res_list, kendall_means, label="Kendall" )
 ax.legend()
 fig.savefig( dir_images + "correlations" + ".pdf" )
+
+fig = plt.figure()
+ax = fig.add_subplot( 111 )
+ax.plot( res_list, mse_to_rho_means, label=r"$\frac{\rho}{\mathrm{MSE}}$" )
+ax.legend()
+fig.savefig( dir_images + "mse-to-rho" + ".pdf" )
 
 print( f"Saved plots in {dir_images}" )
 
