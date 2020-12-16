@@ -13,7 +13,6 @@ class mPES( LearningRuleType ):
     modifies = "weights"
     probeable = ("error", "activities", "delta", "pos_memristors", "neg_memristors")
     
-    learning_rate = NumberParam( "learning_rate", low=0, readonly=True, default=1e-4 )
     pre_synapse = SynapseParam( "pre_synapse", default=Lowpass( tau=0.005 ), readonly=True )
     r_max = NumberParam( "r_max", readonly=True, default=2.3e8 )
     r_min = NumberParam( "r_min", readonly=True, default=200 )
@@ -21,7 +20,6 @@ class mPES( LearningRuleType ):
     gain = NumberParam( "gain", readonly=True, default=1e3 )
     
     def __init__( self,
-                  learning_rate=Default,
                   pre_synapse=Default,
                   r_max=Default,
                   r_min=Default,
@@ -29,12 +27,7 @@ class mPES( LearningRuleType ):
                   noisy=False,
                   gain=Default,
                   seed=None ):
-        super().__init__( learning_rate, size_in="post_state" )
-        if learning_rate is not Default and learning_rate >= 1.0:
-            warnings.warn(
-                    "This learning rate is very high, and can result "
-                    "in floating point errors from too much current."
-                    )
+        super().__init__( size_in="post_state" )
         
         self.pre_synapse = pre_synapse
         self.r_max = r_max
