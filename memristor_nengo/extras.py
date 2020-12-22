@@ -4,9 +4,9 @@ import os
 import matplotlib.pyplot as plt
 import nengo
 import numpy as np
+import tensorflow as tf
 from nengo.processes import Process
 from nengo.utils.matplotlib import rasterplot
-import tensorflow as tf
 
 
 def setup():
@@ -115,7 +115,7 @@ class Plotter():
         self.dt = dt
         self.pre_alpha = pre_alpha
     
-    def plot_testing( self, pre, post, smooth=False, mse=None ):
+    def plot_testing( self, pre, post, smooth=False ):
         fig, axes = plt.subplots( 1, 1, sharex=True, sharey=True, squeeze=False )
         fig.set_size_inches( self.plot_sizes )
         
@@ -152,17 +152,11 @@ class Plotter():
         #             loc='best' )
         # axes[ 0, 0 ].set_title( "Pre and post decoded on testing phase", fontsize=16 )
         
-        if mse is not None:
-            axes[ 0, 0 ].text( 0.85, 0.2, f"MSE: {np.round( mse, 5 )}",
-                               horizontalalignment='center',
-                               verticalalignment='center',
-                               transform=axes[ 0, 0 ].transAxes )
-        
         plt.tight_layout()
         
         return fig
     
-    def plot_results( self, input, pre, post, error, smooth=False, mse=None ):
+    def plot_results( self, input, pre, post, error, smooth=False ):
         fig, axes = plt.subplots( 3, 1, sharex=True, sharey=True, squeeze=False )
         fig.set_size_inches( self.plot_sizes )
         
@@ -217,11 +211,6 @@ class Plotter():
             axes[ 2, 0 ].legend(
                     [ f"Error dim {i}" for i in range( self.n_dims ) ],
                     loc='best' )
-        if mse is not None:
-            axes[ 2, 0 ].text( 0.85, 0.2, f"MSE: {np.round( mse, 5 )}",
-                               horizontalalignment='center',
-                               verticalalignment='center',
-                               transform=axes[ 2, 0 ].transAxes )
         axes[ 2, 0 ].set_title( "Error", fontsize=16 )
         
         for ax in axes:
@@ -253,20 +242,26 @@ class Plotter():
         
         return fig
     
-    def plot_values_over_time( self, pos_memr, neg_memr ):
+    def plot_values_over_time( self, pos_memr, neg_memr, value="conductance" ):
+        if value == "conductance":
+            tit = "Conductances"
+            pos_memr = 1 / pos_memr
+            neg_memr = 1 / neg_memr
+        if value == "resistance":
+            tit = "Resistances"
         fig, axes = plt.subplots( self.n_rows, self.n_cols )
         fig.set_size_inches( self.plot_sizes )
         for i in range( axes.shape[ 0 ] ):
             for j in range( axes.shape[ 1 ] ):
-                pos_cond = pos_memr[ ..., i, j ]
-                neg_cond = neg_memr[ ..., i, j ]
+                pos_cond = pos_memr[ :int( self.learning_time / self.dt ), i, j ]
+                neg_cond = neg_memr[ :int( self.learning_time / self.dt ), i, j ]
                 axes[ i, j ].plot( pos_cond, c="r" )
                 axes[ i, j ].plot( neg_cond, c="b" )
                 axes[ i, j ].set_title( f"{j}->{i}" )
                 axes[ i, j ].set_yticklabels( [ ] )
                 axes[ i, j ].set_xticklabels( [ ] )
                 plt.subplots_adjust( hspace=0.7 )
-        fig.get_axes()[ 0 ].annotate( "Conductances over time", (0.5, 0.94),
+        fig.get_axes()[ 0 ].annotate( f"{tit} over time", (0.5, 0.94),
                                       xycoords='figure fraction', ha='center',
                                       fontsize=20
                                       )
@@ -279,8 +274,8 @@ class Plotter():
         fig.set_size_inches( self.plot_sizes )
         for i in range( axes.shape[ 0 ] ):
             for j in range( axes.shape[ 1 ] ):
-                pos_cond = 1 / pos_memr[ ..., i, j ]
-                neg_cond = 1 / neg_memr[ ..., i, j ]
+                pos_cond = 1 / pos_memr[ :int( self.learning_time / self.dt ), i, j ]
+                neg_cond = 1 / neg_memr[ :int( self.learning_time / self.dt ), i, j ]
                 axes[ i, j ].plot( pos_cond - neg_cond, c="g" )
                 axes[ i, j ].set_title( f"{j}->{i}" )
                 axes[ i, j ].set_yticklabels( [ ] )
