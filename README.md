@@ -19,7 +19,7 @@ This process yields a post-synaptic ensemble capable of correctly representing t
 ## Folders
 * ``experiments``: various executables used to explore the properties of the memristors
 * ``memristor_learning``: library containing the learning functions running in a Nengo Node object *[deprecated]*
-* ``memristor_nengo``: library containing the learning functions running in Nengo Core backend
+* ``memristor_nengo``: library containing the learning functions running in Nengo Core and NengoDL backends
 * ``tests``: simple tests for specific functionalities
 
 ## Running the code
