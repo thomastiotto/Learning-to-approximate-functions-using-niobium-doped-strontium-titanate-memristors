@@ -115,7 +115,7 @@ class Plotter():
         self.dt = dt
         self.pre_alpha = pre_alpha
     
-    def plot_testing( self, pre, post, smooth=False, mse=None ):
+    def plot_testing( self, pre, post, smooth=False ):
         fig, axes = plt.subplots( 1, 1, sharex=True, sharey=True, squeeze=False )
         fig.set_size_inches( self.plot_sizes )
         
@@ -152,17 +152,11 @@ class Plotter():
         #             loc='best' )
         # axes[ 0, 0 ].set_title( "Pre and post decoded on testing phase", fontsize=16 )
         
-        if mse is not None:
-            axes[ 0, 0 ].text( 0.85, 0.2, f"MSE: {np.round( mse, 5 )}",
-                               horizontalalignment='center',
-                               verticalalignment='center',
-                               transform=axes[ 0, 0 ].transAxes )
-        
         plt.tight_layout()
         
         return fig
     
-    def plot_results( self, input, pre, post, error, smooth=False, mse=None ):
+    def plot_results( self, input, pre, post, error, smooth=False ):
         fig, axes = plt.subplots( 3, 1, sharex=True, sharey=True, squeeze=False )
         fig.set_size_inches( self.plot_sizes )
         
@@ -217,11 +211,6 @@ class Plotter():
             axes[ 2, 0 ].legend(
                     [ f"Error dim {i}" for i in range( self.n_dims ) ],
                     loc='best' )
-        if mse is not None:
-            axes[ 2, 0 ].text( 0.85, 0.2, f"MSE: {np.round( mse, 5 )}",
-                               horizontalalignment='center',
-                               verticalalignment='center',
-                               transform=axes[ 2, 0 ].transAxes )
         axes[ 2, 0 ].set_title( "Error", fontsize=16 )
         
         for ax in axes:

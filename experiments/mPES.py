@@ -98,14 +98,6 @@ exponent = args.parameters
 learning_rule = args.learning_rule
 backend = args.backend
 optimisations = args.optimisations
-generate_plots = show_plots = save_plots = save_data = False
-if args.plot >= 1:
-    generate_plots = True
-    show_plots = True
-if args.plot >= 2:
-    save_plots = True
-if args.plot >= 3:
-    save_data = True
 progress_bar = False
 printlv1 = printlv2 = lambda *a, **k: None
 if args.verbosity >= 1:
@@ -116,6 +108,15 @@ if args.verbosity >= 2:
 plots_directory = args.plots_directory
 device = args.device
 probe = args.probe
+generate_plots = show_plots = save_plots = save_data = False
+if args.plot >= 1:
+    generate_plots = True
+    show_plots = True
+    probe = 2
+if args.plot >= 2:
+    save_plots = True
+if args.plot >= 3:
+    save_data = True
 
 # TODO give better names to folders or make hierarchy
 if save_plots or save_data:
@@ -156,7 +157,9 @@ with model:
     error = nengo.Ensemble( error_n_neurons, dimensions=dimensions, radius=2, seed=seed )
     
     # Connect pre and post with a communication channel
-    # the matrix given to transform are the initial weights found in model.sig[conn]["weights"]
+    # the matrix given to transform is the initial weights found in model.sig[conn]["weights"]
+    # the initial transform has not influence on learning because it is overwritten by mPES
+    # the only influence is on the very first timesteps, before the error becomes large enough
     conn = nengo.Connection(
             pre.neurons,
             post.neurons,
@@ -251,7 +254,7 @@ if probe > 1:
     printlv1( gini( sim.data[ weight_probe ][ 0 ] ), end=" -> " )
     printlv1( gini( sim.data[ weight_probe ][ -1 ] ) )
 
-plots = [ ]
+plots = { }
 if generate_plots and probe > 1:
     plotter = Plotter( sim.trange( sample_every=sample_every ), post_n_neurons, pre_n_neurons, dimensions,
                        learn_time,
@@ -260,46 +263,37 @@ if generate_plots and probe > 1:
                        dpi=300,
                        pre_alpha=0.3
                        )
+    plots[ "results_smooth" ] = plotter.plot_results( sim.data[ input_node_probe ], sim.data[ pre_probe ],
+                                                      sim.data[ post_probe ],
+                                                      error=
+                                                      sim.data[ post_probe ] -
+                                                      function_to_learn( sim.data[ pre_probe ] ),
+                                                      smooth=True )
+    plots[ "results" ] = plotter.plot_results( sim.data[ input_node_probe ], sim.data[ pre_probe ],
+                                               sim.data[ post_probe ],
+                                               error=
+                                               sim.data[ post_probe ] -
+                                               function_to_learn( sim.data[ pre_probe ] ),
+                                               smooth=False )
+    plots[ "post_spikes" ] = plotter.plot_ensemble_spikes( "Post", sim.data[ post_spikes_probe ],
+                                                           sim.data[ post_probe ] )
+    plots[ "weights" ] = plotter.plot_weight_matrices_over_time( sim.data[ weight_probe ], sample_every=sample_every )
     
-    plots.append(
-            plotter.plot_results( sim.data[ input_node_probe ], sim.data[ pre_probe ], sim.data[ post_probe ],
-                                  error=sim.data[ post_probe ] - function_to_learn( sim.data[ pre_probe ] ),
-                                  smooth=True,
-                                  mse=mse )
-            )
-    plots.append(
-            plotter.plot_results( sim.data[ input_node_probe ], sim.data[ pre_probe ], sim.data[ post_probe ],
-                                  error=sim.data[ post_probe ] - function_to_learn( sim.data[ pre_probe ] ),
-                                  smooth=False,
-                                  mse=mse )
-            )
-    plots.append(
-            plotter.plot_ensemble_spikes( "Post", sim.data[ post_spikes_probe ], sim.data[ post_probe ] )
-            )
-    plots.append(
-            plotter.plot_weight_matrices_over_time( sim.data[ weight_probe ], sample_every=sample_every )
-            )
-    plots.append(
-            plotter.plot_testing( function_to_learn( sim.data[ pre_probe ] ), sim.data[ post_probe ],
-                                  smooth=True )
-            )
-    plots.append(
-            plotter.plot_testing( function_to_learn( sim.data[ pre_probe ] ), sim.data[ post_probe ],
-                                  smooth=False )
-            )
+    plots[ "testing_smooth" ] = plotter.plot_testing( function_to_learn( sim.data[ pre_probe ] ),
+                                                      sim.data[ post_probe ],
+                                                      smooth=True )
+    plots[ "testing" ] = plotter.plot_testing( function_to_learn( sim.data[ pre_probe ] ), sim.data[ post_probe ],
+                                               smooth=False )
     if n_neurons <= 10 and learning_rule == "mPES":
-        plots.append(
-                plotter.plot_weights_over_time( sim.data[ pos_memr_probe ], sim.data[ neg_memr_probe ] )
-                )
-        plots.append(
-                plotter.plot_values_over_time( sim.data[ pos_memr_probe ], sim.data[ neg_memr_probe ],
-                                               value="resistance" )
-                )
+        plots[ "weights_mpes" ] = plotter.plot_weights_over_time( sim.data[ pos_memr_probe ],
+                                                                  sim.data[ neg_memr_probe ] )
+        plots[ "memristors" ] = plotter.plot_values_over_time( sim.data[ pos_memr_probe ], sim.data[ neg_memr_probe ],
+                                                               value="resistance" )
 
 if save_plots:
     assert generate_plots and probe > 1
     
-    for i, fig in enumerate( plots ):
+    for fig in plots.values():
         fig.savefig( dir_images + str( i ) + ".pdf" )
         # fig.savefig( dir_images + str( i ) + ".png" )
     
@@ -317,11 +311,7 @@ if save_data:
 #     TODO save output txt with metrics
 
 if show_plots:
-    def show_plots():
-        assert generate_plots and probe > 1
-        
-        for i, fig in enumerate( plots ):
-            fig.show()
+    assert generate_plots and probe > 1
     
-    
-    show_plots()
+    for fig in plots.values():
+        fig.show()

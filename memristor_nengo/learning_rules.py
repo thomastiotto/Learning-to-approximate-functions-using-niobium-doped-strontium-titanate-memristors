@@ -35,9 +35,7 @@ class mPES( LearningRuleType ):
         self.exponent = exponent
         self.noise_percentage = 0 if not noisy else noisy
         self.gain = gain
-        
-        np.random.seed( seed )
-        tf.random.set_seed( seed )
+        self.seed = seed
     
     @property
     def _argdefaults( self ):
@@ -233,14 +231,19 @@ def build_mpes( model, mpes, rule ):
         except ZeroDivisionError:
             return np.full( (out_size, in_size), mean )
     
+    np.random.seed( mpes.seed )
     r_min_noisy = get_truncated_normal( mpes.r_min, mpes.r_min * mpes.noise_percentage[ 0 ],
                                         0, np.inf )
+    np.random.seed( mpes.seed )
     r_max_noisy = get_truncated_normal( mpes.r_max, mpes.r_max * mpes.noise_percentage[ 1 ],
                                         np.max( r_min_noisy ), np.inf )
+    np.random.seed( mpes.seed )
     exponent_noisy = np.random.normal( mpes.exponent, np.abs( mpes.exponent ) * mpes.noise_percentage[ 2 ],
                                        (out_size, in_size) )
+    np.random.seed( mpes.seed )
     pos_mem_initial = np.random.normal( 1e8, 1e8 * mpes.noise_percentage[ 3 ],
                                         (out_size, in_size) )
+    np.random.seed( mpes.seed + 1 )
     neg_mem_initial = np.random.normal( 1e8, 1e8 * mpes.noise_percentage[ 3 ],
                                         (out_size, in_size) )
     
@@ -394,6 +397,7 @@ class SimmPESBuilder( OpBuilder ):
             
             return tf.cast( out, tf.float32 )
         
+        # @tf.function
         def update_resistances( pos_memristors, neg_memristors ):
             pos_mask = tf.greater( V, 0 )
             pos_indices = tf.where( pos_mask )
@@ -401,34 +405,36 @@ class SimmPESBuilder( OpBuilder ):
             neg_indices = tf.where( neg_mask )
             
             # clip values outside [R_0,R_1]
-            tf.tensor_scatter_nd_update( pos_memristors,
-                                         pos_indices,
-                                         tf.where(
-                                                 tf.greater( tf.boolean_mask( pos_memristors, pos_mask ),
-                                                             tf.boolean_mask( r_max, pos_mask ) ),
-                                                 tf.boolean_mask( r_max, pos_mask ),
-                                                 tf.boolean_mask( pos_memristors, pos_mask ) ) )
-            tf.tensor_scatter_nd_update( pos_memristors,
-                                         pos_indices,
-                                         tf.where(
-                                                 tf.less( tf.boolean_mask( pos_memristors, pos_mask ),
-                                                          tf.boolean_mask( r_min, pos_mask ) ),
-                                                 tf.boolean_mask( r_min, pos_mask ),
-                                                 tf.boolean_mask( pos_memristors, pos_mask ) ) )
-            tf.tensor_scatter_nd_update( neg_memristors,
-                                         neg_indices,
-                                         tf.where(
-                                                 tf.greater( tf.boolean_mask( neg_memristors, neg_mask ),
-                                                             tf.boolean_mask( r_max, neg_mask ) ),
-                                                 tf.boolean_mask( r_max, neg_mask ),
-                                                 tf.boolean_mask( neg_memristors, neg_mask ) ) )
-            tf.tensor_scatter_nd_update( neg_memristors,
-                                         neg_indices,
-                                         tf.where(
-                                                 tf.less( tf.boolean_mask( neg_memristors, neg_mask ),
-                                                          tf.boolean_mask( r_min, neg_mask ) ),
-                                                 tf.boolean_mask( r_min, neg_mask ),
-                                                 tf.boolean_mask( neg_memristors, neg_mask ) ) )
+            pos_memristors = tf.tensor_scatter_nd_update( pos_memristors,
+                                                          pos_indices,
+                                                          tf.where(
+                                                                  tf.greater(
+                                                                          tf.boolean_mask( pos_memristors, pos_mask ),
+                                                                          tf.boolean_mask( r_max, pos_mask ) ),
+                                                                  tf.boolean_mask( r_max, pos_mask ),
+                                                                  tf.boolean_mask( pos_memristors, pos_mask ) ) )
+            pos_memristors = tf.tensor_scatter_nd_update( pos_memristors,
+                                                          pos_indices,
+                                                          tf.where(
+                                                                  tf.less( tf.boolean_mask( pos_memristors, pos_mask ),
+                                                                           tf.boolean_mask( r_min, pos_mask ) ),
+                                                                  tf.boolean_mask( r_min, pos_mask ),
+                                                                  tf.boolean_mask( pos_memristors, pos_mask ) ) )
+            neg_memristors = tf.tensor_scatter_nd_update( neg_memristors,
+                                                          neg_indices,
+                                                          tf.where(
+                                                                  tf.greater(
+                                                                          tf.boolean_mask( neg_memristors, neg_mask ),
+                                                                          tf.boolean_mask( r_max, neg_mask ) ),
+                                                                  tf.boolean_mask( r_max, neg_mask ),
+                                                                  tf.boolean_mask( neg_memristors, neg_mask ) ) )
+            neg_memristors = tf.tensor_scatter_nd_update( neg_memristors,
+                                                          neg_indices,
+                                                          tf.where(
+                                                                  tf.less( tf.boolean_mask( neg_memristors, neg_mask ),
+                                                                           tf.boolean_mask( r_min, neg_mask ) ),
+                                                                  tf.boolean_mask( r_min, neg_mask ),
+                                                                  tf.boolean_mask( neg_memristors, neg_mask ) ) )
             
             # positive memristors update
             pos_n = tf.math.pow( (tf.boolean_mask( pos_memristors, pos_mask ) - tf.boolean_mask( r_min, pos_mask ))
@@ -444,7 +450,6 @@ class SimmPESBuilder( OpBuilder ):
                                  1 / tf.boolean_mask( exponent, neg_mask ) )
             neg_update = tf.boolean_mask( r_min, neg_mask ) + tf.boolean_mask( r_max, neg_mask ) * \
                          tf.math.pow( neg_n + 1, tf.boolean_mask( exponent, neg_mask ) )
-            
             neg_memristors = tf.tensor_scatter_nd_update( neg_memristors, neg_indices, neg_update )
             
             return pos_memristors, neg_memristors
