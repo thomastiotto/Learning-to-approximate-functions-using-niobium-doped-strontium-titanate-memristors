@@ -10,7 +10,7 @@ from nengo.dists import Uniform, Choice
 class AdaptiveLIFLateralInhibition( LIF ):
     """Adaptive spiking version of the LIF neuron model.
 
-    Works as the LIF model, except with adapation state ``n``, which is
+    Works as the LIF model, except with adaptation state ``n``, which is
     subtracted from the input current. Its dynamics are::
 
         tau_n dn/dt = -n
@@ -136,97 +136,3 @@ class AdaptiveLIFLateralInhibition( LIF ):
         n += (dt / self.tau_n) * (self.inc_n * output - n)
         
         inhibition[ inhibition != 0 ] -= 1
-
-
-class AdaptiveLIFLateralInhibition2( LIF ):
-    state = {
-            "voltage"        : Uniform( low=0, high=1 ),
-            "refractory_time": Choice( [ 0 ] ),
-            "adaptation"     : Choice( [ 0 ] ),
-            "inhibition"     : Choice( [ 0 ] )
-            }
-    spiking = True
-    
-    tau_n = NumberParam( "tau_n", low=0, low_open=True )
-    inc_n = NumberParam( "inc_n", low=0 )
-    
-    def __init__(
-            self,
-            tau_n=1,
-            inc_n=0.01,
-            tau_rc=0.02,
-            tau_ref=0.002,
-            min_voltage=0,
-            amplitude=1,
-            initial_state=None,
-            inhibition=10
-            ):
-        super().__init__(
-                tau_rc=tau_rc,
-                tau_ref=tau_ref,
-                min_voltage=min_voltage,
-                amplitude=amplitude,
-                initial_state=initial_state,
-                )
-        self.tau_n = tau_n
-        self.inc_n = inc_n
-        self.inhibition = inhibition
-    
-    def step( self, dt, J, output, voltage, refractory_time, adaptation, inhibition ):
-        """Implement the AdaptiveLIF nonlinearity."""
-        n = adaptation
-        super().step( dt, J - n, output, voltage, refractory_time )
-        n += (dt / self.tau_n) * (self.inc_n * output - n)
-        
-        if np.count_nonzero( output ) > 0:
-            # inhibit all other neurons than one with highest input
-            voltage[ J != np.max( J ) ] = 0
-            output[ J != np.max( J ) ] = 0
-            # inhibition[ J != np.max( J ) ] = self.inhibition
-            
-            # if neuron that spiked had highest input but was still inhibited from a previous timestep
-            # voltage[ inhibition != 0 ] = 0
-            # output[ inhibition != 0 ] = 0
-
-
-class AdaptiveLIFLateralInhibition3( LIF ):
-    state = {
-            "voltage"        : Uniform( low=0, high=1 ),
-            "refractory_time": Choice( [ 0 ] ),
-            "adaptation"     : Choice( [ 0 ] ),
-            "inhibition"     : Choice( [ 0 ] )
-            }
-    spiking = True
-    
-    tau_n = NumberParam( "tau_n", low=0, low_open=True )
-    inc_n = NumberParam( "inc_n", low=0 )
-    
-    def __init__(
-            self,
-            tau_n=1,
-            inc_n=0.01,
-            tau_rc=0.02,
-            tau_ref=0.002,
-            min_voltage=0,
-            amplitude=1,
-            initial_state=None,
-            inhibition=10
-            ):
-        super().__init__(
-                tau_rc=tau_rc,
-                tau_ref=tau_ref,
-                min_voltage=min_voltage,
-                amplitude=amplitude,
-                initial_state=initial_state,
-                )
-        self.tau_n = tau_n
-        self.inc_n = inc_n
-        self.inhibition = inhibition
-    
-    def step( self, dt, J, output, voltage, refractory_time, adaptation, inhibition ):
-        """Implement the AdaptiveLIF nonlinearity."""
-        n = adaptation
-        super().step( dt, J, output, voltage, refractory_time )
-        n += (dt / self.tau_n) * (self.inc_n * output - n)
-        
-        lateral( J, output, voltage, refractory_time, adaptation, inhibition )
