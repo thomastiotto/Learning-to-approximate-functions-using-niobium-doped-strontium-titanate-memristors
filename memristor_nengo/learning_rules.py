@@ -316,10 +316,6 @@ class SimmPESBuilder( OpBuilder ):
         self.neg_memristors = self.neg_memristors.reshape(
                 (len( self.ops ), self.ops[ 0 ].neg_memristors.shape[ 0 ], self.ops[ 0 ].neg_memristors.shape[ 1 ])
                 )
-        # self.r_min = signals.combine( [ op.r_min for op in self.ops ] )
-        # self.r_min = self.r_min.reshape(
-        #         (len( self.ops ), self.ops[ 0 ].r_min.shape[ 0 ], self.ops[ 0 ].r_min.shape[ 1 ])
-        #         )
         
         self.output_data = signals.combine( [ op.weights for op in self.ops ] )
         
