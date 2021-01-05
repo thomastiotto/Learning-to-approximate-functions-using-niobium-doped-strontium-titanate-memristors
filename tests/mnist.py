@@ -1,10 +1,8 @@
-from urllib.request import urlretrieve
 import matplotlib.pyplot as plt
 from random import randrange
-import pprint
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import confusion_matrix
-import numpy_indexed as npi
+import random
 
 import nengo
 import nengo_dl
@@ -13,7 +11,6 @@ import tensorflow as tf
 
 from matplotlib.ticker import MultipleLocator
 from nengo.utils.matplotlib import rasterplot
-from memristor_nengo.STDPLIF import *
 from memristor_nengo.extras import *
 from memristor_nengo.neurons import *
 
@@ -30,7 +27,7 @@ test_images = test_images / 255
 train_labels = train_labels[ :, None, None ]
 test_labels = test_labels[ :, None, None ]
 
-digits = (0, 1, 2, 3)
+digits = (0, 1, 2, 3, 5)
 if digits:
     train_images = np.array(
             [ x for i, x in enumerate( train_images ) if train_labels[ i ] in digits ]
@@ -57,13 +54,13 @@ print( "######################################################",
        "######################################################",
        sep="\n" )
 
-seed = 0
+seed = None
 random.seed = seed
 presentation_time = 0.35
 pause_time = 0.15
 sim_time = (presentation_time + pause_time) * train_images.shape[ 0 ]
 dt = 0.001
-sample_every = 10
+sample_every = 100 * dt
 
 post_n_neurons = 10
 
@@ -99,30 +96,34 @@ with model:
     weight_probe = nengo.Probe( conn, "weights", sample_every=sim_time )
     adaptation_probe = nengo.Probe( post.neurons, "adaptation", sample_every=sim_time )
 
+un_train, cnt_train = np.unique( train_labels, return_counts=True )
+un_test, cnt_test = np.unique( test_labels, return_counts=True )
+
 with open( dir_data + "results.txt", "w" ) as f:
     f.write( "\n###################### DEFINITION ####################\n" )
     f.write( "\nDigits distribution:\n" )
     f.write( "\tTrain:\n" )
-    for i, x in enumerate( np.unique( train_labels ) ):
-        f.write( f"\t\t{i}:{len( [ x for x in train_labels if x == i ] )}"
-                 f"[{len( [ x for x in train_labels if x == i ] ) / len( train_labels ) * 100} %]\n" )
+    
+    for x, c in zip( un_train, cnt_train ):
+        f.write( f"\t\t{x}:{c}"
+                 f"[{c / len( train_labels ) * 100} %]\n" )
     f.write( "\tTest:\n" )
-    for i, x in enumerate( np.unique( train_labels ) ):
-        f.write( f"\t\t{i}: {len( [ x for x in test_labels if x == i ] )}"
-                 f" [{len( [ x for x in test_labels if x == i ] ) / len( test_labels ) * 100} %]\n" )
+    for x, c in zip( un_test, cnt_test ):
+        f.write( f"\t\t{x}:{c}"
+                 f"[{c / len( test_labels ) * 100} %]\n" )
     f.write( f"Pre:\n\t {pre.neuron_type} \n\tNeurons: {pre.n_neurons} \n\tRate: {pre.max_rates}\n" )
     f.write( f"Post:\n\t {post.neuron_type} \n\tNeurons: {post.n_neurons} \n\tRate: {post.max_rates}\n" )
     f.write( f"Rule:\n\t {conn.learning_rule_type}\n" )
 
 print( "Digits distribution:" )
 print( "\tTrain:" )
-for i, x in enumerate( np.unique( train_labels ) ):
-    print( f"\t\t{i}:", len( [ x for x in train_labels if x == i ] ),
-           f"[{len( [ x for x in train_labels if x == i ] ) / len( train_labels ) * 100} %]" )
+for x, c in zip( un_train, cnt_train ):
+    print( f"\t\t{x}:{c} "
+           f"[{c / len( train_labels ) * 100} %]" )
 print( "\tTest:" )
-for i, x in enumerate( np.unique( train_labels ) ):
-    print( f"\t\t{i}:", len( [ x for x in test_labels if x == i ] ),
-           f"[{len( [ x for x in test_labels if x == i ] ) / len( test_labels ) * 100} %]" )
+for x, c in zip( un_test, cnt_test ):
+    print( f"\t\t{x}:{c} "
+           f"[{c / len( test_labels ) * 100} %]" )
 print( "Pre:\n\t", pre.neuron_type, "\n\tNeurons:", pre.n_neurons, "\n\tRate:", pre.max_rates )
 print( "Post:\n\t", post.neuron_type, "\n\tNeurons:", post.n_neurons, "\n\tRate:", post.max_rates )
 print( "Rule:\n\t", conn.learning_rule_type )
@@ -137,7 +138,7 @@ with nengo.Simulator( model ) as sim_train:
 
 # print number of recorded spikes
 num_spikes_train = np.sum( sim_train.data[ post_probe ] > 0, axis=0 )
-print( f"Number of spikes (timestep={dt}):" )
+print( f"Number of spikes (timestep={sample_every}):" )
 for i, x in enumerate( num_spikes_train ):
     print( f"\tNeuron {i}:", x, f"[{x / np.sum( num_spikes_train ) * 100} %]" )
 print( "\tTotal:", np.sum( num_spikes_train ) )
@@ -206,7 +207,7 @@ clean_post_spikes_class = sim_class.data[ post_probe ].reshape( num_samples, -1,
 
 # count neuron activations in response to each example
 neuron_activations_class = np.count_nonzero( clean_post_spikes_class, axis=1 )
-neuron_label_count = { neur: { lab: 0 for lab in np.unique( train_labels ) } for neur in range( post_n_neurons ) }
+neuron_label_count = { neur: { lab: 0 for lab in un_train } for neur in range( post_n_neurons ) }
 
 # count how many times each neuron spiked for each label across examples
 for t, lab in enumerate( train_labels.ravel() ):
@@ -218,7 +219,7 @@ pprint_dict( neuron_label_count, level=1 )
 # associate each neuron with the label it spiked most for
 # if the neuron never spiked pick a random label
 neuron_label = { neur: max( lab, key=lab.get ) if all( v != 0 for v in lab.values() ) else randrange(
-        len( np.unique( train_labels ) ) ) for neur, lab in neuron_label_count.items() }
+        len( un_train ) ) for neur, lab in neuron_label_count.items() }
 print( "Label associated to each neuron:\n", end="" )
 pprint_dict( neuron_label, level=1 )
 
@@ -276,7 +277,7 @@ print( f"Saved plots in {dir_images}" )
 
 with open( dir_data + "results.txt", "a" ) as f:
     f.write( "\n####################### TRAINING #####################\n" )
-    f.write( f"\nNumber of spikes (timestep={dt}):\n" )
+    f.write( f"\nNumber of spikes (timestep={sample_every}):\n" )
     for i, x in enumerate( num_spikes_train ):
         f.write( f"\tNeuron {i}: {x} [{x / np.sum( num_spikes_train ) * 100} %]\n" )
     f.write( f"\tTotal: {np.sum( num_spikes_train )}\n" )
