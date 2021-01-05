@@ -2,9 +2,16 @@ import numpy as np
 
 from nengo.neurons import LIF
 from nengo.params import NumberParam
-from nengo.builder import Builder, Operator, Signal
-from nengo.builder.neurons import SimNeurons
 from nengo.dists import Uniform, Choice
+
+# numpy 1.17 introduced a slowdown to clip, so
+# use nengo.utils.numpy.clip instead of np.clip
+# This has persisted through 1.19 at least
+clip = (
+        np.core.umath.clip
+        if tuple( int( st ) for st in np.__version__.split( "." ) ) >= (1, 17, 0)
+        else np.clip
+)
 
 
 class AdaptiveLIFLateralInhibition( LIF ):
@@ -82,9 +89,8 @@ class AdaptiveLIFLateralInhibition( LIF ):
         self.inhibition = inhibition
     
     def step( self, dt, J, output, voltage, refractory_time, adaptation, inhibition ):
-        from numpy import clip
-        
         """Implement the AdaptiveLIF nonlinearity."""
+        
         n = adaptation
         J = J - n
         

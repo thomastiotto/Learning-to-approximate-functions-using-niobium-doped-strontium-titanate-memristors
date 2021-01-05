@@ -10,6 +10,15 @@ from nengo.utils.matplotlib import rasterplot
 import tensorflow as tf
 
 
+def pprint_dict( d, level=0 ):
+    for k, v in d.items():
+        if isinstance( v, dict ):
+            print( "\t" * level, f"{k}:" )
+            pprint_dict( v, level=level + 1 )
+        else:
+            print( "\t" * level, f"{k}: {v}" )
+
+
 def setup():
     import sys
     
