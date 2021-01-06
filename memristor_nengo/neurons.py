@@ -3,6 +3,7 @@ import numpy as np
 from nengo.neurons import LIF
 from nengo.params import NumberParam
 from nengo.dists import Uniform, Choice
+from nengo.builder import Operator
 
 # numpy 1.17 introduced a slowdown to clip, so
 # use nengo.utils.numpy.clip instead of np.clip
@@ -15,46 +16,6 @@ clip = (
 
 
 class AdaptiveLIFLateralInhibition( LIF ):
-    """Adaptive spiking version of the LIF neuron model.
-
-    Works as the LIF model, except with adaptation state ``n``, which is
-    subtracted from the input current. Its dynamics are::
-
-        tau_n dn/dt = -n
-
-    where ``n`` is incremented by ``inc_n`` when the neuron spikes.
-
-    Parameters
-    ----------
-    tau_n : float
-        Adaptation time constant. Affects how quickly the adaptation state
-        decays to zero in the absence of spikes (larger = slower decay).
-    inc_n : float
-        Adaptation increment. How much the adaptation state is increased after
-        each spike.
-    tau_rc : float
-        Membrane RC time constant, in seconds. Affects how quickly the membrane
-        voltage decays to zero in the absence of input (larger = slower decay).
-    tau_ref : float
-        Absolute refractory period, in seconds. This is how long the
-        membrane voltage is held at zero after a spike.
-    min_voltage : float
-        Minimum value for the membrane voltage. If ``-np.inf``, the voltage
-        is never clipped.
-    amplitude : float
-        Scaling factor on the neuron output. Corresponds to the relative
-        amplitude of the output spikes of the neuron.
-    initial_state : {str: Distribution or array_like}
-        Mapping from state variables names to their desired initial value.
-        These values will override the defaults set in the class's state attribute.
-
-    References
-    ----------
-    .. [1] Camera, Giancarlo La, et al. "Minimal models of adapted neuronal
-       response to in Vivo-Like input currents." Neural computation
-       16.10 (2004): 2101-2124.
-    """
-    
     state = {
             "voltage"        : Uniform( low=0, high=1 ),
             "refractory_time": Choice( [ 0 ] ),
@@ -142,3 +103,68 @@ class AdaptiveLIFLateralInhibition( LIF ):
         n += (dt / self.tau_n) * (self.inc_n * output - n)
         
         inhibition[ inhibition != 0 ] -= 1
+
+
+import tensorflow as tf
+from nengo_dl.neuron_builders import SoftLIFRateBuilder, LIFRateBuilder
+
+
+class AdaptiveLIFLateralInhibitionBuilder( SoftLIFRateBuilder ):
+    """Build a group of `~nengo.LIF` neuron operators."""
+    
+    spiking = True
+    
+    def build_pre( self, signals, config ):
+        # note: we skip the SoftLIFRateBuilder init
+        # pylint: disable=bad-super-call
+        super( SoftLIFRateBuilder, self ).build_pre( signals, config )
+        
+        self.min_voltage = signals.op_constant(
+                [ op.neurons for op in self.ops ],
+                [ op.J.shape[ 0 ] for op in self.ops ],
+                "min_voltage",
+                signals.dtype,
+                )
+        print( "diocane" )
+        
+        if self.config.lif_smoothing:
+            self.sigma = tf.constant( self.config.lif_smoothing, dtype=signals.dtype )
+    
+    def step( self, J, dt, voltage, refractory_time ):
+        delta_t = tf.clip_by_value( dt - refractory_time, self.zero, dt )
+        
+        dV = (voltage - J) * tf.math.expm1(
+                -delta_t / self.tau_rc  # pylint: disable=invalid-unary-operand-type
+                )
+        voltage += dV
+        
+        spiked = voltage > self.one
+        spikes = tf.cast( spiked, J.dtype ) * self.alpha
+        
+        partial_ref = -self.tau_rc * tf.math.log1p(
+                (self.one - voltage) / (J - self.one)
+                )
+        # FastLIF version (linearly approximate spike time when calculating
+        # remaining refractory period)
+        # partial_ref = signals.dt * (voltage - self.one) / dV
+        
+        refractory_time = tf.where(
+                spiked, self.tau_ref - partial_ref, refractory_time - dt
+                )
+        
+        voltage = tf.where( spiked, self.zeros, tf.maximum( voltage, self.min_voltage ) )
+        
+        return spikes, voltage, refractory_time
+    
+    def training_step( self, J, dt, **state ):
+        return (
+                LIFRateBuilder.step( self, J, dt )
+                if self.config.lif_smoothing is None
+                else SoftLIFRateBuilder.step( self, J, dt )
+        )
+
+
+# register with the NengoDL neuron builder
+from nengo_dl.neuron_builders import SimNeuronsBuilder
+
+SimNeuronsBuilder.TF_NEURON_IMPL[ AdaptiveLIFLateralInhibition ] = AdaptiveLIFLateralInhibitionBuilder

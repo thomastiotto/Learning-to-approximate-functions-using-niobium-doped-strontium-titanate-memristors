@@ -10,6 +10,28 @@ from nengo.utils.matplotlib import rasterplot
 import tensorflow as tf
 
 
+def generate_heatmap( probe, folder, neuron, num_samples=None ):
+    os.makedirs( folder + str( neuron ) )
+    num_samples = num_samples if num_samples else probe.shape[ 0 ]
+    step = int( probe.shape[ 0 ] / num_samples )
+    
+    print( "Neuron", neuron )
+    print( "Saving Heatmaps ..." )
+    for c, i in enumerate( range( 0, probe.shape[ 0 ], step ) ):
+        print( f"Saving {c} of {num_samples} images", end='\r' )
+        plt.matshow( np.reshape( probe[ :, neuron ][ i ], (28, 28) ),
+                     interpolation='none' )
+        plt.title( f"Neuron {neuron} t={i}" )  # , cmap=cm.jet
+        plt.savefig( folder + str( neuron ) + "/" + str( i ).zfill( 10 ) + ".png", transparent=True )
+        plt.cla()
+        plt.close()
+    
+    print( "Generating Video from Heatmaps ..." )
+    os.system( "ffmpeg -pattern_type glob -i '" + folder + str(
+            neuron ) + "/" + "*.png' -vcodec mpeg4 -hide_banner -loglevel panic -y " + folder + str( neuron ) + ".mp4" )
+    os.system( "rm -R " + folder + str( neuron ) )
+
+
 def pprint_dict( d, level=0 ):
     for k, v in d.items():
         if isinstance( v, dict ):

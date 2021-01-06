@@ -8,9 +8,9 @@ import tensorflow as tf
 import nengo_dl
 from matplotlib.ticker import MultipleLocator
 from nengo.utils.matplotlib import rasterplot
-from memristor_nengo.STDPLIF import *
 from memristor_nengo.extras import *
 from memristor_nengo.neurons import *
+from nengo import AdaptiveLIF
 
 dir_name, dir_images, dir_data = make_timestamped_dir( root="../data/MNIST/" )
 
@@ -74,8 +74,8 @@ with model:
                           seed=seed
                           )
     post = nengo.Ensemble( n_neurons=len( digits ) if digits else 10, dimensions=1,
-                           neuron_type=AdaptiveLIFLateralInhibition( inhibition=10 ),
-                           # neuron_type=AdaptiveLIF(),
+                           # neuron_type=AdaptiveLIFLateralInhibition( inhibition=10 ),
+                           neuron_type=AdaptiveLIF(),
                            # neuron_type=LIF(),
                            encoders=nengo.dists.Choice( [ [ 1 ] ] ),
                            intercepts=nengo.dists.Choice( [ 0 ] ),
@@ -104,7 +104,7 @@ print( "Pre:\n\t", pre.neuron_type )
 print( "Post:\n\t", post.neuron_type )
 print( "Rule:\n\t", conn.learning_rule_type )
 
-with nengo.Simulator( model ) as sim:
+with nengo_dl.Simulator( model ) as sim:
     sim.run( sim_time )
 
 major_ticks = np.arange( 0,
@@ -141,7 +141,7 @@ for i, (mj, mn) in enumerate( zip( major_ticks, minor_ticks ) ):
     plt.axvline( x=mn, color='k', linestyle='--', alpha=0.5 )
     plt.axvline( x=mj, color='k', )
     ax.annotate( train_labels.ravel()[ i ], xy=(mn - 0.25, np.rint( post.n_neurons / 2 )), xycoords='data' )
-fig2.show()
+# fig2.show()
 
 fig3, axes = plt.subplots( 2 )
 for i, ax in enumerate( axes.flatten() ):

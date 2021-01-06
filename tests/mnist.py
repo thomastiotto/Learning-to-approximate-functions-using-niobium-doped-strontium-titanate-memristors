@@ -27,7 +27,7 @@ test_images = test_images / 255
 train_labels = train_labels[ :, None, None ]
 test_labels = test_labels[ :, None, None ]
 
-digits = (0, 1, 2, 3, 5)
+digits = (0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
 if digits:
     train_images = np.array(
             [ x for i, x in enumerate( train_images ) if train_labels[ i ] in digits ]
@@ -42,7 +42,7 @@ if digits:
             [ x for i, x in enumerate( test_labels ) if test_labels[ i ] in digits ]
             )
 
-num_samples = 1000
+num_samples = 10000
 if num_samples:
     train_images = train_images[ :num_samples ]
     test_images = test_images[ :num_samples ]
@@ -60,8 +60,9 @@ presentation_time = 0.35
 pause_time = 0.15
 sim_time = (presentation_time + pause_time) * train_images.shape[ 0 ]
 dt = 0.001
+make_video = True
 sample_every = 100 * dt
-
+sample_every_weights = num_samples * dt if make_video else sim_time
 post_n_neurons = 10
 
 model = nengo.Network()
@@ -93,7 +94,7 @@ with model:
     
     pre_probe = nengo.Probe( pre.neurons, sample_every=sample_every )
     post_probe = nengo.Probe( post.neurons, sample_every=sample_every )
-    weight_probe = nengo.Probe( conn, "weights", sample_every=sim_time )
+    weight_probe = nengo.Probe( conn, "weights", sample_every=sample_every_weights )
     adaptation_probe = nengo.Probe( post.neurons, "adaptation", sample_every=sim_time )
 
 un_train, cnt_train = np.unique( train_labels, return_counts=True )
@@ -105,11 +106,11 @@ with open( dir_data + "results.txt", "w" ) as f:
     f.write( "\tTrain:\n" )
     
     for x, c in zip( un_train, cnt_train ):
-        f.write( f"\t\t{x}:{c}"
+        f.write( f"\t\t{x}: {c}"
                  f"[{c / len( train_labels ) * 100} %]\n" )
     f.write( "\tTest:\n" )
     for x, c in zip( un_test, cnt_test ):
-        f.write( f"\t\t{x}:{c}"
+        f.write( f"\t\t{x}: {c}"
                  f"[{c / len( test_labels ) * 100} %]\n" )
     f.write( f"Pre:\n\t {pre.neuron_type} \n\tNeurons: {pre.n_neurons} \n\tRate: {pre.max_rates}\n" )
     f.write( f"Post:\n\t {post.neuron_type} \n\tNeurons: {post.n_neurons} \n\tRate: {post.max_rates}\n" )
@@ -118,11 +119,11 @@ with open( dir_data + "results.txt", "w" ) as f:
 print( "Digits distribution:" )
 print( "\tTrain:" )
 for x, c in zip( un_train, cnt_train ):
-    print( f"\t\t{x}:{c} "
+    print( f"\t\t{x}: {c}"
            f"[{c / len( train_labels ) * 100} %]" )
 print( "\tTest:" )
 for x, c in zip( un_test, cnt_test ):
-    print( f"\t\t{x}:{c} "
+    print( f"\t\t{x}: {c}"
            f"[{c / len( test_labels ) * 100} %]" )
 print( "Pre:\n\t", pre.neuron_type, "\n\tNeurons:", pre.n_neurons, "\n\tRate:", pre.max_rates )
 print( "Post:\n\t", post.neuron_type, "\n\tNeurons:", post.n_neurons, "\n\tRate:", post.max_rates )
@@ -173,12 +174,16 @@ fig3.suptitle( "Weights after learning" )
 fig3.tight_layout()
 fig3.show()
 
+if make_video:
+    for i in range( post_n_neurons ):
+        generate_heatmap( sim_train.data[ weight_probe ], dir_images, neuron=i )
+
 print( "######################################################",
        "################### CLASS ASSIGNMENT #################",
        "######################################################",
        sep="\n" )
 # load weights found during training and freeze them
-conn.transform = sim_train.data[ weight_probe ].squeeze()
+conn.transform = sim_train.data[ weight_probe ][ -1 ].squeeze()
 conn.learning_rule_type = nengo.learning_rules.Oja( learning_rate=0 )
 # load last neuron thresholds from training and freeze them
 post.neuron_type = AdaptiveLIFLateralInhibition( inhibition=10,
@@ -267,7 +272,7 @@ for t in range( num_samples ):
     prediction.append( max_lab )
 
 print( "Classification results:" )
-print( "\n\tAccuracy:", accuracy_score( test_labels.ravel(), prediction ) )
+print( "\tAccuracy:", accuracy_score( test_labels.ravel(), prediction ) )
 print( "\tConfusion matrix:\n", confusion_matrix( test_labels.ravel(), prediction ) )
 
 fig1.savefig( dir_name + "pre" + ".eps" )
