@@ -74,8 +74,8 @@ with model:
                           seed=seed
                           )
     post = nengo.Ensemble( n_neurons=len( digits ) if digits else 10, dimensions=1,
-                           # neuron_type=AdaptiveLIFLateralInhibition( inhibition=10 ),
-                           neuron_type=AdaptiveLIF(),
+                           neuron_type=AdaptiveLIFLateralInhibition( inhibition=10 ),
+                           # neuron_type=AdaptiveLIF(),
                            # neuron_type=LIF(),
                            encoders=nengo.dists.Choice( [ [ 1 ] ] ),
                            intercepts=nengo.dists.Choice( [ 0 ] ),

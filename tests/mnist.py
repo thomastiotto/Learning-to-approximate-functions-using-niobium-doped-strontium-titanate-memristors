@@ -162,7 +162,7 @@ fig2.get_axes()[ 0 ].annotate( "Post" + " neural activity", (0.5, 0.94),
                                xycoords='figure fraction', ha='center',
                                fontsize=20
                                )
-# fig2.show()
+fig2.show()
 
 fig3, axes = plt.subplots( int( post.n_neurons / 2 ), int( post.n_neurons / int( post.n_neurons / 2 ) ) )
 for i, ax in enumerate( axes.flatten() ):

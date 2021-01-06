@@ -106,7 +106,7 @@ class AdaptiveLIFLateralInhibition( LIF ):
 
 
 import tensorflow as tf
-from nengo_dl.neuron_builders import SoftLIFRateBuilder, LIFRateBuilder
+from nengo_dl.neuron_builders import SoftLIFRateBuilder, LIFRateBuilder, LIFBuilder
 
 
 class AdaptiveLIFLateralInhibitionBuilder( SoftLIFRateBuilder ):
@@ -125,22 +125,53 @@ class AdaptiveLIFLateralInhibitionBuilder( SoftLIFRateBuilder ):
                 "min_voltage",
                 signals.dtype,
                 )
-        print( "diocane" )
-        
-        if self.config.lif_smoothing:
-            self.sigma = tf.constant( self.config.lif_smoothing, dtype=signals.dtype )
+        self.tau_n = signals.op_constant(
+                [ op.neurons for op in self.ops ],
+                [ op.J.shape[ 0 ] for op in self.ops ],
+                "tau_n",
+                signals.dtype,
+                )
+        self.inc_n = signals.op_constant(
+                [ op.neurons for op in self.ops ],
+                [ op.J.shape[ 0 ] for op in self.ops ],
+                "inc_n",
+                signals.dtype,
+                )
+        self.inhibition = signals.op_constant(
+                [ op.neurons for op in self.ops ],
+                [ op.J.shape[ 0 ] for op in self.ops ],
+                "inhibition",
+                signals.dtype,
+                )
     
-    def step( self, J, dt, voltage, refractory_time ):
+    def step( self, J, dt, voltage, refractory_time, adaptation, inhibition ):
+        """Implement the AdaptiveLIF nonlinearity."""
+        
+        n = adaptation
+        J = J - n
+        
+        # reduce all refractory times by dt
+        refractory_time -= dt
+        
+        # compute effective dt for each neuron, based on remaining time.
+        # note that refractory times that have completed midway into this
+        # timestep will be given a partial timestep, and moreover these will
+        # be subtracted to zero at the next timestep (or reset by a spike)
         delta_t = tf.clip_by_value( dt - refractory_time, self.zero, dt )
         
+        # update voltage using discretized lowpass filter
+        # since v(t) = v(0) + (J - v(0))*(1 - exp(-t/tau)) assuming
+        # J is constant over the interval [t, t + dt)
         dV = (voltage - J) * tf.math.expm1(
                 -delta_t / self.tau_rc  # pylint: disable=invalid-unary-operand-type
                 )
         voltage += dV
         
-        spiked = voltage > self.one
-        spikes = tf.cast( spiked, J.dtype ) * self.alpha
+        # determine which neurons spiked (set them to 1/dt, else 0)
+        spiked_mask = voltage > self.one
+        output = tf.cast( spiked_mask, J.dtype ) * self.alpha
         
+        # set v(0) = 1 and solve for t to compute the spike time
         partial_ref = -self.tau_rc * tf.math.log1p(
                 (self.one - voltage) / (J - self.one)
                 )
@@ -148,13 +179,16 @@ class AdaptiveLIFLateralInhibitionBuilder( SoftLIFRateBuilder ):
         # remaining refractory period)
         # partial_ref = signals.dt * (voltage - self.one) / dV
         
+        # set spiked voltages to zero, refractory times to tau_ref, and
+        # rectify negative voltages to a floor of min_voltage
+        voltage = tf.where( spiked_mask, self.zeros, tf.maximum( voltage, self.min_voltage ) )
         refractory_time = tf.where(
-                spiked, self.tau_ref - partial_ref, refractory_time - dt
+                spiked_mask, self.tau_ref - partial_ref, refractory_time - dt
                 )
         
-        voltage = tf.where( spiked, self.zeros, tf.maximum( voltage, self.min_voltage ) )
+        n += (dt / self.tau_n) * (self.inc_n * output - n)
         
-        return spikes, voltage, refractory_time
+        return output, voltage, refractory_time
     
     def training_step( self, J, dt, **state ):
         return (
