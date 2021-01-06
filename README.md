@@ -1,6 +1,8 @@
 # Learning to Approximate Functions Using Nb-doped SrTiO_3 Memristors
 
 ## Paper
+[Learning to Approximate Functions Using Nb-doped SrTiO 3 Memristors](https://www.frontiersin.org/articles/10.3389/fnins.2020.627276/abstract)
+
 [arXiv:2011.02794 [cs.ET]](https://arxiv.org/abs/2011.02794)
 
 ## Abstract
