@@ -34,7 +34,7 @@ parser.add_argument( "-g", "--gain", default=1e4, type=float )  # default chosen
 parser.add_argument( "-l", "--learning_rule", default="mPES", choices=[ "mPES", "PES" ] )
 parser.add_argument( "-P", "--parameters", default=Default, type=float,
                      help="The parametrs of simualted memristors.  For now only the exponent c" )
-parser.add_argument( "-b", "--backend", default="nengo_core", choices=[ "nengo_dl", "nengo_core" ] )
+parser.add_argument( "-b", "--backend", default="nengo_dl", choices=[ "nengo_dl", "nengo_core" ] )
 parser.add_argument( "-o", "--optimisations", default="run", choices=[ "run", "build", "memory" ] )
 parser.add_argument( "-s", "--seed", default=None, type=int )
 parser.add_argument( "--plot", default=0, choices=[ 0, 1, 2, 3 ], type=int,
