@@ -243,7 +243,7 @@ def build_mpes( model, mpes, rule ):
     np.random.seed( mpes.seed )
     pos_mem_initial = np.random.normal( 1e8, 1e8 * mpes.noise_percentage[ 3 ],
                                         (out_size, in_size) )
-    np.random.seed( mpes.seed + 1 )
+    np.random.seed( mpes.seed + 1 ) if mpes.seed else np.random.seed( mpes.seed )
     neg_mem_initial = np.random.normal( 1e8, 1e8 * mpes.noise_percentage[ 3 ],
                                         (out_size, in_size) )
     
