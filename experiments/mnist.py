@@ -3,18 +3,36 @@ from random import randrange
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import confusion_matrix
 import random
+import argparse
 
 import nengo
 import nengo_dl
 import numpy as np
 import tensorflow as tf
 
-from matplotlib.ticker import MultipleLocator
 from nengo.utils.matplotlib import rasterplot
 from memristor_nengo.extras import *
 from memristor_nengo.neurons import *
 
-dir_name, dir_images, dir_data = make_timestamped_dir( root="../data/MNIST/" )
+setup()
+
+parser = argparse.ArgumentParser()
+parser.add_argument( "-S", "--samples", default=None, type=int,
+                     help="The number of samples to train/test on.  Default is all dataset" )
+parser.add_argument( "-D", "--digits", nargs="*", default=None, action="store", type=int,
+                     help="The digits to train on.  Default is all digits" )
+parser.add_argument( "-N", "--neurons", default=10, type=int,
+                     help="The number of excitatory neurons.  Default is 10" )
+parser.add_argument( "-s", "--seed", default=None, type=int )
+parser.add_argument( "-b", "--backend", default="nengo_dl",
+                     choices=[ "nengo_dl", "nengo_core" ] )
+parser.add_argument( "-d", "--device", default="/cpu:0",
+                     help="/cpu:0 or /gpu:[x]" )
+parser.add_argument( "-pd", "--plots_directory", default="../data/MNIST",
+                     help="Directory where plots will be saved.  Default is ../data/" )
+args = parser.parse_args()
+
+dir_name, dir_images, dir_data = make_timestamped_dir( root=args.plots_directory )
 
 # load mnist dataset
 (train_images, train_labels), (test_images, test_labels,) = tf.keras.datasets.mnist.load_data()
@@ -27,11 +45,18 @@ test_images = test_images / 255
 train_labels = train_labels[ :, None, None ]
 test_labels = test_labels[ :, None, None ]
 
-digits = (0, 1)
-num_samples = 1000
-seed = None
+# set parameters
+digits = args.digits
+num_samples = args.samples
 make_video = False
-post_n_neurons = 4
+post_n_neurons = args.neurons
+random.seed = args.seed
+presentation_time = 0.35
+pause_time = 0.15
+sim_time = (presentation_time + pause_time) * train_images.shape[ 0 ]
+dt = 0.001
+sample_every = 100 * dt
+sample_every_weights = num_samples * dt if make_video else sim_time
 
 if digits:
     train_images = np.array(
@@ -58,14 +83,6 @@ print( "######################################################",
        "######################################################",
        sep="\n" )
 
-random.seed = seed
-presentation_time = 0.35
-pause_time = 0.15
-sim_time = (presentation_time + pause_time) * train_images.shape[ 0 ]
-dt = 0.001
-sample_every = 100 * dt
-sample_every_weights = num_samples * dt if make_video else sim_time
-
 model = nengo.Network()
 with model:
     inp = nengo.Node( PresentInputWithPause( train_images, presentation_time, pause_time ) )
@@ -74,7 +91,7 @@ with model:
                           encoders=nengo.dists.Choice( [ [ 1 ] ] ),
                           intercepts=nengo.dists.Choice( [ 0 ] ),
                           # max_rates=nengo.dists.Choice( [ 20, 22 ] )
-                          seed=seed
+                          seed=args.seed
                           )
     post = nengo.Ensemble( n_neurons=post_n_neurons, dimensions=1,
                            neuron_type=AdaptiveLIFLateralInhibition( tau_inhibition=10 ),
@@ -83,7 +100,7 @@ with model:
                            encoders=nengo.dists.Choice( [ [ 1 ] ] ),
                            intercepts=nengo.dists.Choice( [ 0 ] ),
                            max_rates=nengo.dists.Choice( [ 20, 22 ] ),
-                           seed=seed
+                           seed=args.seed
                            )
     
     nengo.Connection( inp, pre.neurons )
@@ -135,8 +152,15 @@ print( "######################################################",
        "######################################################",
        sep="\n" )
 
-with nengo_dl.Simulator( model ) as sim_train:
-    sim_train.run( sim_time )
+print( f"Backend is {args.backend}, running on ", end="" )
+if args.backend == "nengo_core":
+    print( "CPU" )
+    with nengo.Simulator( model, seed=args.seed ) as sim_train:
+        sim_train.run( sim_time )
+if args.backend == "nengo_dl":
+    print( args.device )
+    with nengo_dl.Simulator( model, seed=args.seed, device=args.device ) as sim_train:
+        sim_train.run( sim_time )
 
 # print number of recorded spikes
 num_spikes_train = np.sum( sim_train.data[ post_probe ] > 0, axis=0 )
@@ -153,7 +177,7 @@ fig1.get_axes()[ 0 ].annotate( "Pre" + " neural activity", (0.5, 0.94),
                                xycoords='figure fraction', ha='center',
                                fontsize=20
                                )
-# fig1.show()
+fig1.show()
 
 fig2, ax = plt.subplots()
 rasterplot( sim_train.trange( sample_every=sample_every ), sim_train.data[ post_probe ], ax )
@@ -196,8 +220,12 @@ post.neuron_type = AdaptiveLIFLateralInhibition( tau_inhibition=10,
 # set post probe to record every spike for statistics
 post_probe.sample_every = dt
 
-with nengo_dl.Simulator( model ) as sim_class:
-    sim_class.run( sim_time )
+if args.backend == "nengo_core":
+    with nengo.Simulator( model, seed=args.seed ) as sim_class:
+        sim_class.run( sim_time )
+if args.backend == "nengo_dl":
+    with nengo_dl.Simulator( model, seed=args.seed, device=args.device ) as sim_class:
+        sim_class.run( sim_time )
 
 # print number of recorded spikes
 num_spikes_class = np.sum( sim_class.data[ post_probe ] > 0, axis=0 )
@@ -244,8 +272,12 @@ print( "######################################################",
 # switch to test set
 inp.output = PresentInputWithPause( test_images, presentation_time, pause_time )
 
-with nengo_dl.Simulator( model ) as sim_test:
-    sim_test.run( sim_time )
+if args.backend == "nengo_core":
+    with nengo.Simulator( model, seed=args.seed ) as sim_test:
+        sim_test.run( sim_time )
+if args.backend == "nengo_dl":
+    with nengo_dl.Simulator( model, seed=args.seed, device=args.device ) as sim_test:
+        sim_test.run( sim_time )
 
 # print number of recorded spikes
 num_spikes_test = np.sum( sim_test.data[ post_probe ] > 0, axis=0 )
@@ -276,9 +308,9 @@ print( "Classification results:" )
 print( "\tAccuracy:", accuracy_score( test_labels.ravel(), prediction ) )
 print( "\tConfusion matrix:\n", confusion_matrix( test_labels.ravel(), prediction ) )
 
-fig1.savefig( dir_name + "pre" + ".eps" )
-fig2.savefig( dir_name + "post" + ".eps" )
-fig3.savefig( dir_name + "weights" + ".eps" )
+fig1.savefig( dir_images + "pre" + ".eps" )
+fig2.savefig( dir_images + "post" + ".eps" )
+fig3.savefig( dir_images + "weights" + ".eps" )
 print( f"Saved plots in {dir_images}" )
 
 with open( dir_data + "results.txt", "a" ) as f:
