@@ -15,7 +15,7 @@ from nengo import AdaptiveLIF
 dir_name, dir_images, dir_data = make_timestamped_dir( root="../data/MNIST/" )
 
 # set seed to ensure this example is reproducible
-seed = None
+seed = 0
 tf.random.set_seed( seed )
 np.random.seed( seed )
 rng = np.random.RandomState( seed )
@@ -74,7 +74,7 @@ with model:
                           seed=seed
                           )
     post = nengo.Ensemble( n_neurons=len( digits ) if digits else 10, dimensions=1,
-                           neuron_type=AdaptiveLIFLateralInhibition( inhibition=10 ),
+                           neuron_type=AdaptiveLIFLateralInhibition( tau_inhibition=10 ),
                            # neuron_type=AdaptiveLIF(),
                            # neuron_type=LIF(),
                            encoders=nengo.dists.Choice( [ [ 1 ] ] ),
@@ -104,7 +104,7 @@ print( "Pre:\n\t", pre.neuron_type )
 print( "Post:\n\t", post.neuron_type )
 print( "Rule:\n\t", conn.learning_rule_type )
 
-with nengo_dl.Simulator( model ) as sim:
+with nengo.Simulator( model ) as sim:
     sim.run( sim_time )
 
 major_ticks = np.arange( 0,
@@ -141,7 +141,7 @@ for i, (mj, mn) in enumerate( zip( major_ticks, minor_ticks ) ):
     plt.axvline( x=mn, color='k', linestyle='--', alpha=0.5 )
     plt.axvline( x=mj, color='k', )
     ax.annotate( train_labels.ravel()[ i ], xy=(mn - 0.25, np.rint( post.n_neurons / 2 )), xycoords='data' )
-# fig2.show()
+fig2.show()
 
 fig3, axes = plt.subplots( 2 )
 for i, ax in enumerate( axes.flatten() ):

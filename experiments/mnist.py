@@ -27,7 +27,12 @@ test_images = test_images / 255
 train_labels = train_labels[ :, None, None ]
 test_labels = test_labels[ :, None, None ]
 
-digits = (0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
+digits = (0, 1)
+num_samples = 1000
+seed = None
+make_video = False
+post_n_neurons = 4
+
 if digits:
     train_images = np.array(
             [ x for i, x in enumerate( train_images ) if train_labels[ i ] in digits ]
@@ -42,7 +47,6 @@ if digits:
             [ x for i, x in enumerate( test_labels ) if test_labels[ i ] in digits ]
             )
 
-num_samples = 10000
 if num_samples:
     train_images = train_images[ :num_samples ]
     test_images = test_images[ :num_samples ]
@@ -54,16 +58,13 @@ print( "######################################################",
        "######################################################",
        sep="\n" )
 
-seed = None
 random.seed = seed
 presentation_time = 0.35
 pause_time = 0.15
 sim_time = (presentation_time + pause_time) * train_images.shape[ 0 ]
 dt = 0.001
-make_video = True
 sample_every = 100 * dt
 sample_every_weights = num_samples * dt if make_video else sim_time
-post_n_neurons = 10
 
 model = nengo.Network()
 with model:
@@ -76,7 +77,7 @@ with model:
                           seed=seed
                           )
     post = nengo.Ensemble( n_neurons=post_n_neurons, dimensions=1,
-                           neuron_type=AdaptiveLIFLateralInhibition( inhibition=10 ),
+                           neuron_type=AdaptiveLIFLateralInhibition( tau_inhibition=10 ),
                            # neuron_type=AdaptiveLIF(),
                            # neuron_type=LIF(),
                            encoders=nengo.dists.Choice( [ [ 1 ] ] ),
@@ -107,11 +108,11 @@ with open( dir_data + "results.txt", "w" ) as f:
     
     for x, c in zip( un_train, cnt_train ):
         f.write( f"\t\t{x}: {c}"
-                 f"[{c / len( train_labels ) * 100} %]\n" )
+                 f" [{c / len( train_labels ) * 100} %]\n" )
     f.write( "\tTest:\n" )
     for x, c in zip( un_test, cnt_test ):
         f.write( f"\t\t{x}: {c}"
-                 f"[{c / len( test_labels ) * 100} %]\n" )
+                 f" [{c / len( test_labels ) * 100} %]\n" )
     f.write( f"Pre:\n\t {pre.neuron_type} \n\tNeurons: {pre.n_neurons} \n\tRate: {pre.max_rates}\n" )
     f.write( f"Post:\n\t {post.neuron_type} \n\tNeurons: {post.n_neurons} \n\tRate: {post.max_rates}\n" )
     f.write( f"Rule:\n\t {conn.learning_rule_type}\n" )
@@ -120,11 +121,11 @@ print( "Digits distribution:" )
 print( "\tTrain:" )
 for x, c in zip( un_train, cnt_train ):
     print( f"\t\t{x}: {c}"
-           f"[{c / len( train_labels ) * 100} %]" )
+           f" [{c / len( train_labels ) * 100} %]" )
 print( "\tTest:" )
 for x, c in zip( un_test, cnt_test ):
     print( f"\t\t{x}: {c}"
-           f"[{c / len( test_labels ) * 100} %]" )
+           f" [{c / len( test_labels ) * 100} %]" )
 print( "Pre:\n\t", pre.neuron_type, "\n\tNeurons:", pre.n_neurons, "\n\tRate:", pre.max_rates )
 print( "Post:\n\t", post.neuron_type, "\n\tNeurons:", post.n_neurons, "\n\tRate:", post.max_rates )
 print( "Rule:\n\t", conn.learning_rule_type )
@@ -134,7 +135,7 @@ print( "######################################################",
        "######################################################",
        sep="\n" )
 
-with nengo.Simulator( model ) as sim_train:
+with nengo_dl.Simulator( model ) as sim_train:
     sim_train.run( sim_time )
 
 # print number of recorded spikes
@@ -186,7 +187,7 @@ print( "######################################################",
 conn.transform = sim_train.data[ weight_probe ][ -1 ].squeeze()
 conn.learning_rule_type = nengo.learning_rules.Oja( learning_rate=0 )
 # load last neuron thresholds from training and freeze them
-post.neuron_type = AdaptiveLIFLateralInhibition( inhibition=10,
+post.neuron_type = AdaptiveLIFLateralInhibition( tau_inhibition=10,
                                                  tau_n=1e20,
                                                  inc_n=0,
                                                  initial_state={
@@ -195,7 +196,7 @@ post.neuron_type = AdaptiveLIFLateralInhibition( inhibition=10,
 # set post probe to record every spike for statistics
 post_probe.sample_every = dt
 
-with nengo.Simulator( model ) as sim_class:
+with nengo_dl.Simulator( model ) as sim_class:
     sim_class.run( sim_time )
 
 # print number of recorded spikes
@@ -243,7 +244,7 @@ print( "######################################################",
 # switch to test set
 inp.output = PresentInputWithPause( test_images, presentation_time, pause_time )
 
-with nengo.Simulator( model ) as sim_test:
+with nengo_dl.Simulator( model ) as sim_test:
     sim_test.run( sim_time )
 
 # print number of recorded spikes

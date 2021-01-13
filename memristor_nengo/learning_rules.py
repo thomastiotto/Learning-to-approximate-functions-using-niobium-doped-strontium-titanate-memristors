@@ -356,7 +356,6 @@ class SimmPESBuilder( OpBuilder ):
                                      len( self.ops ),
                                      self.ops[ 0 ].exponent.shape[ 0 ],
                                      self.ops[ 0 ].exponent.shape[ 1 ])
-        
                                     )
         self.error_threshold = signals.op_constant( self.ops,
                                                     [ 1 for _ in self.ops ],
@@ -457,8 +456,7 @@ class SimmPESBuilder( OpBuilder ):
         
         V = tf.sign( pes_delta ) * 1e-1
         
-        # FIRST thing, check if the error is greater than the threshold
-        # if any errors is above threshold then pass decision to next tf.cond()
+        # if any errors is above threshold then pass update resistances
         # if all errors are below threshold then do nothing
         pos_memristors, neg_memristors = tf.cond(
                 tf.reduce_any( tf.greater( tf.abs( local_error ), self.error_threshold ) ),

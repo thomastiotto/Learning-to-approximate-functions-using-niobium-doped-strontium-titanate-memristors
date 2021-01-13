@@ -3,16 +3,7 @@ import numpy as np
 from nengo.neurons import LIF
 from nengo.params import NumberParam
 from nengo.dists import Uniform, Choice
-from nengo.builder import Operator
-
-# numpy 1.17 introduced a slowdown to clip, so
-# use nengo.utils.numpy.clip instead of np.clip
-# This has persisted through 1.19 at least
-clip = (
-        np.core.umath.clip
-        if tuple( int( st ) for st in np.__version__.split( "." ) ) >= (1, 17, 0)
-        else np.clip
-)
+from nengo.utils.numpy import clip
 
 
 class AdaptiveLIFLateralInhibition( LIF ):
@@ -36,7 +27,7 @@ class AdaptiveLIFLateralInhibition( LIF ):
             min_voltage=0,
             amplitude=1,
             initial_state=None,
-            inhibition=10
+            tau_inhibition=10
             ):
         super().__init__(
                 tau_rc=tau_rc,
@@ -47,7 +38,7 @@ class AdaptiveLIFLateralInhibition( LIF ):
                 )
         self.tau_n = tau_n
         self.inc_n = inc_n
-        self.inhibition = inhibition
+        self.tau_inhibition = tau_inhibition
     
     def step( self, dt, J, output, voltage, refractory_time, adaptation, inhibition ):
         """Implement the AdaptiveLIF nonlinearity."""
@@ -87,7 +78,7 @@ class AdaptiveLIFLateralInhibition( LIF ):
             voltage[ J != np.max( J ) ] = 0
             output[ J != np.max( J ) ] = 0
             spiked_mask[ J != np.max( J ) ] = False
-            inhibition[ (J != np.max( J )) & (inhibition == 0) ] = self.inhibition
+            inhibition[ (J != np.max( J )) & (inhibition == 0) ] = self.tau_inhibition
         
         # set v(0) = 1 and solve for t to compute the spike time
         t_spike = dt + tau_rc * np.log1p(
@@ -137,18 +128,29 @@ class AdaptiveLIFLateralInhibitionBuilder( SoftLIFRateBuilder ):
                 "inc_n",
                 signals.dtype,
                 )
-        self.inhibition = signals.op_constant(
+        self.tau_inhibition = signals.op_constant(
                 [ op.neurons for op in self.ops ],
                 [ op.J.shape[ 0 ] for op in self.ops ],
-                "inhibition",
+                "tau_inhibition",
                 signals.dtype,
                 )
     
     def step( self, J, dt, voltage, refractory_time, adaptation, inhibition ):
         """Implement the AdaptiveLIF nonlinearity."""
         
-        n = adaptation
-        J = J - n
+        def inhibit( voltage, output, inhibition, spiked_mask ):
+            J_mask = tf.equal( J, tf.reduce_max( J ) )
+            
+            voltage = tf.multiply( voltage, tf.cast( J_mask, voltage.dtype ) )
+            output = tf.multiply( output, tf.cast( J_mask, output.dtype ) )
+            spiked_mask = tf.logical_and( spiked_mask, tf.cast( J_mask, spiked_mask.dtype ) )
+            inhibition = tf.where( tf.logical_and( tf.logical_not( J_mask ), tf.equal( inhibition, 0 ) ),
+                                   self.tau_inhibition,
+                                   inhibition
+                                   )
+            return voltage, output, inhibition, spiked_mask
+        
+        J = J - adaptation
         
         # reduce all refractory times by dt
         refractory_time -= dt
@@ -171,22 +173,38 @@ class AdaptiveLIFLateralInhibitionBuilder( SoftLIFRateBuilder ):
         spiked_mask = voltage > self.one
         output = tf.cast( spiked_mask, J.dtype ) * self.alpha
         
+        inhibition_mask = tf.equal( inhibition, 0 )
+        # if neuron that spiked had highest input but was still inhibited from a previous timestep
+        voltage = tf.multiply( voltage, tf.cast( inhibition_mask, voltage.dtype ) )
+        output = tf.multiply( output, tf.cast( inhibition_mask, output.dtype ) )
+        spiked_mask = tf.logical_and( spiked_mask, tf.cast( inhibition_mask, spiked_mask.dtype ) )
+        
+        # inhibit all other neurons than one with highest input
+        voltage, output, inhibition, spiked_mask = tf.cond( tf.math.count_nonzero( output ) > 0,
+                                                            lambda: inhibit( voltage, output, inhibition, spiked_mask ),
+                                                            lambda: (tf.identity( voltage ),
+                                                                     tf.identity( output ),
+                                                                     tf.identity( inhibition ),
+                                                                     tf.identity( spiked_mask )
+                                                                     )
+                                                            )
+        
         # set v(0) = 1 and solve for t to compute the spike time
-        partial_ref = -self.tau_rc * tf.math.log1p(
-                (self.one - voltage) / (J - self.one)
-                )
-        # FastLIF version (linearly approximate spike time when calculating
-        # remaining refractory period)
-        # partial_ref = signals.dt * (voltage - self.one) / dV
+        partial_ref = -self.tau_rc * tf.math.log1p( (self.one - voltage) / (J - self.one) )
         
         # set spiked voltages to zero, refractory times to tau_ref, and
         # rectify negative voltages to a floor of min_voltage
         voltage = tf.where( spiked_mask, self.zeros, tf.maximum( voltage, self.min_voltage ) )
-        refractory_time = tf.where(
-                spiked_mask, self.tau_ref - partial_ref, refractory_time - dt
-                )
+        voltage = tf.multiply( voltage, tf.cast( tf.logical_not( spiked_mask ), voltage.dtype ) )
+        refractory_time = tf.where( spiked_mask, self.tau_ref - partial_ref, refractory_time - dt )
         
-        n += (dt / self.tau_n) * (self.inc_n * output - n)
+        adaptation += (dt / self.tau_n) * (self.inc_n * output - adaptation)
+        
+        inhibition_mask = tf.not_equal( inhibition, 0 )
+        inhibition = tf.tensor_scatter_nd_sub( inhibition,
+                                               tf.where( inhibition_mask ),
+                                               tf.ones( tf.math.count_nonzero( inhibition_mask ) )
+                                               )
         
         return output, voltage, refractory_time
     
