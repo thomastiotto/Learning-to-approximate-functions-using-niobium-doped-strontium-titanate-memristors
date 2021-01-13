@@ -24,11 +24,11 @@ parser.add_argument( "-D", "--digits", nargs="*", default=None, action="store", 
 parser.add_argument( "-N", "--neurons", default=10, type=int,
                      help="The number of excitatory neurons.  Default is 10" )
 parser.add_argument( "-s", "--seed", default=None, type=int )
-parser.add_argument( "-b", "--backend", default="nengo_dl",
+parser.add_argument( "-b", "--backend", default="nengo_core",
                      choices=[ "nengo_dl", "nengo_core" ] )
 parser.add_argument( "-d", "--device", default="/cpu:0",
                      help="/cpu:0 or /gpu:[x]" )
-parser.add_argument( "-pd", "--plots_directory", default="../data/MNIST",
+parser.add_argument( "-pd", "--plots_directory", default="../data/MNIST/",
                      help="Directory where plots will be saved.  Default is ../data/" )
 args = parser.parse_args()
 
@@ -53,10 +53,6 @@ post_n_neurons = args.neurons
 random.seed = args.seed
 presentation_time = 0.35
 pause_time = 0.15
-sim_time = (presentation_time + pause_time) * train_images.shape[ 0 ]
-dt = 0.001
-sample_every = 100 * dt
-sample_every_weights = num_samples * dt if make_video else sim_time
 
 if digits:
     train_images = np.array(
@@ -77,6 +73,11 @@ if num_samples:
     test_images = test_images[ :num_samples ]
     train_labels = train_labels[ :num_samples ]
     test_labels = test_labels[ :num_samples ]
+
+dt = 0.001
+sample_every = 100 * dt
+sim_time = (presentation_time + pause_time) * train_images.shape[ 0 ]
+sample_every_weights = num_samples * dt if make_video else sim_time
 
 print( "######################################################",
        "###################### DEFINITION ####################",
