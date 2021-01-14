@@ -17,6 +17,7 @@ class AdaptiveLIFLateralInhibition( LIF ):
     
     tau_n = NumberParam( "tau_n", low=0, low_open=True )
     inc_n = NumberParam( "inc_n", low=0 )
+    tau_inhibition = NumberParam( "tau_inhibition", low=0 )
     
     def __init__(
             self,
@@ -43,8 +44,7 @@ class AdaptiveLIFLateralInhibition( LIF ):
     def step( self, dt, J, output, voltage, refractory_time, adaptation, inhibition ):
         """Implement the AdaptiveLIF nonlinearity."""
         
-        n = adaptation
-        J = J - n
+        J = J - adaptation
         
         # look these up once to avoid repeated parameter accesses
         tau_rc = self.tau_rc
@@ -91,7 +91,7 @@ class AdaptiveLIFLateralInhibition( LIF ):
         voltage[ spiked_mask ] = 0
         refractory_time[ spiked_mask ] = self.tau_ref + t_spike
         
-        n += (dt / self.tau_n) * (self.inc_n * output - n)
+        adaptation += (dt / self.tau_n) * (self.inc_n * output - adaptation)
         
         inhibition[ inhibition != 0 ] -= 1
 
@@ -139,6 +139,7 @@ class AdaptiveLIFLateralInhibitionBuilder( SoftLIFRateBuilder ):
         """Implement the AdaptiveLIF nonlinearity."""
         
         def inhibit( voltage, output, inhibition, spiked_mask ):
+            # inhibit all other neurons than one with highest input
             J_mask = tf.equal( J, tf.reduce_max( J ) )
             
             voltage = tf.multiply( voltage, tf.cast( J_mask, voltage.dtype ) )
@@ -148,12 +149,10 @@ class AdaptiveLIFLateralInhibitionBuilder( SoftLIFRateBuilder ):
                                    self.tau_inhibition,
                                    inhibition
                                    )
+            
             return voltage, output, inhibition, spiked_mask
         
         J = J - adaptation
-        
-        # reduce all refractory times by dt
-        refractory_time -= dt
         
         # compute effective dt for each neuron, based on remaining time.
         # note that refractory times that have completed midway into this
@@ -190,13 +189,12 @@ class AdaptiveLIFLateralInhibitionBuilder( SoftLIFRateBuilder ):
                                                             )
         
         # set v(0) = 1 and solve for t to compute the spike time
-        partial_ref = -self.tau_rc * tf.math.log1p( (self.one - voltage) / (J - self.one) )
+        t_spike = dt + self.tau_rc * tf.math.log1p( -(voltage - 1) / (J - 1) )
         
         # set spiked voltages to zero, refractory times to tau_ref, and
         # rectify negative voltages to a floor of min_voltage
         voltage = tf.where( spiked_mask, self.zeros, tf.maximum( voltage, self.min_voltage ) )
-        voltage = tf.multiply( voltage, tf.cast( tf.logical_not( spiked_mask ), voltage.dtype ) )
-        refractory_time = tf.where( spiked_mask, self.tau_ref - partial_ref, refractory_time - dt )
+        refractory_time = tf.where( spiked_mask, self.tau_ref + t_spike, refractory_time - dt )
         
         adaptation += (dt / self.tau_n) * (self.inc_n * output - adaptation)
         
@@ -206,7 +204,7 @@ class AdaptiveLIFLateralInhibitionBuilder( SoftLIFRateBuilder ):
                                                tf.ones( tf.math.count_nonzero( inhibition_mask ) )
                                                )
         
-        return output, voltage, refractory_time
+        return output, voltage, refractory_time, adaptation, inhibition
     
     def training_step( self, J, dt, **state ):
         return (

@@ -14,8 +14,6 @@ from nengo.utils.matplotlib import rasterplot
 from memristor_nengo.extras import *
 from memristor_nengo.neurons import *
 
-setup()
-
 parser = argparse.ArgumentParser()
 parser.add_argument( "-S", "--train_samples", default=None, type=int,
                      help="The number of samples to train/test on.  Default is all dataset" )
@@ -24,7 +22,7 @@ parser.add_argument( "-D", "--digits", nargs="*", default=None, action="store", 
 parser.add_argument( "-N", "--neurons", default=10, type=int,
                      help="The number of excitatory neurons.  Default is 10" )
 parser.add_argument( "-s", "--seed", default=None, type=int )
-parser.add_argument( "-b", "--backend", default="nengo_core",
+parser.add_argument( "-b", "--backend", default="nengo_dl",
                      choices=[ "nengo_dl", "nengo_core" ] )
 parser.add_argument( "-d", "--device", default="/cpu:0",
                      help="/cpu:0 or /gpu:[x]" )
@@ -90,6 +88,8 @@ print( "######################################################",
 
 model = nengo.Network()
 with model:
+    setup()
+    
     inp = nengo.Node( PresentInputWithPause( train_images, presentation_time, pause_time ) )
     pre = nengo.Ensemble( n_neurons=784, dimensions=1,
                           neuron_type=nengo.neurons.PoissonSpiking( nengo.LIFRate() ),
@@ -100,8 +100,7 @@ with model:
                           )
     post = nengo.Ensemble( n_neurons=post_n_neurons, dimensions=1,
                            neuron_type=AdaptiveLIFLateralInhibition( tau_inhibition=10 ),
-                           # neuron_type=AdaptiveLIF(),
-                           # neuron_type=LIF(),
+                           # neuron_type=nengo.neurons.AdaptiveLIF(),
                            encoders=nengo.dists.Choice( [ [ 1 ] ] ),
                            intercepts=nengo.dists.Choice( [ 0 ] ),
                            max_rates=nengo.dists.Choice( [ 20, 22 ] ),
@@ -114,6 +113,11 @@ with model:
                              learning_rule_type=nengo.learning_rules.Oja( beta=2.5 ),
                              transform=np.random.random( (post.n_neurons, pre.n_neurons) )
                              )
+    # rec_conn = nengo.Connection( post.neurons, post.neurons,
+    #                              transform=np.full( (post_n_neurons, post_n_neurons), -20 )
+    #                                        + 20 * np.eye( post_n_neurons ),
+    #                              synapse=10 * dt
+    #                              )
     
     pre_probe = nengo.Probe( pre.neurons, sample_every=sample_every )
     post_probe = nengo.Probe( post.neurons, sample_every=sample_every )

@@ -3,6 +3,7 @@ import os
 
 import matplotlib.pyplot as plt
 import nengo
+import nengo_dl
 import numpy as np
 from nengo.processes import Process
 from nengo.params import NdarrayParam, NumberParam
@@ -53,6 +54,8 @@ def setup():
     sys.path.append( ".." )
     
     tf.compat.v1.logging.set_verbosity( tf.compat.v1.logging.ERROR )
+    
+    nengo_dl.configure_settings( inference_only=True )
 
 
 class PresentInputWithPause( Process ):

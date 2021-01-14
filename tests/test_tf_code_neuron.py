@@ -12,30 +12,11 @@ tau_n = 1
 inc_n = 0.01
 dt = 0.001
 
-J_np_in = np.array( [ 221.90912353, 185.73059046, 187.77355607 ] )
-adaptation_np_in = np.array( [ 0., 0., 0.00996006 ] )
-inhibition_np_in = np.array( [ 0., 0., 7. ] )
-output_np_in = np.array( [ 0., 0., 0. ] )
-refractory_time_np_in = np.array( [ -0.007, -0.007, -0.00173687 ] )
-voltage_np_in = np.array( [ 0.51768583, 0.24231603, 0.19985032 ] )
-
-J_tf_in = tf.reshape( tf.convert_to_tensor( J_np_in ),
-                      [ 1, J_np_in.shape[ 0 ] ] )
-adaptation_tf_in = tf.reshape( tf.convert_to_tensor( adaptation_np_in ),
-                               [ 1, J_np_in.shape[ 0 ] ] )
-inhibition_tf_in = tf.reshape( tf.convert_to_tensor( inhibition_np_in ),
-                               [ 1, J_np_in.shape[ 0 ] ] )
-refractory_time_tf_in = tf.reshape( tf.convert_to_tensor( refractory_time_np_in ),
-                                    [ 1, J_np_in.shape[ 0 ] ] )
-voltage_tf_in = tf.reshape( tf.convert_to_tensor( voltage_np_in ),
-                            [ 1, J_np_in.shape[ 0 ] ] )
-
 
 def np_calc( dt, J, output, voltage, refractory_time, adaptation, inhibition ):
     """Implement the AdaptiveLIF nonlinearity."""
     
-    n = adaptation
-    J = J - n
+    J = J - adaptation
     
     # reduce all refractory times by dt
     refractory_time -= dt
@@ -78,7 +59,7 @@ def np_calc( dt, J, output, voltage, refractory_time, adaptation, inhibition ):
     voltage[ spiked_mask ] = 0
     refractory_time[ spiked_mask ] = tau_ref + t_spike
     
-    n += (dt / tau_n) * (inc_n * output - n)
+    adaptation += (dt / tau_n) * (inc_n * output - adaptation)
     
     inhibition[ inhibition != 0 ] -= 1
     
@@ -108,9 +89,6 @@ def tf_calc( dt, J, voltage, refractory_time, adaptation, inhibition ):
         return voltage, output, inhibition, spiked_mask
     
     J = J - adaptation
-    
-    # reduce all refractory times by dt
-    refractory_time -= dt
     
     # compute effective dt for each neuron, based on remaining time.
     # note that refractory times that have completed midway into this
@@ -147,13 +125,12 @@ def tf_calc( dt, J, voltage, refractory_time, adaptation, inhibition ):
                                                         )
     
     # set v(0) = 1 and solve for t to compute the spike time
-    t_spike = -tau_rc * tf.math.log1p( (one - voltage) / (J - one) )
+    t_spike = dt + tau_rc * tf.math.log1p( -(voltage - 1) / (J - 1) )
     
     # set spiked voltages to zero, refractory times to tau_ref, and
     # rectify negative voltages to a floor of min_voltage
     voltage = tf.where( spiked_mask, zeros, tf.maximum( voltage, min_voltage ) )
-    voltage = tf.multiply( voltage, tf.cast( tf.logical_not( spiked_mask ), voltage.dtype ) )
-    refractory_time = tf.where( spiked_mask, tau_ref - t_spike, refractory_time - dt )
+    refractory_time = tf.where( spiked_mask, tau_ref + t_spike, refractory_time - dt )
     
     adaptation += (dt / tau_n) * (inc_n * output - adaptation)
     
@@ -166,21 +143,50 @@ def tf_calc( dt, J, voltage, refractory_time, adaptation, inhibition ):
     return J, output, voltage, refractory_time, adaptation, inhibition
 
 
+J_np_in = np.array( [ 221.90912353, 185.73059046, 187.77355607 ] )
+adaptation_np_in = np.array( [ 0., 0., 0.00996006 ] )
+inhibition_np_in = np.array( [ 0., 0., 7. ] )
+output_np_in = np.array( [ 0., 0., 0. ] )
+refractory_time_np_in = np.array( [ -0.007, -0.007, -0.00173687 ] )
+voltage_np_in = np.array( [ 0.51768583, 0.24231603, 0.19985032 ] )
+
+J_tf_in = tf.reshape( tf.convert_to_tensor( J_np_in ),
+                      [ 1, J_np_in.shape[ 0 ] ] )
+adaptation_tf_in = tf.reshape( tf.convert_to_tensor( adaptation_np_in ),
+                               [ 1, J_np_in.shape[ 0 ] ] )
+inhibition_tf_in = tf.reshape( tf.convert_to_tensor( inhibition_np_in ),
+                               [ 1, J_np_in.shape[ 0 ] ] )
+refractory_time_tf_in = tf.reshape( tf.convert_to_tensor( refractory_time_np_in ),
+                                    [ 1, J_np_in.shape[ 0 ] ] )
+voltage_tf_in = tf.reshape( tf.convert_to_tensor( voltage_np_in ),
+                            [ 1, J_np_in.shape[ 0 ] ] )
+
 # tf.compat.v1.disable_eager_execution()
 
 J_np_out, output_np_out, voltage_np_out, refractory_time_np_out, adaptation_np_out, inhibition_np_out = np_calc( dt,
-                                                                                                                 J_np_in,
-                                                                                                                 output_np_in,
-                                                                                                                 voltage_np_in,
-                                                                                                                 refractory_time_np_in,
-                                                                                                                 adaptation_np_in,
-                                                                                                                 inhibition_np_in )
+                                                                                                                 copy.deepcopy(
+                                                                                                                         J_np_in ),
+                                                                                                                 copy.deepcopy(
+                                                                                                                         output_np_in ),
+                                                                                                                 copy.deepcopy(
+                                                                                                                         voltage_np_in ),
+                                                                                                                 copy.deepcopy(
+                                                                                                                         refractory_time_np_in ),
+                                                                                                                 copy.deepcopy(
+                                                                                                                         adaptation_np_in ),
+                                                                                                                 copy.deepcopy(
+                                                                                                                         inhibition_np_in ) )
 J_tf_out, output_tf_out, voltage_tf_out, refractory_time_tf_out, adaptation_tf_out, inhibition_tf_out = tf_calc( dt,
-                                                                                                                 J_tf_in,
-                                                                                                                 voltage_tf_in,
-                                                                                                                 refractory_time_tf_in,
-                                                                                                                 adaptation_tf_in,
-                                                                                                                 inhibition_tf_in )
+                                                                                                                 copy.deepcopy(
+                                                                                                                         J_tf_in ),
+                                                                                                                 copy.deepcopy(
+                                                                                                                         voltage_tf_in ),
+                                                                                                                 copy.deepcopy(
+                                                                                                                         refractory_time_tf_in ),
+                                                                                                                 copy.deepcopy(
+                                                                                                                         adaptation_tf_in ),
+                                                                                                                 copy.deepcopy(
+                                                                                                                         inhibition_tf_in ) )
 
 print( "NumPy\n", J_np_out, "\n", output_np_out, "\n", voltage_np_out, "\n", refractory_time_np_out, "\n",
        adaptation_np_out, "\n", inhibition_np_out )
