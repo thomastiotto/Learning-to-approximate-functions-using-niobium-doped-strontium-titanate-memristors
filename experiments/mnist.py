@@ -17,7 +17,7 @@ from memristor_nengo.neurons import *
 setup()
 
 parser = argparse.ArgumentParser()
-parser.add_argument( "-S", "--samples", default=None, type=int,
+parser.add_argument( "-S", "--train_samples", default=None, type=int,
                      help="The number of samples to train/test on.  Default is all dataset" )
 parser.add_argument( "-D", "--digits", nargs="*", default=None, action="store", type=int,
                      help="The digits to train on.  Default is all digits" )
@@ -45,9 +45,11 @@ test_images = test_images / 255
 train_labels = train_labels[ :, None, None ]
 test_labels = test_labels[ :, None, None ]
 
+train_test_proportion = train_images.shape[ 0 ] / test_images.shape[ 0 ]
+
 # set parameters
 digits = args.digits
-num_samples = args.samples
+num_samples = args.train_samples
 make_video = False
 post_n_neurons = args.neurons
 random.seed = args.seed
@@ -67,17 +69,19 @@ if digits:
     test_labels = np.array(
             [ x for i, x in enumerate( test_labels ) if test_labels[ i ] in digits ]
             )
-
 if num_samples:
     train_images = train_images[ :num_samples ]
-    test_images = test_images[ :num_samples ]
+    test_images = test_images[ :int( num_samples / train_test_proportion ) ]
     train_labels = train_labels[ :num_samples ]
-    test_labels = test_labels[ :num_samples ]
+    test_labels = test_labels[ :int( num_samples / train_test_proportion ) ]
 
+num_train_samples = train_images.shape[ 0 ]
+num_test_samples = test_images.shape[ 0 ]
 dt = 0.001
 sample_every = 100 * dt
-sim_time = (presentation_time + pause_time) * train_images.shape[ 0 ]
-sample_every_weights = num_samples * dt if make_video else sim_time
+sim_train_time = (presentation_time + pause_time) * train_images.shape[ 0 ]
+sim_test_time = (presentation_time + pause_time) * test_images.shape[ 0 ]
+sample_every_weights = num_samples * dt if make_video else sim_train_time
 
 print( "######################################################",
        "###################### DEFINITION ####################",
@@ -114,7 +118,7 @@ with model:
     pre_probe = nengo.Probe( pre.neurons, sample_every=sample_every )
     post_probe = nengo.Probe( post.neurons, sample_every=sample_every )
     weight_probe = nengo.Probe( conn, "weights", sample_every=sample_every_weights )
-    adaptation_probe = nengo.Probe( post.neurons, "adaptation", sample_every=sim_time )
+    adaptation_probe = nengo.Probe( post.neurons, "adaptation", sample_every=sim_train_time )
 
 un_train, cnt_train = np.unique( train_labels, return_counts=True )
 un_test, cnt_test = np.unique( test_labels, return_counts=True )
@@ -157,11 +161,11 @@ print( f"Backend is {args.backend}, running on ", end="" )
 if args.backend == "nengo_core":
     print( "CPU" )
     with nengo.Simulator( model, seed=args.seed ) as sim_train:
-        sim_train.run( sim_time )
+        sim_train.run( sim_train_time )
 if args.backend == "nengo_dl":
     print( args.device )
     with nengo_dl.Simulator( model, seed=args.seed, device=args.device ) as sim_train:
-        sim_train.run( sim_time )
+        sim_train.run( sim_train_time )
 
 # print number of recorded spikes
 num_spikes_train = np.sum( sim_train.data[ post_probe ] > 0, axis=0 )
@@ -223,10 +227,10 @@ post_probe.sample_every = dt
 
 if args.backend == "nengo_core":
     with nengo.Simulator( model, seed=args.seed ) as sim_class:
-        sim_class.run( sim_time )
+        sim_class.run( sim_train_time )
 if args.backend == "nengo_dl":
     with nengo_dl.Simulator( model, seed=args.seed, device=args.device ) as sim_class:
-        sim_class.run( sim_time )
+        sim_class.run( sim_train_time )
 
 # print number of recorded spikes
 num_spikes_class = np.sum( sim_class.data[ post_probe ] > 0, axis=0 )
@@ -238,7 +242,7 @@ print( "\tTotal:", np.sum( num_spikes_class ) )
 # remove spikes that happened during pause period
 mask = np.concatenate( (np.ones( int( presentation_time / dt ) + 1 ), np.zeros( int( pause_time / dt ) )) ) \
     .astype( bool )
-clean_post_spikes_class = sim_class.data[ post_probe ].reshape( num_samples, -1, post_n_neurons )[ :, mask, ... ]
+clean_post_spikes_class = sim_class.data[ post_probe ].reshape( num_train_samples, -1, post_n_neurons )[ :, mask, ... ]
 
 # count neuron activations in response to each example
 neuron_activations_class = np.count_nonzero( clean_post_spikes_class, axis=1 )
@@ -275,10 +279,10 @@ inp.output = PresentInputWithPause( test_images, presentation_time, pause_time )
 
 if args.backend == "nengo_core":
     with nengo.Simulator( model, seed=args.seed ) as sim_test:
-        sim_test.run( sim_time )
+        sim_test.run( sim_test_time )
 if args.backend == "nengo_dl":
     with nengo_dl.Simulator( model, seed=args.seed, device=args.device ) as sim_test:
-        sim_test.run( sim_time )
+        sim_test.run( sim_test_time )
 
 # print number of recorded spikes
 num_spikes_test = np.sum( sim_test.data[ post_probe ] > 0, axis=0 )
@@ -288,14 +292,14 @@ for i, x in enumerate( num_spikes_test ):
 print( "\tTotal:", np.sum( num_spikes_test ) )
 
 # remove spikes that happened during pause period
-clean_post_spikes_test = sim_test.data[ post_probe ].reshape( num_samples, -1, post_n_neurons )[ :, mask, ... ]
+clean_post_spikes_test = sim_test.data[ post_probe ].reshape( num_test_samples, -1, post_n_neurons )[ :, mask, ... ]
 
 # count neuron activations in response to each example
 neuron_activations_test = np.count_nonzero( clean_post_spikes_test, axis=1 )
 
 # use the neuron class with highest average activation as class prediction at each timestep
 prediction = [ ]
-for t in range( num_samples ):
+for t in range( num_test_samples ):
     max_mean = 0
     max_lab = None
     for lab, neur in label_class.items():
