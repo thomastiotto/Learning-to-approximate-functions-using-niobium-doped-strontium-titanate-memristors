@@ -202,10 +202,10 @@ fig2.get_axes()[ 0 ].annotate( "Post" + " neural activity", (0.5, 0.94),
                                )
 fig2.show()
 
-fig3, axes = plt.subplots( int( post.n_neurons / 2 ), int( post.n_neurons / int( post.n_neurons / 2 ) ) )
+fig3, axes = plt.subplots( int( post.n_neurons / 10 ), 10 )
 for i, ax in enumerate( axes.flatten() ):
     ax.matshow( sim_train.data[ weight_probe ][ -1, i, ... ].reshape( (28, 28) ) )
-    ax.set_title( f"Neuron {i}" )
+    ax.set_title( f"N. {i}" )
     ax.set_yticks( [ ] )
     ax.set_xticks( [ ] )
 fig3.suptitle( "Weights after learning" )
@@ -265,7 +265,7 @@ pprint_dict( neuron_label_count, level=1 )
 
 # associate each neuron with the label it spiked most for
 # if the neuron never spiked pick a random label
-neuron_label = { neur: max( lab, key=lab.get ) if all( v != 0 for v in lab.values() ) else randrange(
+neuron_label = { neur: max( lab, key=lab.get ) if any( lab.values() ) else randrange(
         len( un_train ) ) for neur, lab in neuron_label_count.items() }
 print( "Label associated to each neuron:\n", end="" )
 pprint_dict( neuron_label, level=1 )
