@@ -21,6 +21,10 @@ parser.add_argument( "-D", "--digits", nargs="*", default=None, action="store", 
                      help="The digits to train on.  Default is all digits" )
 parser.add_argument( "-N", "--neurons", default=10, type=int,
                      help="The number of excitatory neurons.  Default is 10" )
+parser.add_argument( "-B", "--beta", default=2.5, type=int,
+                     help="The strength of homestasis as beta parameter of Oja.  Default is 2.5" )
+parser.add_argument( "-I", "--inhibition", default=10, type=int,
+                     help="The strength of lateral inhibition as number of timesteps.  Default is 10" )
 parser.add_argument( "-s", "--seed", default=None, type=int )
 parser.add_argument( "-b", "--backend", default="nengo_dl",
                      choices=[ "nengo_dl", "nengo_core" ] )
@@ -99,7 +103,7 @@ with model:
                           seed=args.seed
                           )
     post = nengo.Ensemble( n_neurons=post_n_neurons, dimensions=1,
-                           neuron_type=AdaptiveLIFLateralInhibition( tau_inhibition=10 ),
+                           neuron_type=AdaptiveLIFLateralInhibition( tau_inhibition=args.inhibition ),
                            # neuron_type=nengo.neurons.AdaptiveLIF(),
                            encoders=nengo.dists.Choice( [ [ 1 ] ] ),
                            intercepts=nengo.dists.Choice( [ 0 ] ),
@@ -110,7 +114,7 @@ with model:
     nengo.Connection( inp, pre.neurons )
     
     conn = nengo.Connection( pre.neurons, post.neurons,
-                             learning_rule_type=nengo.learning_rules.Oja( beta=2.5 ),
+                             learning_rule_type=nengo.learning_rules.Oja( beta=args.beta ),
                              transform=np.random.random( (post.n_neurons, pre.n_neurons) )
                              )
     # rec_conn = nengo.Connection( post.neurons, post.neurons,
