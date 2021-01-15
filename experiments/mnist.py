@@ -21,12 +21,12 @@ parser.add_argument( "-D", "--digits", nargs="*", default=None, action="store", 
                      help="The digits to train on.  Default is all digits" )
 parser.add_argument( "-N", "--neurons", default=10, type=int,
                      help="The number of excitatory neurons.  Default is 10" )
-parser.add_argument( "-B", "--beta", default=2.5, type=int,
+parser.add_argument( "-B", "--beta", default=2.5, type=float,
                      help="The strength of homestasis as beta parameter of Oja.  Default is 2.5" )
 parser.add_argument( "-I", "--inhibition", default=10, type=int,
                      help="The strength of lateral inhibition as number of timesteps.  Default is 10" )
 parser.add_argument( "-s", "--seed", default=None, type=int )
-parser.add_argument( "-b", "--backend", default="nengo_dl",
+parser.add_argument( "-b", "--backend", default="nengo_core",
                      choices=[ "nengo_dl", "nengo_core" ] )
 parser.add_argument( "-d", "--device", default="/cpu:0",
                      help="/cpu:0 or /gpu:[x]" )
@@ -224,11 +224,12 @@ print( "######################################################",
 conn.transform = sim_train.data[ weight_probe ][ -1 ].squeeze()
 conn.learning_rule_type = nengo.learning_rules.Oja( learning_rate=0 )
 # load last neuron thresholds from training and freeze them
-post.neuron_type = AdaptiveLIFLateralInhibition( tau_inhibition=10,
-                                                 tau_n=1e20,
-                                                 inc_n=0,
-                                                 initial_state={
-                                                         "adaptation": sim_train.data[ adaptation_probe ].squeeze() } )
+post.neuron_type = AdaptiveLIFLateralInhibition(
+        tau_n=1e20,
+        inc_n=0,
+        initial_state={
+                "adaptation": sim_train.data[ adaptation_probe ].squeeze() }
+        )
 
 # set post probe to record every spike for statistics
 post_probe.sample_every = dt
@@ -254,9 +255,9 @@ clean_post_spikes_class = sim_class.data[ post_probe ].reshape( num_train_sample
 
 # count neuron activations in response to each example
 neuron_activations_class = np.count_nonzero( clean_post_spikes_class, axis=1 )
-neuron_label_count = { neur: { lab: 0 for lab in un_train } for neur in range( post_n_neurons ) }
 
-# count how many times each neuron spiked for each label across examples
+# count how many times each neuron spiked for each label across samples
+neuron_label_count = { neur: { lab: 0 for lab in un_train } for neur in range( post_n_neurons ) }
 for t, lab in enumerate( train_labels.ravel() ):
     for neur in range( post_n_neurons ):
         neuron_label_count[ neur ][ lab ] += neuron_activations_class[ t, neur ]
