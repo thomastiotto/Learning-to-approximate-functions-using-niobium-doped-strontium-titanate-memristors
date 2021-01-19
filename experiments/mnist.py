@@ -22,6 +22,8 @@ parser.add_argument( "-D", "--digits", nargs="*", default=None, action="store", 
                      help="The digits to train on.  Default is all digits" )
 parser.add_argument( "-N", "--neurons", default=10, type=int,
                      help="The number of excitatory neurons.  Default is 10" )
+parser.add_argument( "--learning_rate", default=1e-6, type=float,
+                     help="Learning rate in Oja.  Default is 1e-6" )
 parser.add_argument( "--beta", default=2.5, type=float,
                      help="Beta in Oja. How strong forgetting is.  Default is 2.5" )
 parser.add_argument( "--tau_inh", default=10, type=int,
@@ -128,7 +130,8 @@ with model:
     nengo.Connection( inp, pre.neurons )
     
     conn = nengo.Connection( pre.neurons, post.neurons,
-                             learning_rule_type=nengo.learning_rules.Oja( learning_rate=1e-6, beta=args.beta ),
+                             learning_rule_type=nengo.learning_rules.Oja( learning_rate=args.learning_rate,
+                                                                          beta=args.beta ),
                              transform=np.random.random( (post.n_neurons, pre.n_neurons) )
                              )
     
@@ -140,31 +143,16 @@ with model:
 un_train, cnt_train = np.unique( train_labels, return_counts=True )
 un_test, cnt_test = np.unique( test_labels, return_counts=True )
 
-with open( dir_data + "results.txt", "w" ) as f:
-    f.write( "\n###################### DEFINITION ####################\n" )
-    f.write( "\nDigits distribution:\n" )
-    f.write( "\tTrain:\n" )
-    
-    for x, c in zip( un_train, cnt_train ):
-        f.write( f"\t\t{x}: {c}"
-                 f" [{c / len( train_labels ) * 100} %]\n" )
-    f.write( "\tTest:\n" )
-    for x, c in zip( un_test, cnt_test ):
-        f.write( f"\t\t{x}: {c}"
-                 f" [{c / len( test_labels ) * 100} %]\n" )
-    f.write( f"Pre:\n\t {pre.neuron_type} \n\tNeurons: {pre.n_neurons} \n\tRate: {pre.max_rates}\n" )
-    f.write( f"Post:\n\t {post.neuron_type} \n\tNeurons: {post.n_neurons} \n\tRate: {post.max_rates}\n" )
-    f.write( f"Rule:\n\t {conn.learning_rule_type}\n" )
+from ascii_graph import Pyasciigraph
 
-print( "Digits distribution:" )
-print( "\tTrain:" )
-for x, c in zip( un_train, cnt_train ):
-    print( f"\t\t{x}: {c}"
-           f" [{c / len( train_labels ) * 100} %]" )
-print( "\tTest:" )
-for x, c in zip( un_test, cnt_test ):
-    print( f"\t\t{x}: {c}"
-           f" [{c / len( test_labels ) * 100} %]" )
+graph = Pyasciigraph( force_max_value=100 )
+
+for line in graph.graph( "Train digits distribution",
+                         [ (str( x ), c / len( train_labels ) * 100) for x, c in zip( un_train, cnt_train ) ] ):
+    print( line )
+for line in graph.graph( "Test digits distribution",
+                         [ (str( x ), c / len( test_labels ) * 100) for x, c in zip( un_test, cnt_test ) ] ):
+    print( line )
 print( "Pre:\n\t", pre.neuron_type, "\n\tNeurons:", pre.n_neurons, "\n\tRate:", pre.max_rates )
 print( "Post:\n\t", post.neuron_type, "\n\tNeurons:", post.n_neurons, "\n\tRate:", post.max_rates )
 print( "Rule:\n\t", conn.learning_rule_type )
@@ -186,9 +174,10 @@ if args.backend == "nengo_dl":
 
 # print number of recorded spikes
 num_spikes_train = np.sum( sim_train.data[ post_probe ] > 0, axis=0 )
-print( f"Number of spikes (timestep={sample_every}):" )
-for i, x in enumerate( num_spikes_train ):
-    print( f"\tNeuron {i}:", x, f"[{x / np.sum( num_spikes_train ) * 100} %]" )
+for line in graph.graph( f"Spikes distribution (timestep={sample_every}):",
+                         [ (str( i ), x / np.sum( num_spikes_train ) * 100) for i, x in
+                           enumerate( num_spikes_train ) ] ):
+    print( line )
 print( "\tTotal:", np.sum( num_spikes_train ) )
 
 fig1, ax = plt.subplots()
@@ -213,7 +202,6 @@ fig2.show()
 
 # TODO sample neurons if too many to show
 # TODO not working with neurons not multiple of 10
-# TODO make histogram of activations
 # TODO calculate variance in activations
 fig3, axes = plt.subplots( int( post.n_neurons / 10 ), 10 )
 for i, ax in enumerate( axes.flatten() ):
@@ -262,9 +250,11 @@ if not args.only_video:
     
     # print number of recorded spikes
     num_spikes_class = np.sum( sim_class.data[ post_probe ] > 0, axis=0 )
-    print( f"Number of spikes (timestep={dt}):" )
-    for i, x in enumerate( num_spikes_class ):
-        print( f"\tNeuron {i}:", x, f"[{x / np.sum( num_spikes_class ) * 100} %]" )
+    num_spikes_train = np.sum( sim_train.data[ post_probe ] > 0, axis=0 )
+    for line in graph.graph( f"Spikes distribution (timestep={dt}):",
+                             [ (str( i ), x / np.sum( num_spikes_train ) * 100) for i, x in
+                               enumerate( num_spikes_class ) ] ):
+        print( line )
     print( "\tTotal:", np.sum( num_spikes_class ) )
     
     # remove spikes that happened during pause period
@@ -315,9 +305,11 @@ if not args.only_video:
     
     # print number of recorded spikes
     num_spikes_test = np.sum( sim_test.data[ post_probe ] > 0, axis=0 )
-    print( f"Number of spikes (timestep={dt}):" )
-    for i, x in enumerate( num_spikes_test ):
-        print( f"\tNeuron {i}:", x, f"[{x / np.sum( num_spikes_test ) * 100} %]" )
+    num_spikes_train = np.sum( sim_train.data[ post_probe ] > 0, axis=0 )
+    for line in graph.graph( f"Spikes distribution (timestep={dt}):",
+                             [ (str( i ), x / np.sum( num_spikes_train ) * 100) for i, x in
+                               enumerate( num_spikes_train ) ] ):
+        print( line )
     print( "\tTotal:", np.sum( num_spikes_test ) )
     
     # remove spikes that happened during pause period
@@ -347,17 +339,31 @@ if not args.only_video:
     fig3.savefig( dir_images + "weights" + ".eps" )
     print( f"Saved plots in {dir_images}" )
     
-    with open( dir_data + "results.txt", "a" ) as f:
+    with open( dir_data + "results.txt", "w" ) as f:
+        f.write( "\n###################### DEFINITION ####################\n" )
+        f.write( "\nDigits distribution:\n" )
+        for line in graph.graph( "Train",
+                                 [ (str( x ), c / len( train_labels ) * 100) for x, c in zip( un_train, cnt_train ) ] ):
+            f.write( f"{line}\n" )
+        for line in graph.graph( "Test",
+                                 [ (str( x ), c / len( test_labels ) * 100) for x, c in zip( un_test, cnt_test ) ] ):
+            f.write( f"{line}\n" )
+        f.write( f"Pre:\n\t {pre.neuron_type} \n\tNeurons: {pre.n_neurons} \n\tRate: {pre.max_rates}\n" )
+        f.write( f"Post:\n\t {post.neuron_type} \n\tNeurons: {post.n_neurons} \n\tRate: {post.max_rates}\n" )
+        f.write( f"Rule:\n\t {conn.learning_rule_type}\n" )
+        
         f.write( "\n####################### TRAINING #####################\n" )
-        f.write( f"\nNumber of spikes (timestep={sample_every}):\n" )
-        for i, x in enumerate( num_spikes_train ):
-            f.write( f"\tNeuron {i}: {x} [{x / np.sum( num_spikes_train ) * 100} %]\n" )
+        for line in graph.graph( f"Spikes distribution (timestep={sample_every}):",
+                                 [ (str( i ), x / np.sum( num_spikes_train ) * 100) for i, x in
+                                   enumerate( num_spikes_train ) ] ):
+            f.write( f"{line}\n" )
         f.write( f"\tTotal: {np.sum( num_spikes_train )}\n" )
         
         f.write( "\n################### CLASS ASSIGNMENT #################\n" )
-        f.write( f"\nNumber of spikes (timestep={dt}):\n" )
-        for i, x in enumerate( num_spikes_class ):
-            f.write( f"\tNeuron {i}: {x} [{x / np.sum( num_spikes_class ) * 100} %]\n" )
+        for line in graph.graph( f"Spikes distribution (timestep={dt}):",
+                                 [ (str( i ), x / np.sum( num_spikes_train ) * 100) for i, x in
+                                   enumerate( num_spikes_class ) ] ):
+            f.write( f"{line}\n" )
         f.write( f"\tTotal: {np.sum( num_spikes_class )}\n" )
         f.write( "\nNeuron activations for each label:\n" )
         f.write( str( neuron_label_count ) + "\n" )
@@ -367,9 +373,10 @@ if not args.only_video:
         f.write( str( label_class ) + "\n" )
         
         f.write( "\n###################### INFERENCE #####################\n" )
-        f.write( f"\nNumber of spikes (timestep={dt}):\n" )
-        for i, x in enumerate( num_spikes_test ):
-            f.write( f"\tNeuron {i}: {x} [{x / np.sum( num_spikes_test ) * 100} %]\n" )
+        for line in graph.graph( f"Spikes distribution (timestep={dt}):",
+                                 [ (str( i ), x / np.sum( num_spikes_train ) * 100) for i, x in
+                                   enumerate( num_spikes_test ) ] ):
+            f.write( f"{line}\n" )
         f.write( f"\tTotal: {np.sum( num_spikes_test )}\n" )
         f.write( "\nClassification results:\n" )
         f.write( f"\n\tAccuracy: {accuracy_score( test_labels.ravel(), prediction )}\n" )

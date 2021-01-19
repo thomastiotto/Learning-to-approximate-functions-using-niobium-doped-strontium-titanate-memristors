@@ -20,7 +20,7 @@ def generate_heatmap( probe, folder, neuron=None, num_samples=None ):
         print( "Saving Heatmaps ..." )
         for c, i in enumerate( range( 0, probe.shape[ 0 ], step ) ):
             print( f"Saving {c} of {num_samples} images", end='\r' )
-            fig, axes = plt.subplots( int( probe.shape[ 1 ] / 10 ), 10 )
+            fig, axes = plt.subplots( int( probe.shape[ 1 ] / 10 ), 10, figsize=(12.8, 7.2), dpi=100 )
             for j, ax in enumerate( axes.flatten() ):
                 ax.matshow( probe[ :, j ][ i ].reshape( (28, 28) ) )
                 ax.set_title( f"N. {j}" )
@@ -28,7 +28,7 @@ def generate_heatmap( probe, folder, neuron=None, num_samples=None ):
                 ax.set_xticks( [ ] )
             fig.suptitle( f"t={i}" )
             fig.tight_layout()
-            plt.savefig( folder + "tmp" + "/" + str( i ).zfill( 10 ) + ".png", transparent=True )
+            plt.savefig( folder + "tmp" + "/" + str( i ).zfill( 10 ) + ".png", transparent=True, dpi=100 )
             plt.cla()
             plt.close()
     else:
@@ -38,16 +38,18 @@ def generate_heatmap( probe, folder, neuron=None, num_samples=None ):
             print( f"Saving {c} of {num_samples} images", end='\r' )
             plt.matshow( np.reshape( probe[ :, neuron ][ i ], (28, 28) ),
                          interpolation='none' )
-            plt.title( f"Neuron {neuron} t={i}" )  # , cmap=cm.jet
+            plt.title( f"Neuron {neuron} t={i}" )
             plt.savefig( folder + "tmp" + "/" + str( i ).zfill( 10 ) + ".png", transparent=True )
             plt.cla()
             plt.close()
     
     print( "Generating Video from Heatmaps ..." )
     os.system(
-            "ffmpeg -pattern_type glob -i '" + folder + "tmp" + "/" + "*.png' -vcodec mpeg4 -hide_banner -loglevel "
-                                                                      "panic "
-                                                                      "-y " + folder + "tmp" + ".mp4" )
+            "ffmpeg "
+            "-pattern_type glob -i '" + folder + "tmp" + "/" + "*.png' "
+                                                               "-c:v libx264 -preset veryslow -crf 17 -tune "
+                                                               "stillimage -hide_banner -loglevel panic -y "
+            + folder + "weight_evolution" + ".mp4" )
     os.system( "rm -R " + folder + "tmp" )
 
 
