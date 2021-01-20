@@ -51,6 +51,8 @@ parser.add_argument( '--only-video', dest='only_video', action='store_true' )
 parser.set_defaults( feature=True )
 args = parser.parse_args()
 
+args.video = True if args.only_video or args.video else False
+
 # load mnist dataset
 (train_images, train_labels), (test_images, test_labels) = tf.keras.datasets.mnist.load_data()
 
@@ -63,6 +65,13 @@ train_labels = train_labels[ :, None, None ]
 test_labels = test_labels[ :, None, None ]
 
 train_test_proportion = train_images.shape[ 0 ] / test_images.shape[ 0 ]
+
+inp = pyip.inputNum( prompt=f"Number of samples (current {args.train_samples}):", blank=True )
+if inp:
+    args.train_samples = inp
+inp = pyip.inputNum( prompt=f"Number of neurons (current {args.neurons}):", blank=True )
+if inp:
+    args.neurons = inp
 
 # set parameters
 digits = args.digits
@@ -94,7 +103,6 @@ num_train_samples = train_images.shape[ 0 ]
 num_test_samples = test_images.shape[ 0 ]
 dt = 0.001
 sample_every = 100 * dt
-args.video = True if args.only_video or args.video else False
 sim_train_time = (presentation_time) * train_images.shape[ 0 ]
 sim_test_time = (presentation_time) * test_images.shape[ 0 ]
 sample_every_weights = num_samples * dt if args.video else sim_train_time
