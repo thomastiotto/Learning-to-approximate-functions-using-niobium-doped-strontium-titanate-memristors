@@ -75,7 +75,6 @@ if inp:
 
 # set parameters
 digits = args.digits
-num_samples = args.train_samples
 post_n_neurons = args.neurons
 random.seed = args.seed
 presentation_time = 0.35
@@ -93,11 +92,11 @@ if digits:
     test_labels = np.array(
             [ x for i, x in enumerate( test_labels ) if test_labels[ i ] in digits ]
             )
-if num_samples:
-    train_images = train_images[ :num_samples ]
-    test_images = test_images[ :int( num_samples / train_test_proportion ) ]
-    train_labels = train_labels[ :num_samples ]
-    test_labels = test_labels[ :int( num_samples / train_test_proportion ) ]
+if args.train_samples:
+    train_images = train_images[ :args.train_samples ]
+    test_images = test_images[ :int( args.train_samples / train_test_proportion ) ]
+    train_labels = train_labels[ :args.train_samples ]
+    test_labels = test_labels[ :int( args.train_samples / train_test_proportion ) ]
 
 num_train_samples = train_images.shape[ 0 ]
 num_test_samples = test_images.shape[ 0 ]
@@ -105,7 +104,7 @@ dt = 0.001
 sample_every = 100 * dt
 sim_train_time = (presentation_time) * train_images.shape[ 0 ]
 sim_test_time = (presentation_time) * test_images.shape[ 0 ]
-sample_every_weights = num_samples * dt if args.video else sim_train_time
+sample_every_weights = num_train_samples * dt if args.video else sim_train_time
 
 print( "######################################################",
        "###################### DEFINITION ####################",
@@ -154,7 +153,7 @@ from ascii_graph import Pyasciigraph
 
 graph = Pyasciigraph( force_max_value=100 )
 
-print( f"Samples: {num_samples}" )
+print( f"Samples: {num_train_samples}" )
 for line in graph.graph( "Train digits distribution",
                          [ (str( x ), c / len( train_labels ) * 100) for x, c in zip( un_train, cnt_train ) ] ):
     print( line )
@@ -236,7 +235,7 @@ if args.video:
 tf = tempfile.NamedTemporaryFile( mode='w+t', delete=False )
 with tf as f:
     f.write( "\n###################### DEFINITION ####################\n" )
-    f.write( f"Samples: {num_samples}\n" )
+    f.write( f"Samples: {num_train_samples}\n" )
     for line in graph.graph( "Train digits distribution",
                              [ (str( x ), c / len( train_labels ) * 100) for x, c in zip( un_train, cnt_train ) ] ):
         f.write( f"{line}\n" )
