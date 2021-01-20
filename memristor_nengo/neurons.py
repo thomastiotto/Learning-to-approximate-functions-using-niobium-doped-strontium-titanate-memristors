@@ -1,4 +1,6 @@
 import numpy as np
+from decimal import Decimal
+import math
 
 from nengo.neurons import LIF
 from nengo.params import NumberParam
@@ -28,7 +30,8 @@ class AdaptiveLIFLateralInhibition( LIF ):
             min_voltage=0,
             amplitude=1,
             initial_state=None,
-            tau_inhibition=10
+            tau_inhibition=10,
+            reset_every=0.35
             ):
         super().__init__(
                 tau_rc=tau_rc,
@@ -40,15 +43,31 @@ class AdaptiveLIFLateralInhibition( LIF ):
         self.tau_n = tau_n
         self.inc_n = inc_n
         self.tau_inhibition = tau_inhibition
+        self.reset_every = reset_every
+        self.sim_time = 0.0
     
     def step( self, dt, J, output, voltage, refractory_time, adaptation, inhibition ):
         """Implement the AdaptiveLIF nonlinearity."""
         
-        J = J - adaptation
-        
         # look these up once to avoid repeated parameter accesses
         tau_rc = self.tau_rc
         min_voltage = self.min_voltage
+        tau_inhibition = self.tau_inhibition
+        tau_ref = self.tau_ref
+        tau_n = self.tau_n
+        inc_n = self.inc_n
+        reset_every = self.reset_every
+        
+        # reduce input by the adaptation
+        J = J - adaptation
+        
+        # reset neurons (except for adaptation) after each sample is presented
+        self.sim_time += dt
+        if math.isclose( math.fmod( self.sim_time, reset_every ), 0, abs_tol=1e-3 ):
+            J[ ... ] = 0
+            voltage[ ... ] = 0
+            refractory_time[ ... ] = 0
+            inhibition[ ... ] = 0
         
         # reduce all refractory times by dt
         refractory_time -= dt
@@ -78,7 +97,7 @@ class AdaptiveLIFLateralInhibition( LIF ):
             voltage[ J != np.max( J ) ] = 0
             output[ J != np.max( J ) ] = 0
             spiked_mask[ J != np.max( J ) ] = False
-            inhibition[ (J != np.max( J )) & (inhibition == 0) ] = self.tau_inhibition
+            inhibition[ (J != np.max( J )) & (inhibition == 0) ] = tau_inhibition
         
         # set v(0) = 1 and solve for t to compute the spike time
         t_spike = dt + tau_rc * np.log1p(
@@ -89,9 +108,9 @@ class AdaptiveLIFLateralInhibition( LIF ):
         # rectify negative voltages to a floor of min_voltage
         voltage[ voltage < min_voltage ] = min_voltage
         voltage[ spiked_mask ] = 0
-        refractory_time[ spiked_mask ] = self.tau_ref + t_spike
+        refractory_time[ spiked_mask ] = tau_ref + t_spike
         
-        adaptation += (dt / self.tau_n) * (self.inc_n * output - adaptation)
+        adaptation += (dt / tau_n) * (inc_n * output - adaptation)
         
         inhibition[ inhibition != 0 ] -= 1
 
