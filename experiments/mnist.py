@@ -7,6 +7,7 @@ import argparse
 import multiprocessing as mp
 import shutil
 import tempfile
+import pyinputplus as pyip
 
 import nengo
 import nengo_dl
@@ -69,7 +70,6 @@ num_samples = args.train_samples
 post_n_neurons = args.neurons
 random.seed = args.seed
 presentation_time = 0.35
-pause_time = 0.15
 
 if digits:
     train_images = np.array(
@@ -97,8 +97,6 @@ sample_every = 100 * dt
 args.video = True if args.only_video or args.video else False
 sim_train_time = (presentation_time) * train_images.shape[ 0 ]
 sim_test_time = (presentation_time) * test_images.shape[ 0 ]
-# sim_train_time = (presentation_time + pause_time) * train_images.shape[ 0 ]
-# sim_test_time = (presentation_time + pause_time) * test_images.shape[ 0 ]
 sample_every_weights = num_samples * dt if args.video else sim_train_time
 
 print( "######################################################",
@@ -111,12 +109,10 @@ with model:
     setup()
     
     inp = nengo.Node( nengo.processes.PresentInput( train_images, presentation_time ) )
-    # inp = nengo.Node( PresentInputWithPause( train_images, presentation_time, pause_time ) )
     pre = nengo.Ensemble( n_neurons=784, dimensions=1,
                           neuron_type=nengo.neurons.PoissonSpiking( nengo.LIFRate() ),
                           encoders=nengo.dists.Choice( [ [ 1 ] ] ),
                           intercepts=nengo.dists.Choice( [ 0 ] ),
-                          # max_rates=nengo.dists.Choice( [ 20, 22 ] )
                           seed=args.seed
                           )
     post = nengo.Ensemble( n_neurons=post_n_neurons, dimensions=1,
@@ -124,7 +120,6 @@ with model:
                                                                      tau_n=args.tau_n,
                                                                      tau_inhibition=args.tau_inh,
                                                                      reset_every=presentation_time ),
-                           # neuron_type=nengo.neurons.AdaptiveLIF(),
                            encoders=nengo.dists.Choice( [ [ 1 ] ] ),
                            intercepts=nengo.dists.Choice( [ 0 ] ),
                            max_rates=nengo.dists.Choice( [ 20, 22 ] ),
@@ -254,7 +249,7 @@ if not args.only_video:
     conn.learning_rule_type = nengo.learning_rules.Oja( learning_rate=0 )
     # load last neuron thresholds from training and freeze them
     post.neuron_type = AdaptiveLIFLateralInhibition(
-            tau_n=1e20,
+            tau_n=float( "inf" ),
             inc_n=0,
             initial_state={
                     "adaptation": sim_train.data[ adaptation_probe ].squeeze() }
@@ -279,15 +274,10 @@ if not args.only_video:
     print( "\tTotal:", np.sum( num_spikes_class ) )
     print( f"\tNormalised standard dev.: {np.std( num_spikes_class ) / np.mean( num_spikes_class )}" )
     
-    # remove spikes that happened during pause period
-    mask = np.concatenate( (np.ones( int( presentation_time / dt ) + 1 ), np.zeros( int( pause_time / dt ) )) ) \
-        .astype( bool )
-    clean_post_spikes_class = sim_class.data[ post_probe ].reshape( num_train_samples, -1, post_n_neurons )
-    # clean_post_spikes_class = sim_class.data[ post_probe ].reshape( num_train_samples, -1, post_n_neurons )[ :, mask,
-    #                           ... ]
+    post_spikes_class = sim_class.data[ post_probe ].reshape( num_train_samples, -1, post_n_neurons )
     
     # count neuron activations in response to each example
-    neuron_activations_class = np.count_nonzero( clean_post_spikes_class, axis=1 )
+    neuron_activations_class = np.count_nonzero( post_spikes_class, axis=1 )
     
     # count how many times each neuron spiked for each label across samples
     neuron_label_count = { neur: { lab: 0 for lab in un_train } for neur in range( post_n_neurons ) }
@@ -319,7 +309,6 @@ if not args.only_video:
     
     # switch to test set
     inp.output = nengo.processes.PresentInput( test_images, presentation_time )
-    # inp.output = PresentInputWithPause( test_images, presentation_time, pause_time )
     
     if args.backend == "nengo_core":
         with nengo.Simulator( model, seed=args.seed ) as sim_test:
@@ -337,13 +326,10 @@ if not args.only_video:
     print( "\tTotal:", np.sum( num_spikes_test ) )
     print( f"\tNormalised standard dev.: {np.std( num_spikes_test ) / np.mean( num_spikes_test )}" )
     
-    # remove spikes that happened during pause period
-    clean_post_spikes_test = sim_test.data[ post_probe ].reshape( num_test_samples, -1, post_n_neurons )
-    # clean_post_spikes_test = sim_test.data[ post_probe ].reshape( num_test_samples, -1, post_n_neurons )[ :, mask,
-    # ... ]
+    post_spikes_test = sim_test.data[ post_probe ].reshape( num_test_samples, -1, post_n_neurons )
     
     # count neuron activations in response to each example
-    neuron_activations_test = np.count_nonzero( clean_post_spikes_test, axis=1 )
+    neuron_activations_test = np.count_nonzero( post_spikes_test, axis=1 )
     
     # use the neuron class with highest average activation as class prediction at each timestep
     prediction = [ ]
