@@ -79,23 +79,21 @@ if inp:
     args.neurons = inp
 
 # set parameters
-digits = args.digits
-post_n_neurons = args.neurons
 random.seed = args.seed
 presentation_time = 0.35
 
-if digits:
+if args.digits:
     train_images = np.array(
-            [ x for i, x in enumerate( train_images ) if train_labels[ i ] in digits ]
+            [ x for i, x in enumerate( train_images ) if train_labels[ i ] in args.digits ]
             )
     test_images = np.array(
-            [ x for i, x in enumerate( test_images ) if test_labels[ i ] in digits ]
+            [ x for i, x in enumerate( test_images ) if test_labels[ i ] in args.digits ]
             )
     train_labels = np.array(
-            [ x for i, x in enumerate( train_labels ) if train_labels[ i ] in digits ]
+            [ x for i, x in enumerate( train_labels ) if train_labels[ i ] in args.digits ]
             )
     test_labels = np.array(
-            [ x for i, x in enumerate( test_labels ) if test_labels[ i ] in digits ]
+            [ x for i, x in enumerate( test_labels ) if test_labels[ i ] in args.digits ]
             )
 if args.train_samples:
     train_images = train_images[ :args.train_samples ]
@@ -132,7 +130,7 @@ with model:
                           max_rates=nengo.dists.Choice( [ 22, 22 ] ),
                           seed=args.seed
                           )
-    post = nengo.Ensemble( n_neurons=post_n_neurons, dimensions=1,
+    post = nengo.Ensemble( n_neurons=args.neurons, dimensions=1,
                            neuron_type=AdaptiveLIFLateralInhibition( inc_n=args.inc_n,
                                                                      tau_n=args.tau_n,
                                                                      tau_inhibition=args.tau_inh,
@@ -318,15 +316,15 @@ if args.level >= 2:
     print( "\tTotal:", np.sum( num_spikes_class ) )
     print( f"\tNormalised standard dev.: {np.std( num_spikes_class ) / np.mean( num_spikes_class )}" )
     
-    post_spikes_class = sim_class.data[ post_probe ].reshape( num_train_samples, -1, post_n_neurons )
+    post_spikes_class = sim_class.data[ post_probe ].reshape( num_train_samples, -1, args.neurons )
     
     # count neuron activations in response to each example
     neuron_activations_class = np.count_nonzero( post_spikes_class, axis=1 )
     
     # count how many times each neuron spiked for each label across samples
-    neuron_label_count = { neur: { lab: 0 for lab in un_train } for neur in range( post_n_neurons ) }
+    neuron_label_count = { neur: { lab: 0 for lab in un_train } for neur in range( args.neurons ) }
     for t, lab in enumerate( train_labels.ravel() ):
-        for neur in range( post_n_neurons ):
+        for neur in range( args.neurons ):
             neuron_label_count[ neur ][ lab ] += neuron_activations_class[ t, neur ]
     # print neuron activations per label
     print( "Neuron activations for each label:\n", end="" )
@@ -390,7 +388,7 @@ if args.level >= 3:
     print( "\tTotal:", np.sum( num_spikes_test ) )
     print( f"\tNormalised standard dev.: {np.std( num_spikes_test ) / np.mean( num_spikes_test )}" )
     
-    post_spikes_test = sim_test.data[ post_probe ].reshape( num_test_samples, -1, post_n_neurons )
+    post_spikes_test = sim_test.data[ post_probe ].reshape( num_test_samples, -1, args.neurons )
     
     # count neuron activations in response to each example
     neuron_activations_test = np.count_nonzero( post_spikes_test, axis=1 )
