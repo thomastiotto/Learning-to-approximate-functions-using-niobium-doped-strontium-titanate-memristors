@@ -45,13 +45,18 @@ parser.add_argument( "-d", "--device", default="/cpu:0",
                      help="/cpu:0 or /gpu:[x]" )
 parser.add_argument( "-pd", "--plots_directory", default="../data/MNIST/",
                      help="Directory where plots will be saved.  Default is ../data/" )
-parser.add_argument( '--video', dest='video', action='store_true' )
-parser.add_argument( '--no-video', dest='video', action='store_false' )
-parser.add_argument( '--only-video', dest='only_video', action='store_true' )
+parser.add_argument( '--video', dest='video', default=False, action='store_true',
+                     help="Generate a video of the weight evolution.  Default is False." )
+parser.add_argument( '--no-images', dest='images', default=True, action='store_false',
+                     help="Generate images of training.  Default is True." )
+parser.add_argument( "--level", default=3, type=int, choices=[ 0, 1, 2, 3 ],
+                     help="0: Load dataset; 1: Run Training; 2: Run Classification; 3: Run Inference.  Default is 3." )
+parser.add_argument( "--img_format", default="png", help="Output images format" )
 parser.set_defaults( feature=True )
 args = parser.parse_args()
 
-args.video = True if args.only_video or args.video else False
+# allocate folder to save outputs
+dir_name, dir_images, dir_data = make_timestamped_dir( root=args.plots_directory )
 
 # load mnist dataset
 (train_images, train_labels), (test_images, test_labels) = tf.keras.datasets.mnist.load_data()
@@ -117,9 +122,14 @@ with model:
     
     inp = nengo.Node( nengo.processes.PresentInput( train_images, presentation_time ) )
     pre = nengo.Ensemble( n_neurons=784, dimensions=1,
-                          neuron_type=nengo.neurons.PoissonSpiking( nengo.LIFRate() ),
+                          neuron_type=nengo.neurons.PoissonSpiking( nengo.LIFRate(
+                                  amplitude=0.5
+                                  ) ),
+                          # gain=nengo.dists.Choice( [ 2 ] ),
+                          # bias=nengo.dists.Choice( [ 1 ] ),
                           encoders=nengo.dists.Choice( [ [ 1 ] ] ),
                           intercepts=nengo.dists.Choice( [ 0 ] ),
+                          max_rates=nengo.dists.Choice( [ 22, 22 ] ),
                           seed=args.seed
                           )
     post = nengo.Ensemble( n_neurons=post_n_neurons, dimensions=1,
@@ -127,20 +137,26 @@ with model:
                                                                      tau_n=args.tau_n,
                                                                      tau_inhibition=args.tau_inh,
                                                                      reset_every=presentation_time ),
+                           # gain=nengo.dists.Choice( [ 2 ] ),
+                           # bias=nengo.dists.Choice( [ 1 ] ),
                            encoders=nengo.dists.Choice( [ [ 1 ] ] ),
                            intercepts=nengo.dists.Choice( [ 0 ] ),
-                           max_rates=nengo.dists.Choice( [ 20, 22 ] ),
+                           max_rates=nengo.dists.Choice( [ 22, 22 ] ),
                            seed=args.seed
                            )
     
     nengo.Connection( inp, pre.neurons )
+    # filter = nengo.Node( lambda t, x: np.clip( x, 0, 2 ), size_in=784, size_out=10 )
+    # nengo.Connection( inp, filter )
+    # nengo.Connection( filter, post.neurons )
     
     conn = nengo.Connection( pre.neurons, post.neurons,
-                             learning_rule_type=nengo.learning_rules.Oja( learning_rate=args.learning_rate,
-                                                                          beta=args.beta ),
+                             learning_rule_type=
+                             nengo.learning_rules.Oja( learning_rate=args.learning_rate, beta=args.beta ),
                              transform=np.random.random( (post.n_neurons, pre.n_neurons) )
                              )
     
+    pre_value_probe = nengo.Probe( pre )
     pre_probe = nengo.Probe( pre.neurons, sample_every=sample_every )
     post_probe = nengo.Probe( post.neurons, sample_every=dt )
     weight_probe = nengo.Probe( conn, "weights", sample_every=sample_every_weights )
@@ -160,80 +176,17 @@ for line in graph.graph( "Train digits distribution",
 for line in graph.graph( "Test digits distribution",
                          [ (str( x ), c / len( test_labels ) * 100) for x, c in zip( un_test, cnt_test ) ] ):
     print( line )
-print( "Pre:\n\t", pre.neuron_type, "\n\tNeurons:", pre.n_neurons, "\n\tRate:", pre.max_rates )
-print( "Post:\n\t", post.neuron_type, "\n\tNeurons:", post.n_neurons, "\n\tRate:", post.max_rates )
+print( "Pre:\n\t", pre.neuron_type, "\n\tNeurons:", pre.n_neurons,
+       "\n\tGain:", pre.gain, "\n\tBias:", pre.bias, "\n\tEncoders:", pre.encoders,
+       "\n\tIntercepts:", pre.intercepts,
+       "\n\tMax rates:", pre.max_rates )
+print( "Post:\n\t", post.neuron_type, "\n\tNeurons:", post.n_neurons,
+       "\n\tGain:", post.gain, "\n\tBias:", post.bias, "\n\tEncoders:", post.encoders,
+       "\n\tIntercepts:", post.intercepts,
+       "\n\tMax rates:", post.max_rates )
 print( "Rule:\n\t", conn.learning_rule_type )
 
-print( "######################################################",
-       "####################### TRAINING #####################",
-       "######################################################",
-       sep="\n" )
-
-print( f"Backend is {args.backend}, running on ", end="" )
-if args.backend == "nengo_core":
-    print( "CPU" )
-    with nengo.Simulator( model, seed=args.seed ) as sim_train:
-        sim_train.run( sim_train_time )
-if args.backend == "nengo_dl":
-    print( args.device )
-    with nengo_dl.Simulator( model, seed=args.seed, device=args.device ) as sim_train:
-        sim_train.run( sim_train_time )
-
-# print number of recorded spikes
-num_spikes_train = np.sum( sim_train.data[ post_probe ] > 0, axis=0 )
-for line in graph.graph( f"Spikes distribution (timestep={dt}):",
-                         [ (str( i ), x / np.sum( num_spikes_train ) * 100) for i, x in
-                           enumerate( num_spikes_train ) ] ):
-    print( line )
-print( "\tTotal:", np.sum( num_spikes_train ) )
-print( f"\tNormalised standard dev.: {np.std( num_spikes_train ) / np.mean( num_spikes_train )}" )
-
-fig1, ax = plt.subplots()
-rasterplot( sim_train.trange( sample_every=sample_every ), sim_train.data[ pre_probe ], ax )
-ax.set_ylabel( 'Neuron' )
-ax.set_xlabel( 'Time (s)' )
-fig1.get_axes()[ 0 ].annotate( "Pre" + " neural activity", (0.5, 0.94),
-                               xycoords='figure fraction', ha='center',
-                               fontsize=20
-                               )
-fig1.show()
-
-fig2, ax = plt.subplots()
-rasterplot( sim_train.trange( sample_every=dt ), sim_train.data[ post_probe ], ax )
-ax.set_ylabel( 'Neuron' )
-ax.set_xlabel( 'Time (s)' )
-fig2.get_axes()[ 0 ].annotate( "Post" + " neural activity", (0.5, 0.94),
-                               xycoords='figure fraction', ha='center',
-                               fontsize=20
-                               )
-fig2.show()
-
-# TODO sample neurons if too many to show
-# TODO not working with neurons not multiple of 10
-plt.set_cmap( 'jet' )
-fig3, axes = plt.subplots( int( post.n_neurons / 10 ), 10 )
-for i, ax in enumerate( axes.flatten() ):
-    ax.matshow( sim_train.data[ weight_probe ][ -1, i, ... ].reshape( (28, 28) ) )
-    ax.set_title( f"N. {i}" )
-    ax.set_yticks( [ ] )
-    ax.set_xticks( [ ] )
-fig3.suptitle( "Weights after learning" )
-fig3.tight_layout()
-fig3.show()
-
-# allocate folder to save outputs
-dir_name, dir_images, dir_data = make_timestamped_dir( root=args.plots_directory )
-
-# generate heatmap evolution video
-if args.video:
-    if __name__ == "__main__":
-        mp.set_start_method( "fork" )
-        p = mp.Process( target=generate_heatmap, args=(sim_train.data[ weight_probe ], dir_images) )
-        p.start()
-
-# write definition to temp file location because we modify the network later on
-tf = tempfile.NamedTemporaryFile( mode='w+t', delete=False )
-with tf as f:
+with open( dir_data + "results.txt", "w" ) as f:
     f.write( "\n###################### DEFINITION ####################\n" )
     f.write( f"Samples: {num_train_samples}\n" )
     for line in graph.graph( "Train digits distribution",
@@ -242,11 +195,95 @@ with tf as f:
     for line in graph.graph( "Test digits distribution",
                              [ (str( x ), c / len( test_labels ) * 100) for x, c in zip( un_test, cnt_test ) ] ):
         f.write( f"{line}\n" )
-    f.write( f"Pre:\n\t {pre.neuron_type} \n\tNeurons: {pre.n_neurons} \n\tRate: {pre.max_rates}\n" )
-    f.write( f"Post:\n\t {post.neuron_type} \n\tNeurons: {post.n_neurons} \n\tRate: {post.max_rates}\n" )
+    f.write(
+            f"Pre:\n\t {pre.neuron_type} \n\tNeurons: {pre.n_neurons}\n\tGain: {pre.gain} \n\tBias: {pre.bias} "
+            f"\n\tEncoders: {pre.encoders}\n\tIntercepts: {pre.intercepts}\n\tMax rates: {pre.max_rates}" )
+    f.write(
+            f"Post:\n\t {post.neuron_type} \n\tNeurons: {post.n_neurons}\n\tGain: {post.gain} \n\tBias: {post.bias} "
+            f"\n\tEncoders: {post.encoders}\n\tIntercepts: {post.intercepts}\n\tMax rates: {post.max_rates}" )
     f.write( f"Rule:\n\t {conn.learning_rule_type}\n" )
 
-if not args.only_video:
+if args.level >= 1:
+    print( "######################################################",
+           "####################### TRAINING #####################",
+           "######################################################",
+           sep="\n" )
+    
+    print( f"Backend is {args.backend}, running on ", end="" )
+    if args.backend == "nengo_core":
+        print( "CPU" )
+        with nengo.Simulator( model, seed=args.seed ) as sim_train:
+            sim_train.run( sim_train_time )
+    if args.backend == "nengo_dl":
+        print( args.device )
+        with nengo_dl.Simulator( model, seed=args.seed, device=args.device ) as sim_train:
+            sim_train.run( sim_train_time )
+    
+    # print number of recorded spikes
+    num_spikes_train = np.sum( sim_train.data[ post_probe ] > 0, axis=0 )
+    for line in graph.graph( f"Spikes distribution (timestep={dt}):",
+                             [ (str( i ), x / np.sum( num_spikes_train ) * 100) for i, x in
+                               enumerate( num_spikes_train ) ] ):
+        print( line )
+    print( "\tTotal:", np.sum( num_spikes_train ) )
+    print( f"\tNormalised standard dev.: {np.std( num_spikes_train ) / np.mean( num_spikes_train )}" )
+    
+    with open( dir_data + "results.txt", "a" ) as f:
+        f.write( "\n####################### TRAINING #####################\n" )
+        for line in graph.graph( f"Spikes distribution (timestep={dt}):",
+                                 [ (str( i ), x / np.sum( num_spikes_train ) * 100) for i, x in
+                                   enumerate( num_spikes_train ) ] ):
+            f.write( f"{line}\n" )
+        f.write( f"\tTotal: {np.sum( num_spikes_train )}\n" )
+        f.write( f"\tNormalised standard dev.: {np.std( num_spikes_train ) / np.mean( num_spikes_train )}\n" )
+    
+    if args.images:
+        fig1, ax = plt.subplots( figsize=(12.8, 7.2), dpi=100 )
+        rasterplot( sim_train.trange( sample_every=sample_every ), sim_train.data[ pre_probe ], ax )
+        ax.set_ylabel( 'Neuron' )
+        ax.set_xlabel( 'Time (s)' )
+        fig1.get_axes()[ 0 ].annotate( "Pre" + " neural activity", (0.5, 0.94),
+                                       xycoords='figure fraction', ha='center',
+                                       fontsize=20
+                                       )
+        fig1.show()
+        
+        fig2, ax = plt.subplots( figsize=(12.8, 7.2), dpi=100 )
+        rasterplot( sim_train.trange( sample_every=dt ), sim_train.data[ post_probe ], ax )
+        ax.set_ylabel( 'Neuron' )
+        ax.set_xlabel( 'Time (s)' )
+        fig2.get_axes()[ 0 ].annotate( "Post" + " neural activity", (0.5, 0.94),
+                                       xycoords='figure fraction', ha='center',
+                                       fontsize=20
+                                       )
+        fig2.show()
+        
+        # TODO sample neurons if too many to show
+        # TODO not working with neurons not multiple of 10
+        plt.set_cmap( 'jet' )
+        fig3, axes = plt.subplots( int( post.n_neurons / 10 ), 10, figsize=(12.8, 7.2), dpi=100 )
+        for i, ax in enumerate( axes.flatten() ):
+            ax.matshow( sim_train.data[ weight_probe ][ -1, i, ... ].reshape( (28, 28) ) )
+            ax.set_title( f"N. {i}" )
+            ax.set_yticks( [ ] )
+            ax.set_xticks( [ ] )
+        fig3.suptitle( "Weights after learning" )
+        fig3.tight_layout()
+        fig3.show()
+        
+        fig1.savefig( dir_images + "pre." + args.img_format )
+        fig2.savefig( dir_images + "post." + args.img_format )
+        fig3.savefig( dir_images + "weights." + args.img_format )
+        print( f"Saved plots in {dir_images}" )
+    
+    if args.video:
+        # generate heatmap evolution video in a new process
+        if __name__ == "__main__":
+            mp.set_start_method( "fork" )
+            p = mp.Process( target=generate_heatmap, args=(sim_train.data[ weight_probe ], dir_images) )
+            p.start()
+
+if args.level >= 2:
     print( "######################################################",
            "################### CLASS ASSIGNMENT #################",
            "######################################################",
@@ -275,7 +312,7 @@ if not args.only_video:
     # print number of recorded spikes
     num_spikes_class = np.sum( sim_class.data[ post_probe ] > 0, axis=0 )
     for line in graph.graph( f"Spikes distribution (timestep={dt}):",
-                             [ (str( i ), x / np.sum( num_spikes_train ) * 100) for i, x in
+                             [ (str( i ), x / np.sum( num_spikes_class ) * 100) for i, x in
                                enumerate( num_spikes_class ) ] ):
         print( line )
     print( "\tTotal:", np.sum( num_spikes_class ) )
@@ -291,6 +328,7 @@ if not args.only_video:
     for t, lab in enumerate( train_labels.ravel() ):
         for neur in range( post_n_neurons ):
             neuron_label_count[ neur ][ lab ] += neuron_activations_class[ t, neur ]
+    # print neuron activations per label
     print( "Neuron activations for each label:\n", end="" )
     pprint_dict( neuron_label_count, level=1 )
     
@@ -298,6 +336,7 @@ if not args.only_video:
     # if the neuron never spiked pick a random label
     neuron_label = { neur: max( lab, key=lab.get ) if any( lab.values() ) else randrange(
             len( un_train ) ) for neur, lab in neuron_label_count.items() }
+    # print labels associated to each neuron
     print( "Label associated to each neuron:\n", end="" )
     pprint_dict( neuron_label, level=1 )
     
@@ -305,10 +344,28 @@ if not args.only_video:
     label_class = { }
     for neur, lab in neuron_label.items():
         label_class.setdefault( lab, list() ).append( neur )
+    # print neurons associated to each label
     print( "Neuron set associated to each label:\n", end="" )
     pprint_dict( label_class, level=1 )
     print( f"Number of labels discovered: {len( label_class.keys() )}" )
     
+    with open( dir_data + "results.txt", "a" ) as f:
+        f.write( "\n################### CLASS ASSIGNMENT #################\n" )
+        for line in graph.graph( f"Spikes distribution (timestep={dt}):",
+                                 [ (str( i ), x / np.sum( num_spikes_class ) * 100) for i, x in
+                                   enumerate( num_spikes_class ) ] ):
+            f.write( f"{line}\n" )
+        f.write( f"\tTotal: {np.sum( num_spikes_class )}\n" )
+        f.write( f"\tNormalised standard dev.: {np.std( num_spikes_class ) / np.mean( num_spikes_class )}\n" )
+        f.write( "\nNeuron activations for each label:\n" )
+        f.write( str( neuron_label_count ) + "\n" )
+        f.write( "\nLabel associated to each neuron:\n" )
+        f.write( str( neuron_label ) + "\n" )
+        f.write( "\nNeuron set associated to each label:\n" )
+        f.write( str( label_class ) + "\n" )
+        f.write( f"Number of labels discovered: {len( label_class.keys() )}\n" )
+
+if args.level >= 3:
     print( "######################################################",
            "###################### INFERENCE #####################",
            "######################################################",
@@ -327,8 +384,8 @@ if not args.only_video:
     # print number of recorded spikes
     num_spikes_test = np.sum( sim_test.data[ post_probe ] > 0, axis=0 )
     for line in graph.graph( f"Spikes distribution (timestep={dt}):",
-                             [ (str( i ), x / np.sum( num_spikes_train ) * 100) for i, x in
-                               enumerate( num_spikes_train ) ] ):
+                             [ (str( i ), x / np.sum( num_spikes_test ) * 100) for i, x in
+                               enumerate( num_spikes_test ) ] ):
         print( line )
     print( "\tTotal:", np.sum( num_spikes_test ) )
     print( f"\tNormalised standard dev.: {np.std( num_spikes_test ) / np.mean( num_spikes_test )}" )
@@ -348,46 +405,18 @@ if not args.only_video:
             if mean > max_mean:
                 max_mean = mean
                 max_lab = lab
+        if max_lab is None:
+            max_lab = randrange( len( un_train ) )
         prediction.append( max_lab )
     
     print( "Classification results:" )
     print( "\tAccuracy:", accuracy_score( test_labels.ravel(), prediction ) )
     print( "\tConfusion matrix:\n", confusion_matrix( test_labels.ravel(), prediction ) )
     
-    fig1.savefig( dir_images + "pre" + ".eps" )
-    fig2.savefig( dir_images + "post" + ".eps" )
-    fig3.savefig( dir_images + "weights" + ".eps" )
-    print( f"Saved plots in {dir_images}" )
-    
-    # move file from temp location and write rest of outputs
-    shutil.move( tf.name, dir_data + "results.txt" )
     with open( dir_data + "results.txt", "a" ) as f:
-        f.write( "\n####################### TRAINING #####################\n" )
-        for line in graph.graph( f"Spikes distribution (timestep={dt}):",
-                                 [ (str( i ), x / np.sum( num_spikes_train ) * 100) for i, x in
-                                   enumerate( num_spikes_train ) ] ):
-            f.write( f"{line}\n" )
-        f.write( f"\tTotal: {np.sum( num_spikes_train )}\n" )
-        f.write( f"\tNormalised standard dev.: {np.std( num_spikes_train ) / np.mean( num_spikes_train )}\n" )
-        
-        f.write( "\n################### CLASS ASSIGNMENT #################\n" )
-        for line in graph.graph( f"Spikes distribution (timestep={dt}):",
-                                 [ (str( i ), x / np.sum( num_spikes_train ) * 100) for i, x in
-                                   enumerate( num_spikes_class ) ] ):
-            f.write( f"{line}\n" )
-        f.write( f"\tTotal: {np.sum( num_spikes_class )}\n" )
-        f.write( f"\tNormalised standard dev.: {np.std( num_spikes_class ) / np.mean( num_spikes_class )}\n" )
-        f.write( "\nNeuron activations for each label:\n" )
-        f.write( str( neuron_label_count ) + "\n" )
-        f.write( "\nLabel associated to each neuron:\n" )
-        f.write( str( neuron_label ) + "\n" )
-        f.write( "\nNeuron set associated to each label:\n" )
-        f.write( str( label_class ) + "\n" )
-        f.write( f"Number of labels discovered: {len( label_class.keys() )}\n" )
-        
         f.write( "\n###################### INFERENCE #####################\n" )
         for line in graph.graph( f"Spikes distribution (timestep={dt}):",
-                                 [ (str( i ), x / np.sum( num_spikes_train ) * 100) for i, x in
+                                 [ (str( i ), x / np.sum( num_spikes_test ) * 100) for i, x in
                                    enumerate( num_spikes_test ) ] ):
             f.write( f"{line}\n" )
         f.write( f"\tTotal: {np.sum( num_spikes_test )}\n" )
@@ -395,5 +424,5 @@ if not args.only_video:
         f.write( "\nClassification results:\n" )
         f.write( f"\n\tAccuracy: {accuracy_score( test_labels.ravel(), prediction )}\n" )
         f.write( f"\tConfusion matrix:\n {confusion_matrix( test_labels.ravel(), prediction )}\n" )
-    
-    print( f"Saved data in {dir_data}" )
+
+print( f"Saved data in {dir_data}" )
