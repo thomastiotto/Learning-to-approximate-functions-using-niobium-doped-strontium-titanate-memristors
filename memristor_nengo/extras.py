@@ -47,10 +47,11 @@ def generate_heatmap( probe, folder, neuron=None, num_samples=None ):
     os.system(
             "ffmpeg "
             "-pattern_type glob -i '" + folder + "tmp" + "/" + "*.png' "
-                                                               "-c:v libx264 -preset veryslow -crf 17 -tune "
-                                                               "stillimage -hide_banner -loglevel panic -y "
+                                                               "-c:v libx264 -preset veryslow -crf 17 "
+                                                               "-tune stillimage -hide_banner -loglevel warning "
+                                                               "-y -pix_fmt yuv420p "
             + folder + "weight_evolution" + ".mp4" )
-    if os.path.isfile(folder + "weight_evolution" + ".mp4" ):
+    if os.path.isfile( folder + "weight_evolution" + ".mp4" ):
         os.system( "rm -R " + folder + "tmp" )
 
 

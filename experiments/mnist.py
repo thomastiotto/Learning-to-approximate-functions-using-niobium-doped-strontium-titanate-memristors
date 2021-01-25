@@ -51,7 +51,9 @@ parser.add_argument( '--no-images', dest='images', default=True, action='store_f
                      help="Generate images of training.  Default is True." )
 parser.add_argument( "--level", default=3, type=int, choices=[ 0, 1, 2, 3 ],
                      help="0: Load dataset; 1: Run Training; 2: Run Classification; 3: Run Inference.  Default is 3." )
-parser.add_argument( "--img_format", default="png", help="Output images format" )
+parser.add_argument( "--img-format", default="png", help="Output images format" )
+parser.add_argument( "--video-samples", default=300, type=int,
+                     help="The number of samples to generate to create the heatmap video.  Default is 300" )
 parser.set_defaults( feature=True )
 args = parser.parse_args()
 
@@ -107,7 +109,7 @@ dt = 0.001
 sample_every = 100 * dt
 sim_train_time = (presentation_time) * train_images.shape[ 0 ]
 sim_test_time = (presentation_time) * test_images.shape[ 0 ]
-sample_every_weights = num_train_samples * dt if args.video else sim_train_time
+sample_every_weights = sim_train_time / args.video_samples if args.video else sim_train_time
 
 print( "######################################################",
        "###################### DEFINITION ####################",
@@ -121,7 +123,7 @@ with model:
     inp = nengo.Node( nengo.processes.PresentInput( train_images, presentation_time ) )
     pre = nengo.Ensemble( n_neurons=784, dimensions=1,
                           neuron_type=nengo.neurons.PoissonSpiking( nengo.LIFRate(
-                                  amplitude=0.5
+                                  # amplitude=0.5
                                   ) ),
                           # gain=nengo.dists.Choice( [ 2 ] ),
                           # bias=nengo.dists.Choice( [ 1 ] ),
