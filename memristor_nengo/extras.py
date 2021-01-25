@@ -11,8 +11,12 @@ from nengo.utils.matplotlib import rasterplot
 import tensorflow as tf
 
 
-def generate_heatmap( probe, folder, neuron=None, num_samples=None ):
-    os.makedirs( folder + "tmp" )
+def generate_heatmap( probe, folder, sampled_every, neuron=None, num_samples=None ):
+    try:
+        os.makedirs( folder + "tmp" )
+    except FileExistsError:
+        pass
+    
     num_samples = num_samples if num_samples else probe.shape[ 0 ]
     step = int( probe.shape[ 0 ] / num_samples )
     
@@ -26,7 +30,7 @@ def generate_heatmap( probe, folder, neuron=None, num_samples=None ):
                 ax.set_title( f"N. {j}" )
                 ax.set_yticks( [ ] )
                 ax.set_xticks( [ ] )
-            fig.suptitle( f"t={i}" )
+            fig.suptitle( f"t={i * sampled_every}" )
             fig.tight_layout()
             plt.savefig( folder + "tmp" + "/" + str( i ).zfill( 10 ) + ".png", transparent=True, dpi=100 )
             plt.cla()

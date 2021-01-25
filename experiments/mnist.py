@@ -1,7 +1,6 @@
 import matplotlib.pyplot as plt
 from random import randrange
-from sklearn.metrics import accuracy_score
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 import random
 import argparse
 import multiprocessing as mp
@@ -280,7 +279,8 @@ if args.level >= 1:
         # generate heatmap evolution video in a new process
         if __name__ == "__main__":
             mp.set_start_method( "fork" )
-            p = mp.Process( target=generate_heatmap, args=(sim_train.data[ weight_probe ], dir_images) )
+            p = mp.Process( target=generate_heatmap,
+                            args=(sim_train.data[ weight_probe ], dir_images, sample_every_weights) )
             p.start()
 
 if args.level >= 2:
@@ -409,9 +409,11 @@ if args.level >= 3:
             max_lab = randrange( len( un_train ) )
         prediction.append( max_lab )
     
+    class_report = classification_report( test_labels.ravel(), prediction, output_dict=True )
     print( "Classification results:" )
-    print( "\tAccuracy:", accuracy_score( test_labels.ravel(), prediction ) )
     print( "\tConfusion matrix:\n", confusion_matrix( test_labels.ravel(), prediction ) )
+    print( "\tReport:" )
+    pprint_dict( class_report )
     
     with open( dir_data + "results.txt", "a" ) as f:
         f.write( "\n###################### INFERENCE #####################\n" )
@@ -422,7 +424,8 @@ if args.level >= 3:
         f.write( f"\tTotal: {np.sum( num_spikes_test )}\n" )
         f.write( f"\tNormalised standard dev.: {np.std( num_spikes_test ) / np.mean( num_spikes_test )}\n" )
         f.write( "\nClassification results:\n" )
-        f.write( f"\n\tAccuracy: {accuracy_score( test_labels.ravel(), prediction )}\n" )
         f.write( f"\tConfusion matrix:\n {confusion_matrix( test_labels.ravel(), prediction )}\n" )
+        f.write( "\tReport:" )
+        f.write( class_report )
 
 print( f"Saved data in {dir_data}" )
