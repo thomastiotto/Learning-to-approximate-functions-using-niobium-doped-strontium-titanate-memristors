@@ -50,7 +50,8 @@ def generate_heatmap( probe, folder, neuron=None, num_samples=None ):
                                                                "-c:v libx264 -preset veryslow -crf 17 -tune "
                                                                "stillimage -hide_banner -loglevel panic -y "
             + folder + "weight_evolution" + ".mp4" )
-    os.system( "rm -R " + folder + "tmp" )
+    if os.path.isfile(folder + "weight_evolution" + ".mp4" ):
+        os.system( "rm -R " + folder + "tmp" )
 
 
 def pprint_dict( d, level=0 ):
