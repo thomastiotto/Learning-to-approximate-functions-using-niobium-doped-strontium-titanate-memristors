@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 from random import randrange
+import yaml
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 import random
 import argparse
@@ -185,7 +186,7 @@ print( "Post:\n\t", post.neuron_type, "\n\tNeurons:", post.n_neurons,
        "\n\tMax rates:", post.max_rates )
 print( "Rule:\n\t", conn.learning_rule_type )
 
-with open( dir_data + "results.txt", "w" ) as f:
+with open( dir_name + "results.txt", "w" ) as f:
     f.write( "\n###################### DEFINITION ####################\n" )
     f.write( f"Samples: {num_train_samples}\n" )
     for line in graph.graph( "Train digits distribution",
@@ -227,14 +228,14 @@ if args.level >= 1:
     print( "\tTotal:", np.sum( num_spikes_train ) )
     print( f"\tNormalised standard dev.: {np.std( num_spikes_train ) / np.mean( num_spikes_train )}" )
     
-    with open( dir_data + "results.txt", "a" ) as f:
+    with open( dir_name + "results.txt", "a" ) as f:
         f.write( "\n####################### TRAINING #####################\n" )
         for line in graph.graph( f"Spikes distribution (timestep={dt}):",
                                  [ (str( i ), x / np.sum( num_spikes_train ) * 100) for i, x in
                                    enumerate( num_spikes_train ) ] ):
             f.write( f"{line}\n" )
-        f.write( f"\tTotal: {np.sum( num_spikes_train )}\n" )
-        f.write( f"\tNormalised standard dev.: {np.std( num_spikes_train ) / np.mean( num_spikes_train )}\n" )
+        f.write( f"Total: {np.sum( num_spikes_train )}\n" )
+        f.write( f"Normalised standard dev.: {np.std( num_spikes_train ) / np.mean( num_spikes_train )}\n" )
     
     if args.images:
         fig1, ax = plt.subplots( figsize=(12.8, 7.2), dpi=100 )
@@ -270,17 +271,17 @@ if args.level >= 1:
         fig3.tight_layout()
         fig3.show()
         
-        fig1.savefig( dir_images + "pre." + args.img_format )
-        fig2.savefig( dir_images + "post." + args.img_format )
-        fig3.savefig( dir_images + "weights." + args.img_format )
-        print( f"Saved plots in {dir_images}" )
+        fig1.savefig( dir_name + "pre." + args.img_format )
+        fig2.savefig( dir_name + "post." + args.img_format )
+        fig3.savefig( dir_name + "weights." + args.img_format )
+        print( f"Saved plots in {dir_name}" )
     
     if args.video:
         # generate heatmap evolution video in a new process
         if __name__ == "__main__":
             mp.set_start_method( "fork" )
             p = mp.Process( target=generate_heatmap,
-                            args=(sim_train.data[ weight_probe ], dir_images, sample_every_weights) )
+                            args=(sim_train.data[ weight_probe ], dir_name, sample_every_weights) )
             p.start()
 
 if args.level >= 2:
@@ -324,13 +325,13 @@ if args.level >= 2:
     neuron_activations_class = np.count_nonzero( post_spikes_class, axis=1 )
     
     # count how many times each neuron spiked for each label across samples
-    neuron_label_count = { neur: { lab: 0 for lab in un_train } for neur in range( args.neurons ) }
+    neuron_label_count = { neur: { int( lab ): 0 for lab in un_train } for neur in range( args.neurons ) }
     for t, lab in enumerate( train_labels.ravel() ):
         for neur in range( args.neurons ):
-            neuron_label_count[ neur ][ lab ] += neuron_activations_class[ t, neur ]
+            neuron_label_count[ neur ][ lab ] += int( neuron_activations_class[ t, neur ] )
     # print neuron activations per label
     print( "Neuron activations for each label:\n", end="" )
-    pprint_dict( neuron_label_count, level=1 )
+    print( yaml.dump( neuron_label_count ) )
     
     # associate each neuron with the label it spiked most for
     # if the neuron never spiked pick a random label
@@ -338,7 +339,7 @@ if args.level >= 2:
             len( un_train ) ) for neur, lab in neuron_label_count.items() }
     # print labels associated to each neuron
     print( "Label associated to each neuron:\n", end="" )
-    pprint_dict( neuron_label, level=1 )
+    print( yaml.dump( neuron_label ) )
     
     # group neurons into classes based on their label
     label_class = { }
@@ -346,23 +347,23 @@ if args.level >= 2:
         label_class.setdefault( lab, list() ).append( neur )
     # print neurons associated to each label
     print( "Neuron set associated to each label:\n", end="" )
-    pprint_dict( label_class, level=1 )
+    print( yaml.dump( label_class ) )
     print( f"Number of labels discovered: {len( label_class.keys() )}" )
     
-    with open( dir_data + "results.txt", "a" ) as f:
+    with open( dir_name + "results.txt", "a" ) as f:
         f.write( "\n################### CLASS ASSIGNMENT #################\n" )
         for line in graph.graph( f"Spikes distribution (timestep={dt}):",
                                  [ (str( i ), x / np.sum( num_spikes_class ) * 100) for i, x in
                                    enumerate( num_spikes_class ) ] ):
             f.write( f"{line}\n" )
-        f.write( f"\tTotal: {np.sum( num_spikes_class )}\n" )
-        f.write( f"\tNormalised standard dev.: {np.std( num_spikes_class ) / np.mean( num_spikes_class )}\n" )
+        f.write( f"Total: {np.sum( num_spikes_class )}\n" )
+        f.write( f"Normalised standard dev.: {np.std( num_spikes_class ) / np.mean( num_spikes_class )}\n" )
         f.write( "\nNeuron activations for each label:\n" )
-        f.write( str( neuron_label_count ) + "\n" )
+        f.write( yaml.dump( neuron_label_count ) + "\n" )
         f.write( "\nLabel associated to each neuron:\n" )
-        f.write( str( neuron_label ) + "\n" )
+        f.write( yaml.dump( neuron_label ) + "\n" )
         f.write( "\nNeuron set associated to each label:\n" )
-        f.write( str( label_class ) + "\n" )
+        f.write( yaml.dump( label_class ) + "\n" )
         f.write( f"Number of labels discovered: {len( label_class.keys() )}\n" )
 
 if args.level >= 3:
@@ -413,19 +414,19 @@ if args.level >= 3:
     print( "Classification results:" )
     print( "\tConfusion matrix:\n", confusion_matrix( test_labels.ravel(), prediction ) )
     print( "\tReport:" )
-    pprint_dict( class_report )
+    print( yaml.dump( class_report ) )
     
-    with open( dir_data + "results.txt", "a" ) as f:
+    with open( dir_name + "results.txt", "a" ) as f:
         f.write( "\n###################### INFERENCE #####################\n" )
         for line in graph.graph( f"Spikes distribution (timestep={dt}):",
                                  [ (str( i ), x / np.sum( num_spikes_test ) * 100) for i, x in
                                    enumerate( num_spikes_test ) ] ):
             f.write( f"{line}\n" )
-        f.write( f"\tTotal: {np.sum( num_spikes_test )}\n" )
-        f.write( f"\tNormalised standard dev.: {np.std( num_spikes_test ) / np.mean( num_spikes_test )}\n" )
+        f.write( f"Total: {np.sum( num_spikes_test )}\n" )
+        f.write( f"Normalised standard dev.: {np.std( num_spikes_test ) / np.mean( num_spikes_test )}\n" )
         f.write( "\nClassification results:\n" )
-        f.write( f"\tConfusion matrix:\n {confusion_matrix( test_labels.ravel(), prediction )}\n" )
-        f.write( "\tReport:" )
-        f.write( class_report )
+        f.write( f"Confusion matrix:\n {confusion_matrix( test_labels.ravel(), prediction )}\n" )
+        f.write( "Report:\n" )
+        f.write( yaml.dump( class_report ) )
 
-print( f"Saved data in {dir_data}" )
+print( f"Saved data in {dir_name}" )
