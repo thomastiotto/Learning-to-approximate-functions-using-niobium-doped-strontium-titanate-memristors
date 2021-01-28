@@ -413,8 +413,11 @@ if args.level >= 3:
     class_report = classification_report( test_labels.ravel(), prediction, output_dict=True )
     print( "Classification results:" )
     print( "\tConfusion matrix:\n", confusion_matrix( test_labels.ravel(), prediction ) )
-    print( "\tReport:" )
-    print( yaml.dump( class_report ) )
+    for line in graph.graph( f"Digit inference precision:",
+                             [ (k, v[ "precision" ] * 100) for k, v in class_report.items() if k.isdigit() ] ):
+        print( line )
+    print( f"\tOverall precision: {class_report[ 'macro avg' ][ 'precision' ] * 100} %" )
+    print( f"\tOverall accuracy: {class_report[ 'accuracy' ] * 100} %" )
     
     with open( dir_name + "results.txt", "a" ) as f:
         f.write( "\n###################### INFERENCE #####################\n" )
