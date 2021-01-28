@@ -430,6 +430,10 @@ if args.level >= 3:
         f.write( "\nClassification results:\n" )
         f.write( f"Confusion matrix:\n {confusion_matrix( test_labels.ravel(), prediction )}\n" )
         f.write( "Report:\n" )
-        f.write( yaml.dump( class_report ) )
+        for line in graph.graph( f"Digit inference precision:",
+                                 [ (k, v[ "precision" ] * 100) for k, v in class_report.items() if k.isdigit() ] ):
+            f.write( f"{line}\n" )
+        f.write( f"\tOverall precision: {class_report[ 'macro avg' ][ 'precision' ] * 100} %\n" )
+        f.write( f"\tOverall accuracy: {class_report[ 'accuracy' ] * 100} %\n" )
 
 print( f"Saved data in {dir_name}" )
