@@ -11,7 +11,37 @@ from nengo.utils.matplotlib import rasterplot
 import tensorflow as tf
 
 
+def heatmap_onestep( probe, t=-1, title="Weights after learning" ):
+    if probe.shape[ 1 ] > 100:
+        print( "Too many neurons to generate heatmap" )
+        return
+    
+    cols = 10
+    rows = int( probe.shape[ 1 ] / cols )
+    if int( probe.shape[ 1 ] / cols ) % cols != 0:
+        rows += 1
+    
+    plt.set_cmap( 'jet' )
+    fig, axes = plt.subplots( rows, cols, figsize=(12.8, 1.75 * rows), dpi=100 )
+    for i, ax in enumerate( axes.flatten() ):
+        try:
+            ax.matshow( probe[ t, i, ... ].reshape( (28, 28) ) )
+            ax.set_title( f"N. {i}" )
+            ax.set_yticks( [ ] )
+            ax.set_xticks( [ ] )
+        except:
+            ax.set_visible( False )
+    fig.suptitle( title )
+    fig.tight_layout()
+    
+    return fig
+
+
 def generate_heatmap( probe, folder, sampled_every, neuron=None, num_samples=None ):
+    if probe.shape[ 1 ] > 100:
+        print( "Too many neurons to generate heatmap" )
+        return
+    
     try:
         os.makedirs( folder + "tmp" )
     except FileExistsError:
@@ -22,19 +52,10 @@ def generate_heatmap( probe, folder, sampled_every, neuron=None, num_samples=Non
     
     if neuron is None:
         print( "Saving Heatmaps ..." )
-        for c, i in enumerate( range( 0, probe.shape[ 0 ], step ) ):
-            print( f"Saving {c} of {num_samples} images", end='\r' )
-            fig, axes = plt.subplots( int( probe.shape[ 1 ] / 10 ), 10, figsize=(12.8, 7.2), dpi=100 )
-            for j, ax in enumerate( axes.flatten() ):
-                ax.matshow( probe[ :, j ][ i ].reshape( (28, 28) ) )
-                ax.set_title( f"N. {j}" )
-                ax.set_yticks( [ ] )
-                ax.set_xticks( [ ] )
-            fig.suptitle( f"t={i * sampled_every}" )
-            fig.tight_layout()
-            plt.savefig( folder + "tmp" + "/" + str( i ).zfill( 10 ) + ".png", transparent=True, dpi=100 )
-            plt.cla()
-            plt.close()
+        for i in range( 0, probe.shape[ 0 ], step ):
+            print( f"Saving {i} of {num_samples} images", end='\r' )
+            fig = heatmap_onestep( probe, t=i, title=f"t={np.rint( i * sampled_every )}" )
+            fig.savefig( folder + "tmp" + "/" + str( i ).zfill( 10 ) + ".png", transparent=True, dpi=100 )
     else:
         print( "Neuron", neuron )
         print( "Saving Heatmaps ..." )
@@ -42,7 +63,7 @@ def generate_heatmap( probe, folder, sampled_every, neuron=None, num_samples=Non
             print( f"Saving {c} of {num_samples} images", end='\r' )
             plt.matshow( np.reshape( probe[ :, neuron ][ i ], (28, 28) ),
                          interpolation='none' )
-            plt.title( f"Neuron {neuron} t={i}" )
+            plt.title( f"Neuron {neuron} t={np.rint( i * sampled_every )}" )
             plt.savefig( folder + "tmp" + "/" + str( i ).zfill( 10 ) + ".png", transparent=True )
             plt.cla()
             plt.close()

@@ -23,8 +23,8 @@ parser.add_argument( "-S", "--train_samples", default=None, type=int,
                      help="The number of samples to train/test on.  Default is all dataset" )
 parser.add_argument( "-D", "--digits", nargs="*", default=None, action="store", type=int,
                      help="The digits to train on.  Default is all digits" )
-parser.add_argument( "-N", "--neurons", default=10, type=int,
-                     help="The number of excitatory neurons.  Default is 10" )
+parser.add_argument( "-N", "--neurons", default=20, type=int,
+                     help="The number of excitatory neurons.  Default is 20" )
 parser.add_argument( "--learning_rate", default=1e-6, type=float,
                      help="Learning rate in Oja.  Default is 1e-6" )
 parser.add_argument( "--beta", default=1, type=float,
@@ -73,12 +73,12 @@ test_labels = test_labels[ :, None, None ]
 
 train_test_proportion = train_images.shape[ 0 ] / test_images.shape[ 0 ]
 
-inp = pyip.inputNum( prompt=f"Number of samples (current {args.train_samples}):", blank=True )
-if inp:
-    args.train_samples = inp
-inp = pyip.inputNum( prompt=f"Number of neurons (current {args.neurons}):", blank=True )
-if inp:
-    args.neurons = inp
+# inp = pyip.inputNum( prompt=f"Number of samples (current {args.train_samples}):", blank=True )
+# if inp:
+#     args.train_samples = inp
+# inp = pyip.inputNum( prompt=f"Number of neurons (current {args.neurons}):", blank=True )
+# if inp:
+#     args.neurons = inp
 
 # set parameters
 random.seed = args.seed
@@ -153,7 +153,8 @@ with model:
     conn = nengo.Connection( pre.neurons, post.neurons,
                              learning_rule_type=
                              nengo.learning_rules.Oja( learning_rate=args.learning_rate, beta=args.beta ),
-                             transform=np.random.random( (post.n_neurons, pre.n_neurons) )
+                             # transform=np.random.random( (post.n_neurons, pre.n_neurons) )
+                             transform=np.random.normal( 0.5, 0.25, (post.n_neurons, pre.n_neurons) )
                              )
     
     pre_value_probe = nengo.Probe( pre )
@@ -259,16 +260,7 @@ if args.level >= 1:
         fig2.show()
         
         # TODO sample neurons if too many to show
-        # TODO not working with neurons not multiple of 10
-        plt.set_cmap( 'jet' )
-        fig3, axes = plt.subplots( int( post.n_neurons / 10 ), 10, figsize=(12.8, 7.2), dpi=100 )
-        for i, ax in enumerate( axes.flatten() ):
-            ax.matshow( sim_train.data[ weight_probe ][ -1, i, ... ].reshape( (28, 28) ) )
-            ax.set_title( f"N. {i}" )
-            ax.set_yticks( [ ] )
-            ax.set_xticks( [ ] )
-        fig3.suptitle( "Weights after learning" )
-        fig3.tight_layout()
+        fig3 = heatmap_onestep( sim_train.data[ weight_probe ], t=-1 )
         fig3.show()
         
         fig1.savefig( dir_name + "pre." + args.img_format )
