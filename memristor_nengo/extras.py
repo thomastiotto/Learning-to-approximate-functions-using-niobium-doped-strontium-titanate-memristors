@@ -37,7 +37,7 @@ def heatmap_onestep( probe, t=-1, title="Weights after learning" ):
     return fig
 
 
-def generate_heatmap( probe, folder, sampled_every, neuron=None, num_samples=None ):
+def generate_heatmap( probe, folder, sampled_every, num_samples=None ):
     if probe.shape[ 1 ] > 100:
         print( "Too many neurons to generate heatmap" )
         return
@@ -50,23 +50,11 @@ def generate_heatmap( probe, folder, sampled_every, neuron=None, num_samples=Non
     num_samples = num_samples if num_samples else probe.shape[ 0 ]
     step = int( probe.shape[ 0 ] / num_samples )
     
-    if neuron is None:
-        print( "Saving Heatmaps ..." )
-        for i in range( 0, probe.shape[ 0 ], step ):
-            print( f"Saving {i} of {num_samples} images", end='\r' )
-            fig = heatmap_onestep( probe, t=i, title=f"t={np.rint( i * sampled_every )}" )
-            fig.savefig( folder + "tmp" + "/" + str( i ).zfill( 10 ) + ".png", transparent=True, dpi=100 )
-    else:
-        print( "Neuron", neuron )
-        print( "Saving Heatmaps ..." )
-        for c, i in enumerate( range( 0, probe.shape[ 0 ], step ) ):
-            print( f"Saving {c} of {num_samples} images", end='\r' )
-            plt.matshow( np.reshape( probe[ :, neuron ][ i ], (28, 28) ),
-                         interpolation='none' )
-            plt.title( f"Neuron {neuron} t={np.rint( i * sampled_every )}" )
-            plt.savefig( folder + "tmp" + "/" + str( i ).zfill( 10 ) + ".png", transparent=True )
-            plt.cla()
-            plt.close()
+    print( "Saving Heatmaps ..." )
+    for i in range( 0, probe.shape[ 0 ], step ):
+        print( f"Saving {i} of {num_samples} images", end='\r' )
+        fig = heatmap_onestep( probe, t=i, title=f"t={np.rint( i * sampled_every )}" )
+        fig.savefig( folder + "tmp" + "/" + str( i ).zfill( 10 ) + ".png", transparent=True, dpi=100 )
     
     print( "Generating Video from Heatmaps ..." )
     os.system(
