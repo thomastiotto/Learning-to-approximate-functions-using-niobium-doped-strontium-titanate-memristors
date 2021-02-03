@@ -11,6 +11,18 @@ from nengo.utils.matplotlib import rasterplot
 import tensorflow as tf
 
 
+def neural_activity_plot( probe, trange ):
+    fig, ax = plt.subplots( figsize=(12.8, 7.2), dpi=100 )
+    rasterplot( trange, probe, ax )
+    ax.set_ylabel( 'Neuron' )
+    ax.set_xlabel( 'Time (s)' )
+    fig.get_axes()[ 0 ].annotate( "Pre" + " neural activity", (0.5, 0.94),
+                                  xycoords='figure fraction', ha='center',
+                                  fontsize=20
+                                  )
+    return fig
+
+
 def heatmap_onestep( probe, t=-1, title="Weights after learning" ):
     if probe.shape[ 1 ] > 100:
         print( "Too many neurons to generate heatmap" )
@@ -18,7 +30,7 @@ def heatmap_onestep( probe, t=-1, title="Weights after learning" ):
     
     cols = 10
     rows = int( probe.shape[ 1 ] / cols )
-    if int( probe.shape[ 1 ] / cols ) % cols != 0:
+    if int( probe.shape[ 1 ] / cols ) % cols != 0 or probe.shape[ 1 ] < cols:
         rows += 1
     
     plt.set_cmap( 'jet' )
@@ -55,6 +67,7 @@ def generate_heatmap( probe, folder, sampled_every, num_samples=None ):
         print( f"Saving {i} of {num_samples} images", end='\r' )
         fig = heatmap_onestep( probe, t=i, title=f"t={np.rint( i * sampled_every )}" )
         fig.savefig( folder + "tmp" + "/" + str( i ).zfill( 10 ) + ".png", transparent=True, dpi=100 )
+        plt.close()
     
     print( "Generating Video from Heatmaps ..." )
     os.system(
@@ -89,8 +102,6 @@ def setup():
     sys.path.append( ".." )
     
     tf.compat.v1.logging.set_verbosity( tf.compat.v1.logging.ERROR )
-    
-    nengo_dl.configure_settings( inference_only=True )
 
 
 class PresentInputWithPause( Process ):

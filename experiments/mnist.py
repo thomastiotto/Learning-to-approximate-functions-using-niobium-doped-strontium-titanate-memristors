@@ -8,6 +8,7 @@ import multiprocessing as mp
 import shutil
 import tempfile
 import pyinputplus as pyip
+from ascii_graph import Pyasciigraph
 
 import nengo
 import nengo_dl
@@ -165,8 +166,6 @@ with model:
 
 un_train, cnt_train = np.unique( train_labels, return_counts=True )
 un_test, cnt_test = np.unique( test_labels, return_counts=True )
-
-from ascii_graph import Pyasciigraph
 
 graph = Pyasciigraph( force_max_value=100 )
 

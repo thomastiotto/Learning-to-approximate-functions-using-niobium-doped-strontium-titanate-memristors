@@ -28,7 +28,7 @@ parser.add_argument( "-N", "--neurons", nargs="*", default=[ 10 ], action="store
                      help="The number of neurons used in the Ensembles [pre, post, error].  Default is 10" )
 parser.add_argument( "-D", "--dimensions", default=3, type=int,
                      help="The number of dimensions of the input signal" )
-parser.add_argument( "-n", "--noise", nargs="*", default=[ 0.15 ], action="store", type=float,
+parser.add_argument( "-n", "--noise", nargs="*", default=0.15, type=float,
                      help="The noise on the simulated memristors [R_0, R_1, c, R_init]  Default is 0.15" )
 parser.add_argument( "-g", "--gain", default=1e4, type=float )  # default chosen by parameter search experiments
 parser.add_argument( "-l", "--learning_rule", default="mPES", choices=[ "mPES", "PES" ] )
@@ -87,12 +87,6 @@ if len( args.neurons ) == 3:
     error_n_neurons = args.neurons[ 2 ]
 dimensions = args.dimensions
 noise_percent = args.noise
-if len( args.noise ) not in (1, 4):
-    parser.error( 'Either give no values for action, or one, or four, not {}.'.format( len( args.noise ) ) )
-if len( args.noise ) == 1:
-    noise_percent = [ args.noise[ 0 ] ] * 4
-if len( args.noise ) == 4:
-    noise_percent = [ args.noise[ 0 ] ] + [ args.noise[ 1 ] ] + [ args.noise[ 2 ] ] + [ args.noise[ 3 ] ]
 gain = args.gain
 exponent = args.parameters
 learning_rule = args.learning_rule
@@ -140,6 +134,7 @@ printlv2( f"Using {optimisations} optimisation" )
 
 model = nengo.Network( seed=seed )
 with model:
+    nengo_dl.configure_settings( inference_only=True )
     # Create an input node
     input_node = nengo.Node(
             output=SwitchInputs( input_function_train,

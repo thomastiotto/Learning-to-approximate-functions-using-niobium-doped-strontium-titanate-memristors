@@ -3,10 +3,268 @@ import warnings
 import numpy as np
 
 from nengo.builder import Operator
-from nengo.builder.learning_rules import build_or_passthrough, get_post_ens
+from nengo.builder.learning_rules import build_or_passthrough, get_post_ens, get_pre_ens
 from nengo.learning_rules import LearningRuleType
 from nengo.params import Default, NumberParam
 from nengo.synapses import Lowpass, SynapseParam
+
+from scipy.stats import truncnorm
+
+
+def get_truncated_normal( mean, sd, low, upp, out_size, in_size ):
+    try:
+        return truncnorm( (low - mean) / sd, (upp - mean) / sd, loc=mean, scale=sd ) \
+            .rvs( out_size * in_size ) \
+            .reshape( (out_size, in_size) )
+    except ZeroDivisionError:
+        return np.full( (out_size, in_size), mean )
+
+
+def resistance2conductance( R, r_min, r_max ):
+    g_min = 1.0 / r_max
+    g_max = 1.0 / r_min
+    g_curr = 1.0 / R
+    
+    g_norm = (g_curr - g_min) / (g_max - g_min)
+    
+    return g_norm
+
+
+def initialise_memristors( rule, in_size, out_size ):
+    with warnings.catch_warnings():
+        warnings.simplefilter( "ignore" )
+        np.random.seed( rule.seed )
+        r_min_noisy = get_truncated_normal( rule.r_min, rule.r_min * rule.noise_percentage[ 0 ],
+                                            0, np.inf, out_size, in_size )
+        np.random.seed( rule.seed )
+        r_max_noisy = get_truncated_normal( rule.r_max, rule.r_max * rule.noise_percentage[ 1 ],
+                                            np.max( r_min_noisy ), np.inf, out_size, in_size )
+    np.random.seed( rule.seed )
+    exponent_noisy = np.random.normal( rule.exponent, np.abs( rule.exponent ) * rule.noise_percentage[ 2 ],
+                                       (out_size, in_size) )
+    np.random.seed( rule.seed )
+    pos_mem_initial = np.random.normal( 1e8, 1e8 * rule.noise_percentage[ 3 ],
+                                        (out_size, in_size) )
+    np.random.seed( rule.seed + 1 ) if rule.seed else np.random.seed( rule.seed )
+    neg_mem_initial = np.random.normal( 1e8, 1e8 * rule.noise_percentage[ 3 ],
+                                        (out_size, in_size) )
+    
+    pos_memristors = Signal( shape=(out_size, in_size), name=f"{rule}:pos_memristors",
+                             initial_value=pos_mem_initial )
+    neg_memristors = Signal( shape=(out_size, in_size), name=f"{rule}:neg_memristors",
+                             initial_value=neg_mem_initial )
+    
+    return pos_memristors, neg_memristors, r_min_noisy, r_max_noisy, exponent_noisy
+
+
+def clip_memristor_values( V, pos_memristors, neg_memristors, r_max, r_min ):
+    pos_memristors[ V > 0 ] = np.where( pos_memristors[ V > 0 ] > r_max[ V > 0 ],
+                                        r_max[ V > 0 ],
+                                        pos_memristors[ V > 0 ] )
+    pos_memristors[ V > 0 ] = np.where( pos_memristors[ V > 0 ] < r_min[ V > 0 ],
+                                        r_min[ V > 0 ],
+                                        pos_memristors[ V > 0 ] )
+    neg_memristors[ V < 0 ] = np.where( neg_memristors[ V < 0 ] > r_max[ V < 0 ],
+                                        r_max[ V < 0 ],
+                                        neg_memristors[ V < 0 ] )
+    neg_memristors[ V < 0 ] = np.where( neg_memristors[ V < 0 ] < r_min[ V < 0 ],
+                                        r_min[ V < 0 ],
+                                        neg_memristors[ V < 0 ] )
+
+
+def update_memristors( V, pos_memristors, neg_memristors, r_max, r_min, exponent ):
+    pos_n = np.power( (pos_memristors[ V > 0 ] - r_min[ V > 0 ]) / r_max[ V > 0 ],
+                      1 / exponent[ V > 0 ] )
+    pos_memristors[ V > 0 ] = r_min[ V > 0 ] + r_max[ V > 0 ] * np.power( pos_n + 1, exponent[ V > 0 ] )
+    
+    neg_n = np.power( (neg_memristors[ V < 0 ] - r_min[ V < 0 ]) / r_max[ V < 0 ], 1 / exponent[ V < 0 ] )
+    neg_memristors[ V < 0 ] = r_min[ V < 0 ] + r_max[ V < 0 ] * np.power( neg_n + 1, exponent[ V < 0 ] )
+
+
+def update_weights( V, weights, pos_memristors, neg_memristors, r_max, r_min, gain ):
+    weights[ V > 0 ] = gain * \
+                       (resistance2conductance( pos_memristors[ V > 0 ], r_min[ V > 0 ],
+                                                r_max[ V > 0 ] )
+                        - resistance2conductance( neg_memristors[ V > 0 ], r_min[ V > 0 ],
+                                                  r_max[ V > 0 ] ))
+    weights[ V < 0 ] = gain * \
+                       (resistance2conductance( pos_memristors[ V < 0 ], r_min[ V < 0 ],
+                                                r_max[ V < 0 ] )
+                        - resistance2conductance( neg_memristors[ V < 0 ], r_min[ V < 0 ],
+                                                  r_max[ V < 0 ] ))
+
+
+def find_spikes( input_activities, shape, output_activities=None, invert=False ):
+    output_size = shape[ 0 ]
+    input_size = shape[ 1 ]
+    spiked_pre = np.tile(
+            np.array( np.rint( input_activities ), dtype=bool ), (output_size, 1)
+            )
+    spiked_post = np.tile(
+            np.expand_dims(
+                    np.array( np.rint( output_activities ), dtype=bool ), axis=1 ), (1, input_size)
+            ) \
+        if output_activities is not None \
+        else np.ones( (1, input_size) )
+    
+    out = np.logical_and( spiked_pre, spiked_post )
+    return out if not invert else np.logical_not( out )
+
+
+class mOja( LearningRuleType ):
+    modifies = "weights"
+    probeable = ("error", "activities", "delta", "pos_memristors", "neg_memristors")
+    
+    pre_synapse = SynapseParam( "pre_synapse", default=Lowpass( tau=0.005 ), readonly=True )
+    post_synapse = SynapseParam( "post_synapse", default=None, readonly=True )
+    beta = NumberParam( "beta", low=0, readonly=True, default=1.0 )
+    r_max = NumberParam( "r_max", readonly=True, default=2.3e8 )
+    r_min = NumberParam( "r_min", readonly=True, default=200 )
+    exponent = NumberParam( "exponent", readonly=True, default=-0.146 )
+    gain = NumberParam( "gain", readonly=True, default=1e3 )
+    
+    def __init__( self,
+                  pre_synapse=Default,
+                  post_synapse=Default,
+                  beta=Default,
+                  r_max=Default,
+                  r_min=Default,
+                  exponent=Default,
+                  noisy=False,
+                  gain=Default,
+                  seed=None ):
+        super().__init__( size_in="post_state" )
+        
+        self.pre_synapse = pre_synapse
+        self.post_synapse = post_synapse
+        self.beta = beta
+        self.r_max = r_max
+        self.r_min = r_min
+        self.exponent = exponent
+        if not noisy:
+            self.noise_percentage = np.zeros( 4 )
+        elif isinstance( noisy, float ):
+            self.noise_percentage = np.full( 4, noisy )
+        elif isinstance( noisy, list ) and len( noisy ) == 4:
+            self.noise_percentage = noisy
+        else:
+            raise ValueError( f"Noisy parameter must be int or list of length 4, not {type( noisy )}" )
+        self.gain = gain
+        self.seed = seed
+    
+    @property
+    def _argdefaults( self ):
+        return (
+                ("pre_synapse", mOja.pre_synapse.default),
+                ("post_synapse", mOja.post_synapse.default),
+                ("beta", mOja.beta.default),
+                ("r_max", mOja.r_max.default),
+                ("r_min", mOja.r_min.default),
+                ("exponent", mOja.exponent.default),
+                )
+
+
+class SimmOja( Operator ):
+    def __init__(
+            self,
+            pre_filtered,
+            post_filtered,
+            beta,
+            pos_memristors,
+            neg_memristors,
+            weights,
+            noise_percentage,
+            gain,
+            r_min,
+            r_max,
+            exponent,
+            states=None,
+            tag=None
+            ):
+        super( SimmOja, self ).__init__( tag=tag )
+        
+        # scale beta by gain for it to have the expected effect
+        self.beta = beta * gain / 2
+        self.noise_percentage = noise_percentage
+        self.gain = gain
+        self.r_min = r_min
+        self.r_max = r_max
+        self.exponent = exponent
+        
+        self.sets = [ ] + ([ ] if states is None else [ states ])
+        self.incs = [ ]
+        self.reads = [ pre_filtered, post_filtered ]
+        self.updates = [ weights, pos_memristors, neg_memristors ]
+    
+    @property
+    def pre_filtered( self ):
+        return self.reads[ 0 ]
+    
+    @property
+    def post_filtered( self ):
+        return self.reads[ 1 ]
+    
+    @property
+    def weights( self ):
+        return self.updates[ 0 ]
+    
+    @property
+    def pos_memristors( self ):
+        return self.updates[ 1 ]
+    
+    @property
+    def neg_memristors( self ):
+        return self.updates[ 2 ]
+    
+    def _descstr( self ):
+        return "pre=%s, post=%s -> %s" % (self.pre_filtered, self.post_filtered, self.weights)
+    
+    def make_step( self, signals, dt, rng ):
+        pre_filtered = signals[ self.pre_filtered ]
+        post_filtered = signals[ self.post_filtered ]
+        
+        pos_memristors = signals[ self.pos_memristors ]
+        neg_memristors = signals[ self.neg_memristors ]
+        weights = signals[ self.weights ]
+        
+        beta = self.beta
+        gain = self.gain
+        r_min = self.r_min
+        r_max = self.r_max
+        exponent = self.exponent
+        
+        # overwrite initial transform with memristor-based weights
+        weights[ : ] = gain * \
+                       (resistance2conductance( pos_memristors, r_min, r_max )
+                        - resistance2conductance( neg_memristors, r_min, r_max ))
+        
+        def step_simmoja():
+            # calculate the magnitude of the update based on PES learning rule
+            # local_error = -np.dot( encoders, error )
+            # I can use NengoDL build function like this, as dot(encoders, error) has been done there already
+            # i.e., error already contains the PES local error
+            post_squared = post_filtered * post_filtered
+            forgetting = beta * weights * post_squared
+            hebbian = np.outer( post_filtered, pre_filtered )
+            oja_delta = hebbian - forgetting
+            
+            # some memristors are adjusted erroneously if we don't filter
+            spiked_map = find_spikes( pre_filtered, weights.shape, post_filtered, invert=True )
+            oja_delta[ spiked_map ] = 0
+            
+            # set update direction and magnitude (unused with powerlaw memristor equations)
+            V = np.sign( oja_delta ) * 1e-1
+            
+            # clip values outside [R_0,R_1]
+            clip_memristor_values( V, pos_memristors, neg_memristors, r_max, r_min )
+            
+            # update the two memristor pairs
+            update_memristors( V, pos_memristors, neg_memristors, r_max, r_min, exponent )
+            
+            # update network weights
+            update_weights( V, weights, pos_memristors, neg_memristors, r_max, r_min, gain )
+        
+        return step_simmoja
 
 
 class mPES( LearningRuleType ):
@@ -33,7 +291,14 @@ class mPES( LearningRuleType ):
         self.r_max = r_max
         self.r_min = r_min
         self.exponent = exponent
-        self.noise_percentage = 0 if not noisy else noisy
+        if not noisy:
+            self.noise_percentage = np.zeros( 4 )
+        elif isinstance( noisy, float ):
+            self.noise_percentage = np.full( 4, noisy )
+        elif isinstance( noisy, list ) and len( noisy ) == 4:
+            self.noise_percentage = noisy
+        else:
+            raise ValueError( f"Noisy parameter must be int or list of length 4, not {type( noisy )}" )
         self.gain = gain
         self.seed = seed
     
@@ -53,7 +318,6 @@ class SimmPES( Operator ):
             self,
             pre_filtered,
             error,
-            learning_rate,
             pos_memristors,
             neg_memristors,
             weights,
@@ -67,7 +331,6 @@ class SimmPES( Operator ):
             ):
         super( SimmPES, self ).__init__( tag=tag )
         
-        self.learning_rate = learning_rate
         self.noise_percentage = noise_percentage
         self.gain = gain
         self.error_threshold = 1e-5
@@ -117,32 +380,12 @@ class SimmPES( Operator ):
         r_max = self.r_max
         exponent = self.exponent
         
+        # overwrite initial transform with memristor-based weights
+        weights[ : ] = gain * \
+                       (resistance2conductance( pos_memristors, r_min, r_max )
+                        - resistance2conductance( neg_memristors, r_min, r_max ))
+        
         def step_simmpes():
-            def resistance2conductance( R, r_min, r_max ):
-                g_min = 1.0 / r_max
-                g_max = 1.0 / r_min
-                g_curr = 1.0 / R
-                
-                g_norm = (g_curr - g_min) / (g_max - g_min)
-                
-                return g_norm * gain
-            
-            def find_spikes( input_activities, shape, output_activities=None, invert=False ):
-                output_size = shape[ 0 ]
-                input_size = shape[ 1 ]
-                spiked_pre = np.tile(
-                        np.array( np.rint( input_activities ), dtype=bool ), (output_size, 1)
-                        )
-                spiked_post = np.tile(
-                        np.expand_dims(
-                                np.array( np.rint( output_activities ), dtype=bool ), axis=1 ), (1, input_size)
-                        ) \
-                    if output_activities is not None \
-                    else np.ones( (1, input_size) )
-                
-                out = np.logical_and( spiked_pre, spiked_post )
-                return out if not invert else np.logical_not( out )
-            
             # set update to zero if error is small or adjustments go on for ever
             # if error is small return zero delta
             if np.any( np.absolute( local_error ) > error_threshold ):
@@ -160,36 +403,13 @@ class SimmPES( Operator ):
                 V = np.sign( pes_delta ) * 1e-1
                 
                 # clip values outside [R_0,R_1]
-                pos_memristors[ V > 0 ] = np.where( pos_memristors[ V > 0 ] > r_max[ V > 0 ],
-                                                    r_max[ V > 0 ],
-                                                    pos_memristors[ V > 0 ] )
-                pos_memristors[ V > 0 ] = np.where( pos_memristors[ V > 0 ] < r_min[ V > 0 ],
-                                                    r_min[ V > 0 ],
-                                                    pos_memristors[ V > 0 ] )
-                neg_memristors[ V < 0 ] = np.where( neg_memristors[ V < 0 ] > r_max[ V < 0 ],
-                                                    r_max[ V < 0 ],
-                                                    neg_memristors[ V < 0 ] )
-                neg_memristors[ V < 0 ] = np.where( neg_memristors[ V < 0 ] < r_min[ V < 0 ],
-                                                    r_min[ V < 0 ],
-                                                    neg_memristors[ V < 0 ] )
+                clip_memristor_values( V, pos_memristors, neg_memristors, r_max, r_min )
                 
-                # update the two memristor pairs separately
-                pos_n = np.power( (pos_memristors[ V > 0 ] - r_min[ V > 0 ]) / r_max[ V > 0 ],
-                                  1 / exponent[ V > 0 ] )
-                pos_memristors[ V > 0 ] = r_min[ V > 0 ] + r_max[ V > 0 ] * np.power( pos_n + 1, exponent[ V > 0 ] )
-                
-                neg_n = np.power( (neg_memristors[ V < 0 ] - r_min[ V < 0 ]) / r_max[ V < 0 ], 1 / exponent[ V < 0 ] )
-                neg_memristors[ V < 0 ] = r_min[ V < 0 ] + r_max[ V < 0 ] * np.power( neg_n + 1, exponent[ V < 0 ] )
+                # update the two memristor pairs
+                update_memristors( V, pos_memristors, neg_memristors, r_max, r_min, exponent )
                 
                 # update network weights
-                weights[ V > 0 ] = resistance2conductance( pos_memristors[ V > 0 ], r_min[ V > 0 ],
-                                                           r_max[ V > 0 ] ) \
-                                   - resistance2conductance( neg_memristors[ V > 0 ], r_min[ V > 0 ],
-                                                             r_max[ V > 0 ] )
-                weights[ V < 0 ] = resistance2conductance( pos_memristors[ V < 0 ], r_min[ V < 0 ],
-                                                           r_max[ V < 0 ] ) \
-                                   - resistance2conductance( neg_memristors[ V < 0 ], r_min[ V < 0 ],
-                                                             r_max[ V < 0 ] )
+                update_weights( V, weights, pos_memristors, neg_memristors, r_max, r_min, gain )
         
         return step_simmpes
 
@@ -202,6 +422,46 @@ from nengo.builder.operator import Reset, DotInc, Copy
 
 from nengo_dl.builder import Builder, OpBuilder, NengoBuilder
 from nengo.builder import Builder as NengoCoreBuilder
+
+
+@NengoCoreBuilder.register( mOja )
+def build_moja( model, moja, rule ):
+    conn = rule.connection
+    pre_activities = model.sig[ get_pre_ens( conn ).neurons ][ "out" ]
+    post_activities = model.sig[ get_post_ens( conn ).neurons ][ "out" ]
+    pre_filtered = build_or_passthrough( model, moja.pre_synapse, pre_activities )
+    post_filtered = build_or_passthrough( model, moja.post_synapse, post_activities )
+    
+    pos_memristors, neg_memristors, r_min_noisy, r_max_noisy, exponent_noisy = initialise_memristors( moja,
+                                                                                                      pre_filtered.shape[
+                                                                                                          0 ],
+                                                                                                      post_filtered.shape[
+                                                                                                          0 ] )
+    
+    model.sig[ conn ][ "pos_memristors" ] = pos_memristors
+    model.sig[ conn ][ "neg_memristors" ] = neg_memristors
+    
+    model.add_op(
+            SimmOja(
+                    pre_filtered,
+                    post_filtered,
+                    moja.beta,
+                    model.sig[ conn ][ "pos_memristors" ],
+                    model.sig[ conn ][ "neg_memristors" ],
+                    model.sig[ conn ][ "weights" ],
+                    moja.noise_percentage,
+                    moja.gain,
+                    r_min_noisy,
+                    r_max_noisy,
+                    exponent_noisy
+                    )
+            )
+    
+    # expose these for probes
+    model.sig[ rule ][ "pre_filtered" ] = pre_filtered
+    model.sig[ rule ][ "post_filtered" ] = post_filtered
+    model.sig[ rule ][ "pos_memristors" ] = pos_memristors
+    model.sig[ rule ][ "neg_memristors" ] = neg_memristors
 
 
 @NengoBuilder.register( mPES )
@@ -219,38 +479,10 @@ def build_mpes( model, mpes, rule ):
     post = get_post_ens( conn )
     encoders = model.sig[ post ][ "encoders" ]
     
-    out_size = encoders.shape[ 0 ]
-    in_size = acts.shape[ 0 ]
-    
-    from scipy.stats import truncnorm
-    def get_truncated_normal( mean, sd, low, upp ):
-        try:
-            return truncnorm( (low - mean) / sd, (upp - mean) / sd, loc=mean, scale=sd ) \
-                .rvs( out_size * in_size ) \
-                .reshape( (out_size, in_size) )
-        except ZeroDivisionError:
-            return np.full( (out_size, in_size), mean )
-    
-    np.random.seed( mpes.seed )
-    r_min_noisy = get_truncated_normal( mpes.r_min, mpes.r_min * mpes.noise_percentage[ 0 ],
-                                        0, np.inf )
-    np.random.seed( mpes.seed )
-    r_max_noisy = get_truncated_normal( mpes.r_max, mpes.r_max * mpes.noise_percentage[ 1 ],
-                                        np.max( r_min_noisy ), np.inf )
-    np.random.seed( mpes.seed )
-    exponent_noisy = np.random.normal( mpes.exponent, np.abs( mpes.exponent ) * mpes.noise_percentage[ 2 ],
-                                       (out_size, in_size) )
-    np.random.seed( mpes.seed )
-    pos_mem_initial = np.random.normal( 1e8, 1e8 * mpes.noise_percentage[ 3 ],
-                                        (out_size, in_size) )
-    np.random.seed( mpes.seed + 1 ) if mpes.seed else np.random.seed( mpes.seed )
-    neg_mem_initial = np.random.normal( 1e8, 1e8 * mpes.noise_percentage[ 3 ],
-                                        (out_size, in_size) )
-    
-    pos_memristors = Signal( shape=(out_size, in_size), name="mPES:pos_memristors",
-                             initial_value=pos_mem_initial )
-    neg_memristors = Signal( shape=(out_size, in_size), name="mPES:neg_memristors",
-                             initial_value=neg_mem_initial )
+    pos_memristors, neg_memristors, r_min_noisy, r_max_noisy, exponent_noisy = initialise_memristors( mpes,
+                                                                                                      acts.shape[ 0 ],
+                                                                                                      encoders.shape[
+                                                                                                          0 ] )
     
     model.sig[ conn ][ "pos_memristors" ] = pos_memristors
     model.sig[ conn ][ "neg_memristors" ] = neg_memristors
@@ -273,7 +505,6 @@ def build_mpes( model, mpes, rule ):
     model.operators.append(
             SimmPES( acts,
                      local_error,
-                     mpes.learning_rate,
                      model.sig[ conn ][ "pos_memristors" ],
                      model.sig[ conn ][ "neg_memristors" ],
                      model.sig[ conn ][ "weights" ],
