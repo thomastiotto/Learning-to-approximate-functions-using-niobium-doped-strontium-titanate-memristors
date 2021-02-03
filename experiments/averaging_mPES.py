@@ -5,12 +5,12 @@ from memristor_nengo.extras import *
 
 parser = argparse.ArgumentParser()
 parser.add_argument( "-a", "--averaging", type=int, required=True )
-parser.add_argument( "-i", "--inputs", default=[ "sine", "sine" ], nargs="*", choices=[ "sine", "white" ] )
+parser.add_argument( "-i", "--inputs", nargs="*", choices=[ "sine", "white" ] )
 parser.add_argument( "-f", "--function", default="x" )
-parser.add_argument( "-N", "--neurons", type=int, default=10 )
-parser.add_argument( "-D", "--dimensions", type=int, default=3 )
-parser.add_argument( "-g", "--gain", type=float, default=1e5 )
-parser.add_argument( "-l", "--learning_rule", default="mPES", choices=[ "mPES", "PES" ] )
+parser.add_argument( "-N", "--neurons", type=int )
+parser.add_argument( "-D", "--dimensions", type=int )
+parser.add_argument( "-g", "--gain", type=float )
+parser.add_argument( "-l", "--learning_rule", choices=[ "mPES", "PES" ] )
 parser.add_argument( "--directory", default="../data/" )
 parser.add_argument( "-lt", "--learn_time", default=3 / 4, type=float )
 parser.add_argument( "-d", "--device", default="/cpu:0" )
@@ -28,9 +28,8 @@ learn_time = args.learn_time
 device = args.device
 
 dir_name, dir_images, dir_data = make_timestamped_dir(
-        root=directory + "averaging/" + str( learning_rule ) + "/" + function + "_" + str( inputs ) + "_" + str(
-            neurons ) + "_"
-             + str( dimensions ) + "_" + str( gain ) + "/" )
+        root=directory + "averaging/" + str( learning_rule ) + "/" + function + "_" + str( inputs ) + "_"
+             + str( neurons ) + "_" + str( dimensions ) + "_" + str( gain ) + "/" )
 print( "Reserved folder", dir_name )
 
 print( "Evaluation for", learning_rule )
@@ -40,14 +39,15 @@ res_mse = [ ]
 res_pearson = [ ]
 res_spearman = [ ]
 res_kendall = [ ]
+res_mse_to_rho = [ ]
 counter = 0
 for avg in range( num_averaging ):
     counter += 1
     print( f"[{counter}/{num_averaging}] Averaging #{avg + 1}" )
     result = run(
-            [ "python", "mPES.py", "-v", "-D", str( dimensions ), "-l", str( learning_rule ), "-N", str( neurons ),
-              "-f", str( function ), "-lt", str( learn_time ), "-g", str( gain ), "-d",
-              str( device ) ]
+            [ "python", "mPES.py", "--verbosity", str( 1 ), "-D", str( dimensions ), "-l", str( learning_rule ),
+              "-N", str( neurons ), "-f", str( function ), "-lt", str( learn_time ), "-g", str( gain ),
+              "-d", str( device ) ]
             + [ "-i" ] + inputs,
             capture_output=True,
             universal_newlines=True )
@@ -66,6 +66,9 @@ for avg in range( num_averaging ):
         kendall = np.mean( [ float( i ) for i in result.stdout.split( "\n" )[ 3 ][ 1:-1 ].split( "," ) ] )
         print( "Kendall", kendall )
         res_kendall.append( kendall )
+        mse_to_rho = np.mean( [ float( i ) for i in result.stdout.split( "\n" )[ 4 ][ 1:-1 ].split( "," ) ] )
+        print( "MSE-to-rho", mse_to_rho )
+        res_mse_to_rho.append( mse_to_rho )
     except:
         print( "Ret", result.returncode )
         print( "Out", result.stdout )
@@ -74,10 +77,12 @@ mse_means = np.mean( res_mse )
 pearson_means = np.mean( res_pearson )
 spearman_means = np.mean( res_spearman )
 kendall_means = np.mean( res_kendall )
+mse_to_rho_means = np.mean( res_mse_to_rho )
 print( "Average MSE:", mse_means )
 print( "Average Pearson:", pearson_means )
 print( "Average Spearman:", spearman_means )
 print( "Average Kendall:", kendall_means )
+print( "Average MSE-to-rho:", mse_to_rho_means )
 
 res_list = range( num_averaging )
 

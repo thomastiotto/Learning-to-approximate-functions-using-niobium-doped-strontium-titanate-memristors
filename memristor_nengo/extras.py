@@ -3,10 +3,148 @@ import os
 
 import matplotlib.pyplot as plt
 import nengo
+import nengo_dl
 import numpy as np
 import tensorflow as tf
 from nengo.processes import Process
+from nengo.params import NdarrayParam, NumberParam
 from nengo.utils.matplotlib import rasterplot
+import tensorflow as tf
+
+
+def neural_activity_plot( probe, trange ):
+    fig, ax = plt.subplots( figsize=(12.8, 7.2), dpi=100 )
+    rasterplot( trange, probe, ax )
+    ax.set_ylabel( 'Neuron' )
+    ax.set_xlabel( 'Time (s)' )
+    fig.get_axes()[ 0 ].annotate( "Pre" + " neural activity", (0.5, 0.94),
+                                  xycoords='figure fraction', ha='center',
+                                  fontsize=20
+                                  )
+    return fig
+
+
+def heatmap_onestep( probe, t=-1, title="Weights after learning" ):
+    if probe.shape[ 1 ] > 100:
+        print( "Too many neurons to generate heatmap" )
+        return
+    
+    cols = 10
+    rows = int( probe.shape[ 1 ] / cols )
+    if int( probe.shape[ 1 ] / cols ) % cols != 0 or probe.shape[ 1 ] < cols:
+        rows += 1
+    
+    plt.set_cmap( 'jet' )
+    fig, axes = plt.subplots( rows, cols, figsize=(12.8, 1.75 * rows), dpi=100 )
+    for i, ax in enumerate( axes.flatten() ):
+        try:
+            ax.matshow( probe[ t, i, ... ].reshape( (28, 28) ) )
+            ax.set_title( f"N. {i}" )
+            ax.set_yticks( [ ] )
+            ax.set_xticks( [ ] )
+        except:
+            ax.set_visible( False )
+    fig.suptitle( title )
+    fig.tight_layout()
+    
+    return fig
+
+
+def generate_heatmap( probe, folder, sampled_every, num_samples=None ):
+    if probe.shape[ 1 ] > 100:
+        print( "Too many neurons to generate heatmap" )
+        return
+    
+    try:
+        os.makedirs( folder + "tmp" )
+    except FileExistsError:
+        pass
+    
+    num_samples = num_samples if num_samples else probe.shape[ 0 ]
+    step = int( probe.shape[ 0 ] / num_samples )
+    
+    print( "Saving Heatmaps ..." )
+    for i in range( 0, probe.shape[ 0 ], step ):
+        print( f"Saving {i} of {num_samples} images", end='\r' )
+        fig = heatmap_onestep( probe, t=i, title=f"t={np.rint( i * sampled_every )}" )
+        fig.savefig( folder + "tmp" + "/" + str( i ).zfill( 10 ) + ".png", transparent=True, dpi=100 )
+        plt.close()
+    
+    print( "Generating Video from Heatmaps ..." )
+    os.system(
+            "ffmpeg "
+            "-pattern_type glob -i '" + folder + "tmp" + "/" + "*.png' "
+                                                               "-c:v libx264 -preset veryslow -crf 17 "
+                                                               "-tune stillimage -hide_banner -loglevel warning "
+                                                               "-y -pix_fmt yuv420p "
+            + folder + "weight_evolution" + ".mp4" )
+    if os.path.isfile( folder + "weight_evolution" + ".mp4" ):
+        os.system( "rm -R " + folder + "tmp" )
+
+
+def pprint_dict( d, level=0 ):
+    for k, v in d.items():
+        if isinstance( v, dict ):
+            print( "\t" * level, f"{k}:" )
+            pprint_dict( v, level=level + 1 )
+        else:
+            print( "\t" * level, f"{k}: {v}" )
+
+
+def setup():
+    import sys
+    
+    os.environ[ "CUDA_DEVICE_ORDER" ] = "PCI_BUS_ID"
+    os.environ[ 'TF_FORCE_GPU_ALLOW_GROWTH' ] = "true"
+    
+    # for nengo GUI
+    sys.path.append( "." )
+    # for rosa
+    sys.path.append( ".." )
+    
+    tf.compat.v1.logging.set_verbosity( tf.compat.v1.logging.ERROR )
+
+
+class PresentInputWithPause( Process ):
+    """Present a series of inputs, each for the same fixed length of time.
+
+    Parameters
+    ----------
+    inputs : array_like
+        Inputs to present, where each row is an input. Rows will be flattened.
+    presentation_time : float
+        Show each input for this amount of time (in seconds).
+    """
+    
+    inputs = NdarrayParam( "inputs", shape=("...",) )
+    presentation_time = NumberParam( "presentation_time", low=0, low_open=True )
+    pause_time = NumberParam( "pause_time", low=0, low_open=True )
+    
+    def __init__( self, inputs, presentation_time, pause_time, **kwargs ):
+        self.inputs = inputs
+        self.presentation_time = presentation_time
+        self.pause_time = pause_time
+        
+        super().__init__(
+                default_size_in=0, default_size_out=self.inputs[ 0 ].size, **kwargs
+                )
+    
+    def make_step( self, shape_in, shape_out, dt, rng, state ):
+        assert shape_in == (0,)
+        assert shape_out == (self.inputs[ 0 ].size,)
+        
+        n = len( self.inputs )
+        inputs = self.inputs.reshape( n, -1 )
+        presentation_time = float( self.presentation_time )
+        pause_time = float( self.pause_time )
+        
+        def step_presentinput( t ):
+            total_time = presentation_time + pause_time
+            i = int( (t - dt) / total_time + 1e-7 )
+            ti = t % total_time
+            return np.zeros_like( inputs[ 0 ] ) if ti > presentation_time else inputs[ i % n ]
+        
+        return step_presentinput
 
 
 def setup():
