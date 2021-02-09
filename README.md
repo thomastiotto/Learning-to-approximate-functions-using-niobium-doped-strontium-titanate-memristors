@@ -21,6 +21,8 @@ Using this class of memristive devices as the synaptic weight element in a spiki
 * ``tests``: simple tests for specific functionalities
 
 ## Running the code
-* ``mPES.py`` runs mPES learning using the simulated memristors and the ``memristor_nengo`` library
-* ``averaging_mPES.py`` runs mPES on randomly initialised models and calculates their learning performance statistics
-* ``parameter_search_mPES`` runs mPES varying the specified parameter in a chosen range and calculates the learning performance statistics for each parameter value
+1. Clone [this](https://github.com/Tioz90/Memristor-Nengo) repository for the library code
+2. Run the experiments:
+    * ``mPES.py`` runs mPES learning using the simulated memristors and the ``memristor_nengo`` library
+    * ``averaging_mPES.py`` runs mPES on randomly initialised models and calculates their learning performance statistics
+    * ``parameter_search_mPES`` runs mPES varying the specified parameter in a chosen range and calculates the learning performance statistics for each parameter value
