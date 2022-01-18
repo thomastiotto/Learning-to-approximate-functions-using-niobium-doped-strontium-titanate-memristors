@@ -8,7 +8,7 @@ r_min = 2e2
 r_max = 2.3e8
 a = -0.146
 
-iterations = 3
+iterations = 100000
 
 
 def monom_deriv( base, exp ):
@@ -50,7 +50,7 @@ fig, ax = plt.subplots()
 fig.set_size_inches( (3.5, 3.5*((5.**0.5-1.0)/2.0)) )
 plt.title( 'Memristor resistance',fontsize=size_L )
 ax.set_xlabel( r"Pulse number $n$", fontsize=size_M )
-ax.set_ylabel( r"Resistance $R$", fontsize=size_M )
+ax.set_ylabel( r"Resistance $R (\Omega)$", fontsize=size_M )
 ax.tick_params(axis='x', labelsize=size_S)
 ax.tick_params(axis='y', labelsize=size_S)
 plt.ticklabel_format(axis='both', style='scientific')

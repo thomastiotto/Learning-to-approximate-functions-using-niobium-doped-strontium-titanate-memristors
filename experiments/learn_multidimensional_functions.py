@@ -214,6 +214,7 @@ for i in range( iterations ):
     # essential statistics
     num_blocks = int( sim_time / learn_block_time )
     num_testing_blocks = int( num_blocks / 2 )
+    last_errors=[]
     for sim, mod, lst in zip( [ sim_mpes, sim_pes, sim_nef ],
                               [ learned_model_mpes, control_model_pes, control_model_nef ],
                               [ errors_iterations_mpes, errors_iterations_pes, errors_iterations_nef ] ):
@@ -230,7 +231,12 @@ for i in range( iterations ):
         # compute testing error for learn network
         total_error = np.sum( np.sum( np.abs( test_post_data - test_ground_truth_data ), axis=1 ), axis=1 )
         lst.append( total_error )
+        last_errors.append( total_error[-1] )
 
+print( "Last errors:" )
+print("mPES:", last_errors[0])
+print("PES:", last_errors[1])
+print("NEF:", last_errors[2])
 
 # 95% confidence interval
 def ci( data, confidence=0.95 ):
@@ -254,6 +260,7 @@ size_M=8
 size_S=6
 fig, ax = plt.subplots()
 fig.set_size_inches( (3.5, 3.5*((5.**0.5-1.0)/2.0)) )
+plt.tight_layout()
 plt.title( exp_name,fontsize=size_L )
 x = (np.arange( num_testing_blocks + 1 ) * 2 * learn_block_time).astype( np.int )
 ax.set_ylabel( "Total error", fontsize=size_M )
@@ -278,7 +285,6 @@ ax.fill_between(x, ci_mpes[ 1 ], ci_mpes[2], alpha=0.3, color="g")
 # ax.plot( x, ci_pes[ 0 ], "-bX", markevery=[ 0 ] )
 # ax.plot( x, ci_nef[ 0 ], "-rX", markevery=[ 0 ] )
 ax.legend( loc="best",fontsize=size_S )
-plt.tight_layout()
 fig.show()
 
 # noinspection PyTypeChecker
@@ -297,6 +303,16 @@ np.savetxt( dir_data + "results.csv",
                    "Mean PES error,CI PES +,CI PES -,"
                    "Mean NEF error,CI NEF +,CI NEF -,",
             comments="" )
+
+import csv
+with open( dir_data + "last_error.txt", 'w' ) as f:
+    # using csv.writer method from CSV package
+    write = csv.writer( f )
+    
+    write.writerow( ['mPES', 'PES', 'NEF'] )
+    write.writerow( last_errors )
+
+
 print( exp_string )
 print( f"Saved results in {dir_data}" )
 fig.savefig( dir_images + img_name + ".pdf" )
