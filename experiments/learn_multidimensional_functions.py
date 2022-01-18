@@ -6,8 +6,8 @@ from nengo.dists import Gaussian
 from nengo.learning_rules import PES
 from nengo.processes import WhiteNoise, WhiteSignal
 
-from memristor_nengo.extras import *
-from memristor_nengo.learning_rules import mPES
+from extras import *
+from learning_rules import mPES
 
 start_time = time.time()
 
@@ -34,6 +34,7 @@ if experiment == 1:
     neurons = [ 200, 200, 100, 100 ]
     dimensions = [ 2, 1, 1, 1 ]
     sim_time = 50
+    img_name='product'
 if experiment == 2:
     exp_string = "COMBINED PRODUCTS experiment"
     exp_name = "Combining two products"
@@ -42,6 +43,7 @@ if experiment == 2:
     neurons = [ 400, 400, 100, 100 ]
     dimensions = [ 4, 1, 1, 1 ]
     sim_time = 100
+    img_name='combined_products'
 if experiment == 3:
     exp_string = "SEPARATE PRODUCTS experiment"
     exp_name = "Three separate products"
@@ -50,6 +52,7 @@ if experiment == 3:
     neurons = [ 300, 300, 300, 300 ]
     dimensions = [ 3, 3, 3, 3 ]
     sim_time = 100
+    img_name='separate_products'
 if experiment == 4:
     exp_string = "2D CIRCULAR CONVOLUTIONS experiment"
     exp_name = "Two-dimensional circular convolution"
@@ -60,6 +63,7 @@ if experiment == 4:
             np.fft.fft( x[ :int( dimensions[ 0 ] / 2 ) ] ) * np.fft.fft( x[ int( dimensions[ 0 ] / 2 ): ] )
             )
     sim_time = 200
+    img_name='2d_cconv'
 if experiment == 5:
     exp_string = "3D CIRCULAR CONVOLUTIONS experiment"
     exp_name = "Three-dimensional circular convolution"
@@ -70,6 +74,8 @@ if experiment == 5:
             np.fft.fft( x[ :int( dimensions[ 0 ] / 2 ) ] ) * np.fft.fft( x[ int( dimensions[ 0 ] / 2 ): ] )
             )
     sim_time = 400
+    img_name='3d_cconv'
+
 
 assert 'exp_name' in locals()
 
@@ -88,7 +94,7 @@ decoded = args.decoded
 
 print( exp_string )
 dir_name, dir_images, dir_data = make_timestamped_dir(
-        root=directory + "trevor/" + exp_name + "/" )
+        root=directory + "trevor/" + exp_name )
 print( "Reserved folder", dir_name )
 
 
@@ -243,26 +249,36 @@ ci_pes = ci( errors_iterations_pes )
 ci_nef = ci( errors_iterations_nef )
 
 # plot testing error
+size_L=10
+size_M=8
+size_S=6
 fig, ax = plt.subplots()
-fig.set_size_inches( (14, 8) )
-plt.title( exp_name )
+fig.set_size_inches( (3.5, 3.5*((5.**0.5-1.0)/2.0)) )
+plt.title( exp_name,fontsize=size_L )
 x = (np.arange( num_testing_blocks + 1 ) * 2 * learn_block_time).astype( np.int )
-ax.set_ylabel( "Total error" )
-ax.set_xlabel( "Seconds" )
+ax.set_ylabel( "Total error", fontsize=size_M )
+ax.set_xlabel( "Seconds", fontsize=size_M )
+ax.tick_params(axis='x', labelsize=size_S)
+ax.tick_params(axis='y', labelsize=size_S)
 
 ax.plot( x, ci_mpes[ 0 ], label="Learned (mPES)", c="g" )
 ax.plot( x, ci_mpes[ 1 ], linestyle="--", alpha=0.5, c="g" )
 ax.plot( x, ci_mpes[ 2 ], linestyle="--", alpha=0.5, c="g" )
+ax.fill_between(x, ci_mpes[ 1 ], ci_mpes[2], alpha=0.3, color="g")
 ax.plot( x, ci_pes[ 0 ], label="Control (PES)", c="b" )
 ax.plot( x, ci_pes[ 1 ], linestyle="--", alpha=0.5, c="b" )
 ax.plot( x, ci_pes[ 2 ], linestyle="--", alpha=0.5, c="b" )
+ax.fill_between(x, ci_pes[ 1 ], ci_pes[2], alpha=0.3, color="b")
 ax.plot( x, ci_nef[ 0 ], label="Control (NEF)", c="r" )
 ax.plot( x, ci_nef[ 1 ], linestyle="--", alpha=0.5, c="r" )
 ax.plot( x, ci_nef[ 2 ], linestyle="--", alpha=0.5, c="r" )
-ax.plot( x, ci_mpes[ 0 ], "-gX", markevery=[ 0 ] )
-ax.plot( x, ci_pes[ 0 ], "-bX", markevery=[ 0 ] )
-ax.plot( x, ci_nef[ 0 ], "-rX", markevery=[ 0 ] )
-ax.legend( loc="best" )
+ax.fill_between(x, ci_nef[ 1 ], ci_nef[2], alpha=0.5, color="r")
+ax.fill_between(x, ci_mpes[ 1 ], ci_mpes[2], alpha=0.3, color="g")
+# ax.plot( x, ci_mpes[ 0 ], "-gX", markevery=[ 0 ] )
+# ax.plot( x, ci_pes[ 0 ], "-bX", markevery=[ 0 ] )
+# ax.plot( x, ci_nef[ 0 ], "-rX", markevery=[ 0 ] )
+ax.legend( loc="best",fontsize=size_S )
+plt.tight_layout()
 fig.show()
 
 # noinspection PyTypeChecker
@@ -283,7 +299,7 @@ np.savetxt( dir_data + "results.csv",
             comments="" )
 print( exp_string )
 print( f"Saved results in {dir_data}" )
-fig.savefig( dir_images + "product" + ".pdf" )
+fig.savefig( dir_images + img_name + ".pdf" )
 print( f"Saved plots in {dir_images}" )
 
 end_time = time.time()
