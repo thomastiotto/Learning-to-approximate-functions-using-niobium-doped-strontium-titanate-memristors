@@ -20,8 +20,7 @@ def none_or_str(value):
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument( "-E", "--experiment", choices=[ 1, 2, 3, 4, 5 ], type=int,
-                     help="1: Product 2: Combined product" )
+parser.add_argument( "-E", "--experiment", choices=[ 1, 2, 3, 4, 5 ], type=int, default=None )
 parser.add_argument( "-T", "--sim_time", default=None, type=float )
 parser.add_argument( "-I", "--iterations", default=10, type=int )
 parser.add_argument( "-g", "--gain", default=1e3, type=float )
@@ -33,7 +32,11 @@ parser.add_argument( '--no-decoded', dest='decoded', action='store_false' )
 parser.set_defaults( decoded=True )
 args = parser.parse_args()
 
-experiment = args.experiment
+
+if args.experiment:
+    experiment = args.experiment
+else:
+    experiment = int( input( 'Enter a number between 1 and 5: ' ) )
 if experiment == 1:
     exp_string = "PRODUCT experiment"
     exp_name = "Multiplying two numbers"
