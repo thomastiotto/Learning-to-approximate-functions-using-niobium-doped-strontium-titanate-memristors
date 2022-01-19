@@ -13,13 +13,21 @@ start_time = time.time()
 
 setup()
 
+def none_or_str(value):
+    if value == 'None':
+        return None
+    return value
+
+
 parser = argparse.ArgumentParser()
 parser.add_argument( "-E", "--experiment", choices=[ 1, 2, 3, 4, 5 ], type=int,
                      help="1: Product 2: Combined product" )
 parser.add_argument( "-T", "--sim_time", default=None, type=float )
 parser.add_argument( "-I", "--iterations", default=10, type=int )
 parser.add_argument( "-g", "--gain", default=1e3, type=float )
-parser.add_argument( "-d", "--device", default="/cpu:0" )
+# None or "/cpu:0" or "/gpu:[0-n]"
+parser.add_argument("-d", "--device", default="/cpu:0", type=none_or_str, nargs='?')
+# parser.add_argument( "-d", "--device", default="/cpu:0" )
 parser.add_argument( '--decoded', dest='decoded', action='store_true' )
 parser.add_argument( '--no-decoded', dest='decoded', action='store_false' )
 parser.set_defaults( decoded=True )
