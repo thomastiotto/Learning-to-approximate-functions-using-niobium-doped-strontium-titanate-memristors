@@ -222,7 +222,6 @@ for i in range( iterations ):
     # essential statistics
     num_blocks = int( sim_time / learn_block_time )
     num_testing_blocks = int( num_blocks / 2 )
-    last_errors=[]
     for sim, mod, lst in zip( [ sim_mpes, sim_pes, sim_nef ],
                               [ learned_model_mpes, control_model_pes, control_model_nef ],
                               [ errors_iterations_mpes, errors_iterations_pes, errors_iterations_nef ] ):
@@ -239,12 +238,8 @@ for i in range( iterations ):
         # compute testing error for learn network
         total_error = np.sum( np.sum( np.abs( test_post_data - test_ground_truth_data ), axis=1 ), axis=1 )
         lst.append( total_error )
-        last_errors.append( total_error[-1] )
 
-print( "Last errors:" )
-print("mPES:", last_errors[0])
-print("PES:", last_errors[1])
-print("NEF:", last_errors[2])
+
 
 # 95% confidence interval
 def ci( data, confidence=0.95 ):
@@ -261,6 +256,15 @@ def ci( data, confidence=0.95 ):
 ci_mpes = ci( errors_iterations_mpes )
 ci_pes = ci( errors_iterations_pes )
 ci_nef = ci( errors_iterations_nef )
+
+# compute the average of the last measured errors
+last_error_mpes=np.mean(np.array(errors_iterations_mpes)[:,-1])
+last_error_pes=np.mean(np.array(errors_iterations_pes)[:,-1])
+last_error_nef=np.mean(np.array(errors_iterations_nef)[:,-1])
+print( "Average last errors:" )
+print("mPES:", last_error_mpes)
+print("PES:", last_error_pes)
+print("NEF:", last_error_nef)
 
 # plot testing error
 size_L=10
@@ -307,18 +311,18 @@ np.savetxt( dir_data + "results.csv",
                             )
                     ),
             delimiter=",",
-            header="Mean mPES error,CI mPES +,CI mPES -,"
-                   "Mean PES error,CI PES +,CI PES -,"
-                   "Mean NEF error,CI NEF +,CI NEF -,",
+            header="Mean mPES error,CI mPES +,CI mPES -"
+                   "Mean PES error,CI PES +,CI PES -"
+                   "Mean NEF error,CI NEF +,CI NEF -",
             comments="" )
 
 import csv
-with open( dir_data + "last_error.txt", 'w' ) as f:
+with open( dir_data + "last_error.csv", 'w' ) as f:
     # using csv.writer method from CSV package
     write = csv.writer( f )
     
     write.writerow( ['mPES', 'PES', 'NEF'] )
-    write.writerow( last_errors )
+    write.writerow( [last_error_mpes, last_error_pes, last_error_nef] )
 
 
 print( exp_string )
